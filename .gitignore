@@ -4,3 +4,8 @@
 # Data 파일
 data
 
+# Python 캐시 파일
+script/__pycache__
+
+# MacOS 시스템 파일
+.DS_Store
