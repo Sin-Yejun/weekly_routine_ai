@@ -2,7 +2,7 @@
 .env
 
 # Data 파일
-data
+data/
 
 # Python 캐시 파일
 script/__pycache__

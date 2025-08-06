@@ -126,12 +126,12 @@ def get_latest_workout_texts() -> list[str]:
         - weight: 무게 (kg)
         - kind: 세트 종류 (1: 웜업, 2: 드롭, 3: 실패)
         """
-        kind_token = {1: "w", 2: "d", 3: "f"}
+        #kind_token = {1: "w", 2: "d", 3: "f"}
         out = []
         for s in sets:
             reps   = s.get("reps")
             weight = s.get("weight")
-            token  = kind_token.get(s.get("kind"))
+            #token  = kind_token.get(s.get("kind"))
             rpe = s.get("rpe")
 
             # 무게(kg)가 정수이면 소수점 없이 표시 (예: 60.0 → 60)
@@ -141,15 +141,16 @@ def get_latest_workout_texts() -> list[str]:
             base = f"{reps}" if w_disp == 0 else f"{reps}x{w_disp}"
             
             # kind 토큰이 있으면 괄호와 함께 추가
-            suffix1 = f"{token}" if token else ""
+            #suffix1 = f"{token}" if token else ""
             
             # RPE가 있는 경우에만 표시 (nan 값 제외)
-            suffix2 = ""
-            if pd.notna(rpe) and rpe:
-                rpe_disp = int(rpe) if float(rpe).is_integer() else rpe
-                suffix2 = f" (rpe-{rpe_disp})"
+            #suffix2 = ""
+            # if pd.notna(rpe) and rpe:
+            #     rpe_disp = int(rpe) if float(rpe).is_integer() else rpe
+            #     suffix2 = f" (rpe-{rpe_disp})"
 
-            out.append(base + suffix1 + suffix2)
+            #out.append(base + suffix1 + suffix2)
+            out.append(base)
 
         return " / ".join(out)
 

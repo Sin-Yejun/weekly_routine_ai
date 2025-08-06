@@ -30,7 +30,8 @@ def get_user_profile_text() -> str:
     return (
         f"- 성별 : {row.gender}\n"
         f"- 체중 : {row.weight}\n"
-        f"- 운동 목표 : [{main_text}] - {sub_text}\n"
+        #f"- 운동 목표 : [{main_text}] - {sub_text}\n"
+        f"- 운동 목표 : [다이어트 성공하기] - 이번엔 살을 꼭 빼고 싶어요.\n"
         f"- 운동 경력 : {career}\n"
         f"- 주간 운동 수행 횟수 : {frequency}회"
     )
