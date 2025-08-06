@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import os
 from typing import Annotated, List, Optional, Literal
 from pydantic import BaseModel, Field, RootModel, model_validator
 from history_summary import get_latest_workout_texts
@@ -52,23 +53,30 @@ class DailyWorkout(RootModel[List[ExerciseEntry]]):
 
     def __getitem__(self, item):
         return self.root[item]
-    
-# 과거 운동기록 요약TXT 불러오기 (최근 10회)
-txt_list = get_latest_workout_texts()
-history_summary_txt = "\n\n".join(txt_list)
 
-# 사용자 기본 정보 불러오기
-user_info_txt = get_user_profile_text()
+def create_prompt():
+    """
+    AI 루틴 생성을 위한 프롬프트를 생성합니다.
+    """
+    # 과거 운동기록 요약TXT 불러오기 (최근 10회)
+    txt_list = get_latest_workout_texts()
+    history_summary_txt = "\n\n".join(txt_list)
 
-# 사용 가능한 운동 목록 불러오기
+    # 사용자 기본 정보 불러오기
+    user_info_txt = get_user_profile_text()
 
-with open('data/query_result.json', 'r', encoding='utf-8') as f:
-    exercise_list = json.load(f)
-exercise_list_text = "\n".join([f'- bName: "{item["bName"]}", bTextId: "{item["bTextId"]}", eName: "{item["eName"]}", eTextId: "{item["eTextId"]}"' for item in exercise_list[10:20]])
+    # 사용 가능한 운동 목록 불러오기
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    json_path = os.path.join(project_root, 'data', 'query_result.json')
+    with open(json_path, 'r', encoding='utf-8') as f:
+        exercise_list = json.load(f)
+    exercise_list_text = "\n".join([
+        f'- bName: "{item["bName"]}", bTextId: "{item["bTextId"]}", eName: "{item["eName"]}", eTextId: "{item["eTextId"]}"'
+        for item in exercise_list[:20]
+    ])
 
-prompt = {
-    'content':
-    f'''## [사용자 정보]
+    return f"""## [사용자 정보]
 {user_info_txt}
 
 ## [과거 운동 기록]
@@ -160,8 +168,8 @@ prompt = {
         "eTextId": "TREADMIL"
     }}
 ]
-```
-'''
-}
+"""
 
-print(prompt['content'])
+if __name__ == "__main__":
+    prompt = create_prompt()
+    print(prompt)
