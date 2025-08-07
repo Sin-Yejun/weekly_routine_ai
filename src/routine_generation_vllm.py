@@ -1,8 +1,8 @@
 # local_vllm_routine.py
 import json
 from vllm import LLM, SamplingParams
-from data_preprocess import create_prompt, DailyWorkout
-
+from weekly_daily_prompt import create_prompt
+from weekly_daily_wrapper import WeeklyDailyWorkout
 
 def generate_routine_vllm() -> None:
     """
@@ -43,7 +43,7 @@ def generate_routine_vllm() -> None:
     # 4. Pydantic 모델 검증
     # ────────────────────────────────────────────────
     try:
-        routine = DailyWorkout.model_validate_json(response_text)
+        routine = WeeklyDailyWorkout.model_validate_json(response_text)
         print("생성된 운동 루틴:")
         print(routine.model_dump_json(indent=4))
     except (json.JSONDecodeError, ValueError) as e:

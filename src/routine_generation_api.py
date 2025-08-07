@@ -1,7 +1,8 @@
 import os
 import google.generativeai as genai
 from dotenv import load_dotenv
-from data_preprocess import create_prompt, DailyWorkout
+from weekly_daily_prompt import create_prompt
+from weekly_daily_wrapper import WeeklyDailyWorkout 
 
 load_dotenv()
 
@@ -30,7 +31,7 @@ def generate_routine():
         response = model.generate_content(prompt_content)
 
         # Pydantic 모델로 유효성 검사
-        workout_routine = DailyWorkout.model_validate_json(response.text)
+        workout_routine = WeeklyDailyWorkout.model_validate_json(response.text)
 
         # 검증된 루틴을 JSON으로 예쁘게 출력
         print("생성된 운동 루틴:")

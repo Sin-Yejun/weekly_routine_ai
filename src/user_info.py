@@ -31,11 +31,20 @@ def get_user_profile_text() -> str:
         f"- 성별 : {row.gender}\n"
         f"- 체중 : {row.weight}\n"
         #f"- 운동 목표 : [{main_text}] - {sub_text}\n"
-        f"- 운동 목표 : [다이어트 성공하기] - 이번엔 살을 꼭 빼고 싶어요.\n"
+        #f"- 운동 목표 : [다이어트 성공하기] - 이번엔 살을 꼭 빼고 싶어요.\n"
         f"- 운동 경력 : {career}\n"
         f"- 주간 운동 수행 횟수 : {frequency}회"
     )
 
+def get_user_frequency() -> int:
+    """사용자의 주간 운동 빈도를 반환합니다."""
+    SQL = "SELECT json_extract(goal,'$.frequency') AS frequency FROM setting"
+    with sqlite3.connect(DB_PATH) as conn:
+        frequency = pd.read_sql_query(SQL, conn)["frequency"].item()
+    return int(frequency)
+
+
 # 예시 호출
 if __name__ == "__main__":
     print(get_user_profile_text())
+    print(f"주간 운동 횟수: {get_user_frequency()}")
