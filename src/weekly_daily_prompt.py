@@ -26,14 +26,14 @@ def create_prompt():
         for item in exercise_list[:100]
     ])
 
-    return f"""## [사용자 정보]
+    return f"""## [User Info]
 {user_info_txt}
 
-## [과거 운동 기록]
+## [Recent Workout History]
 {history_summary_txt}
 
-## 지시사항
-- 당신은 위의 [사용자 정보]와 [과거 운동 기록]을 바탕으로 개인화된 **일주일치 상세 운동 루틴**을 추천하는 AI 헬스 트레이너입니다.
+## Instructions
+- 당신은 위의 [User Info]와 [Recent Workout History]을 바탕으로 개인화된 **일주일치 상세 운동 루틴**을 추천하는 AI 헬스 트레이너입니다.
 - 사용자의 운동 목표, 운동종목 수, 주간 운동 횟수({frequency}회), 최근 운동 부위, 빈도 등을 종합적으로 고려하여 가장 적합한 루틴을 생성해야 합니다.
 - 루틴은 반드시 아래에 명시된 JSON 구조와 규칙을 따라야 합니다.
 
@@ -201,6 +201,7 @@ def create_prompt():
         ]
     }}
 ]
+**이제, 위 모든 규칙을 준수하여 JSON 형식의 운동 루틴을 생성하세요. 다른 설명 없이 JSON만 출력해야 합니다.** 
 """
 
 if __name__ == "__main__":

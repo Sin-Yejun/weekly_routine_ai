@@ -132,13 +132,13 @@ def text_summary(day: Dict, order: int) -> str:
     """
     하루치 운동 데이터를 받아 기본 텍스트 요약을 생성합니다. (세트 상세 정보 제외)
     """
-    header = f"최근 {order}회차"
+    header = f"Recent Workout #{order}"
     lines  = [header]
     for ex in day["exercises"]:
         # 부위, 운동 이름, 세트 수만 포함 (세트 상세 정보 제외)
         line = (
             f"{ex['bName']:<3}- {ex['eName']} ({ex['eTextId']}) "
-            f"{len(ex['data'])}세트"
+            f"{len(ex['data'])}sets"
             # f"{compress_sets([{'reps':d['sReps'], 'weight':d['sWeight'],'kind': d['sKind'], 'rpe': d['sRpe']} for d in ex['data']])}"
         )
         lines.append(line)
@@ -298,13 +298,13 @@ def _text_summary_detail(day: Dict, order: int) -> str:
     """
     하루치 운동 데이터를 받아 세부 세트 정보를 포함한 상세 텍스트 요약을 생성합니다.
     """
-    header = f"최근 {order}회차"
+    header = f"Recent Workout #{order}"
     lines  = [header]
     for ex in day["exercises"]:
         # 부위, 운동 이름, 세트 수, 세트 상세 정보 포함
         line = (
             f"{ex['bName']:<3}- {ex['eName']} ({ex['eTextId']}) "
-            f"{len(ex['data'])}세트: "
+            f"{len(ex['data'])}sets: "
             f"{compress_sets([{'reps':d['sReps'], 'weight':d['sWeight'],'kind': d['sKind'], 'rpe': d['sRpe']} for d in ex['data']])}"
         )
         lines.append(line)

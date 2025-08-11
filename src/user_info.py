@@ -17,23 +17,23 @@ def get_user_profile_text() -> str:
     with sqlite3.connect(DB_PATH) as conn:
         row = pd.read_sql_query(SQL, conn).iloc[0]
 
-    # ── 전처리 & 매핑 ──────────────────────────────
+    # ── Preprocessing & Mapping ──────────────────────────────
     level = int(row.level)
-    career = {0: "왕초보", 1: "초보자", 2: "중급자"}.get(level, "고급자")
+    career = {0: "Beginner", 1: "Novice", 2: "Intermediate"}.get(level, "Advanced")
 
-    # json_extract 가 문자열에 따옴표를 포함할 수 있어 strip("\"")
+    # json_extract may include quotes, so strip("\"")
     main_text = str(row.main_text).strip("\"")
     sub_text  = str(row.sub_text).strip("\"")
     frequency = int(row.frequency)
 
-    # ── 최종 텍스트 ────────────────────────────────
+    # ── Final Text ────────────────────────────────
     return (
-        f"- 성별 : {row.gender}\n"
-        f"- 체중 : {row.weight}\n"
+        f"- Gender : {row.gender}\n"
+        f"- Weight : {row.weight}\n"
         #f"- 운동 목표 : [{main_text}] - {sub_text}\n"
         #f"- 운동 목표 : [다이어트 성공하기] - 이번엔 살을 꼭 빼고 싶어요.\n"
-        f"- 운동 경력 : {career}\n"
-        f"- 주간 운동 수행 횟수 : {frequency}회"
+        f"- Career : {career}\n"
+        f"- Weekly Workout Frequency : {frequency}"
     )
 
 def get_user_frequency() -> int:
