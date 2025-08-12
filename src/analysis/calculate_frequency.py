@@ -19,6 +19,10 @@ def analyze_top_workout_weeks(json_path: str):
     if not workouts:
         print("운동 기록이 없습니다.")
         return
+    print(f"총 {len(workouts)}개의 운동 기록이 있습니다.")
+    if len(workouts) <= 10:
+        print("총 운동 횟수가 10회 이하이므로, 주간 운동 횟수를 4로 설정합니다.")
+        return
 
     dates = []
     for w in workouts:
@@ -73,7 +77,8 @@ def analyze_top_workout_weeks(json_path: str):
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(script_dir))
-    input_json_path = os.path.join(project_root, 'data', 'json', 'user_72934_workout_history.json')
-    
+    user_id = 12  # Example user ID, change as needed
+    input_json_path = os.path.join(project_root, 'data', 'json', f'user_{user_id}_workout_history.json')
+
     analyze_top_workout_weeks(input_json_path)
 

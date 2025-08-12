@@ -72,7 +72,6 @@ def convert_workout_data_to_json(user_id: int, output_path: str):
                 'exercises': exercises_with_success_sets
             })
 
-    # Take the top 10 valid workout days and assign dayNum
     final_workouts = []
     for i, workout in enumerate(daily_workouts, 1):
         workout['dayNum'] = i
@@ -95,7 +94,8 @@ if __name__ == '__main__':
     project_root = os.path.dirname(os.path.dirname(script_dir)) # Go up two levels
 
     # Define the output path for the JSON file
-    output_file_path = os.path.join(project_root, 'data', 'json', 'user_72934_workout_history.json')
-    
+    user_id = 12
+    output_file_path = os.path.join(project_root, 'data', 'json', f'user_{user_id}_workout_history.json')
+
     # Run the conversion for the specified user
-    convert_workout_data_to_json(72934, output_file_path)
+    convert_workout_data_to_json(user_id, output_file_path)

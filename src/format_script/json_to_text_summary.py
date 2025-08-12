@@ -41,9 +41,13 @@ def generate_workout_summary_from_json(json_path: str):
     with open(json_path, 'r', encoding='utf-8') as f:
         daily_workouts = json.load(f)
 
-    for day in daily_workouts[:10]:
+    filtered_workouts = [
+        day for day in daily_workouts if 30 <= day.get('duration', 0) <= 120
+    ]
+    cnt = 1
+    for day in filtered_workouts[:10]:
         duration_in_minutes = day.get('duration', 0)
-        header = f"Recent Workout #{day['dayNum']} (Duration: {duration_in_minutes:.0f} mins)"
+        header = f"Recent Workout #{cnt} (Duration: {duration_in_minutes:.0f} mins)"
         lines = [header]
         for ex in day["exercises"]:
             sets_data = ex.get('data', [])
@@ -53,7 +57,7 @@ def generate_workout_summary_from_json(json_path: str):
                 f"{len(sets_data)}sets: {sets_summary}"
             )
             lines.append(line)
-        
+        cnt += 1
         print("\n".join(lines))
         print() # Add a blank line for separation
 
@@ -64,7 +68,8 @@ if __name__ == '__main__':
     project_root = os.path.dirname(os.path.dirname(script_dir)) # Go up two levels
 
     # Define the input JSON file path
-    input_json_path = os.path.join(project_root, 'data', 'json', 'user_72934_workout_history.json')
+    user_id = 123180
+    input_json_path = os.path.join(project_root, 'data', 'json', f'user_{user_id}_workout_history.json')
 
     # Generate and print the summary
     generate_workout_summary_from_json(input_json_path)
