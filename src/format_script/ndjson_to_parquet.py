@@ -1,7 +1,9 @@
 import duckdb
-duckdb.sql("""
+file_name = "user"
+duckdb.sql(f"""
 COPY (
-  SELECT * FROM read_ndjson_auto('data/workout_session.ndjson')
-  WHERE duration BETWEEN 10 AND 300
-) TO 'data/workout_session.parquet' (FORMAT PARQUET, COMPRESSION ZSTD, OVERWRITE_OR_IGNORE 1);
+  SELECT * FROM read_ndjson_auto('data/json/{file_name}.ndjson')
+) TO 'data/parquet/{file_name}.parquet' (FORMAT PARQUET, COMPRESSION ZSTD, OVERWRITE_OR_IGNORE 1);
 """)
+
+print(f"✅ Parquet 생성 완료: data/parquet/{file_name}.parquet")

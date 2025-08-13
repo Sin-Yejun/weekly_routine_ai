@@ -1,8 +1,16 @@
 # pip install ijson
 import ijson, json, os, sys
+from decimal import Decimal
 
-src = "data/workout_session.json"
-dst = "data/workout_session.ndjson"
+# Custom JSON encoder to handle Decimal objects
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return float(o)
+        return super(DecimalEncoder, self).default(o)
+
+src = "data/json/user_gender.json"
+dst = "data/json/user_gender.ndjson"
 
 def find_array_prefix(path: str) -> str | None:
     # JSON 스트림에서 'start_array'가 처음 나오는 prefix를 탐색
@@ -23,7 +31,7 @@ count = 0
 
 with open(src, "rb") as f_in, open(dst, "w", encoding="utf-8") as f_out:
     for obj in ijson.items(f_in, iter_path):
-        f_out.write(json.dumps(obj, ensure_ascii=False) + "\n")
+        f_out.write(json.dumps(obj, ensure_ascii=False, cls=DecimalEncoder) + "\n")
         count += 1
         if count % 100_000 == 0:
             print(f"  wrote {count:,} rows...")

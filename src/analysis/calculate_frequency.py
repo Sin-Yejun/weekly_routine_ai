@@ -1,84 +1,151 @@
-import json
+import pandas as pd
+import numpy as np
 import os
-from datetime import datetime, timedelta
+import random
 
-def analyze_top_workout_weeks(json_path: str):
+def calculate_frequency_sliding(input_path: str,
+                                output_path: str,
+                                window_days: int = 7,
+                                min_sessions: int = 10,
+                                exclude_zero: bool = True,
+                                random_choices=(3, 4),
+                                tie_break: str = "min"):  # "min" | "max" | "median"
     """
-    Finds the top 3 most active weeks and calculates their average workout count.
+    7일 슬라이딩 윈도우 기반 주당 빈도(최빈값) 계산.
 
-    Args:
-        json_path (str): The path to the workout history JSON file.
+    - 세션 수 >= min_sessions:
+        각 유저의 7일 rolling('7D') 합계 시계열에서 최빈값(모드)을 산출
+        exclude_zero=True이면 0은 제외 후 모드 계산
+        모드 동률 시 tie_break 규칙으로 결정
+    - 세션 수 <  min_sessions:
+        random_choices 중 하나를 랜덤 할당 (기존 정책 유지)
     """
-    if not os.path.exists(json_path):
-        print(f"오류: JSON 파일을 찾을 수 없습니다: {json_path}")
+
+    if not os.path.exists(input_path):
+        print(f"❌ Error: Input file not found at {input_path}")
         return
 
-    with open(json_path, 'r', encoding='utf-8') as f:
-        workouts = json.load(f)
+    print(f"🔄 Loading workout data from {input_path}...")
+    df = pd.read_parquet(input_path)
+    print("✅ Data loaded successfully.")
 
-    if not workouts:
-        print("운동 기록이 없습니다.")
+    # --- 날짜 컬럼 확인/정리 ---
+    if 'date' not in df.columns:
+        raise ValueError("Input must contain a 'date' column.")
+    df['date'] = pd.to_datetime(df['date'])
+
+    # --- 유저별 총 세션 수 ---
+    user_session_counts = df['user_id'].value_counts()
+
+    users_lt = user_session_counts[user_session_counts < min_sessions].index
+    users_ge = user_session_counts[user_session_counts >= min_sessions].index
+
+    results = []
+
+    # < min_sessions → 랜덤 3/4
+    if len(users_lt) > 0:
+        print(f"🔄 Processing {len(users_lt)} users with < {min_sessions} sessions...")
+        freq_lt = [int(random.choice(random_choices)) for _ in users_lt]
+        res_lt = pd.DataFrame({
+            'user_id': users_lt,
+            'frequency': freq_lt,
+            'sessions_total': user_session_counts.loc[users_lt].values,
+            'method': [f'sliding_{window_days}d_mode' for _ in users_lt],
+            'window_days': window_days,
+            'exclude_zero': exclude_zero,
+            'tie_break': tie_break,
+            'min_sessions': min_sessions,
+            'assigned_random': [True] * len(users_lt)
+        })
+        results.append(res_lt)
+        print("✅ Done (random assign).")
+
+    # >= min_sessions → 7D 슬라이딩 모드
+    if len(users_ge) > 0:
+        print(f"🔄 Processing {len(users_ge)} users with ≥ {min_sessions} sessions (sliding {window_days}D)...")
+        out_rows = []
+
+        df_ge = df[df['user_id'].isin(users_ge)]
+
+        for uid, g in df_ge.groupby('user_id'):
+            # 날짜별 세션 개수(같은 날짜 여러 세션이 있으면 합)
+            s = (g.sort_values('date')
+                  .set_index('date')
+                  .assign(val=1)['val']
+                  .groupby(level=0).sum())
+
+            # 7일 롤링 합계
+            rolling_counts = s.rolling(f'{window_days}D').sum()
+            counts = rolling_counts.astype(int)
+
+            if exclude_zero:
+                counts = counts[counts > 0]
+
+            # 모드 계산 + tie-break
+            if counts.empty:
+                # 전부 0이거나 너무 듬성듬성 → 폴백: 랜덤
+                freq = int(random.choice(random_choices))
+                assigned_random = True
+            else:
+                vc = counts.value_counts()
+                top = vc.max()
+                modes = sorted(vc[vc == top].index)  # 오름차순
+                if tie_break == "max":
+                    freq = int(max(modes))
+                elif tie_break == "median":
+                    freq = int(np.median(modes))
+                else:  # "min" (기본)
+                    freq = int(min(modes))
+                assigned_random = False
+
+            out_rows.append({
+                'user_id': uid,
+                'frequency': freq,
+                'sessions_total': int(user_session_counts.loc[uid]),
+                'method': f'sliding_{window_days}d_mode',
+                'window_days': window_days,
+                'exclude_zero': exclude_zero,
+                'tie_break': tie_break,
+                'min_sessions': min_sessions,
+                'assigned_random': assigned_random
+            })
+
+        results.append(pd.DataFrame(out_rows))
+        print("✅ Done (sliding-window mode).")
+
+    if not results:
+        print("⚠️ No user data to process.")
         return
-    print(f"총 {len(workouts)}개의 운동 기록이 있습니다.")
-    if len(workouts) <= 10:
-        print("총 운동 횟수가 10회 이하이므로, 주간 운동 횟수를 4로 설정합니다.")
-        return
 
-    dates = []
-    for w in workouts:
-        try:
-            dates.append(datetime.fromisoformat(w['date']))
-        except (TypeError, ValueError):
-            dates.append(datetime.fromtimestamp(w['date'] / 1000))
-    
-    dates.sort()
+    final_df = pd.concat(results, ignore_index=True)
+    final_df['frequency'] = final_df['frequency'].astype(int)
 
-    if not dates:
-        print("운동 기록 날짜를 분석할 수 없습니다.")
-        return
+    # 저장
+    output_dir = os.path.dirname(output_path)
+    os.makedirs(output_dir, exist_ok=True)
+    final_df.to_csv(output_path, index=False)
 
-    weekly_counts = []
-    # Use a set to store the start date of weeks already processed to avoid duplicates
-    processed_weeks = set()
+    print(f"\n🎉 Successfully calculated frequencies for {len(final_df)} users.")
+    print(f"💾 Results saved to {output_path}")
+    print("\n--- Sample of the Results ---")
+    print(final_df.head())
 
-    for i, start_date in enumerate(dates):
-        # Define a week by its starting Monday
-        week_start_date = start_date - timedelta(days=start_date.weekday())
-        if week_start_date in processed_weeks:
-            continue
-        
-        processed_weeks.add(week_start_date)
-        week_end_date = week_start_date + timedelta(days=7)
-        
-        workouts_in_week = [d for d in dates if week_start_date <= d < week_end_date]
-        if workouts_in_week:
-            weekly_counts.append(len(workouts_in_week))
-
-    if not weekly_counts:
-        print("주간 운동 횟수를 계산할 수 없습니다.")
-        return
-
-    # Sort the counts in descending order
-    weekly_counts.sort(reverse=True)
-
-    print("=== 상위 5주 운동 빈도 분석 ===")
-    top_n = 5
-    top_counts = weekly_counts[:top_n]
-
-    if not top_counts:
-        print("분석할 운동 기록이 충분하지 않습니다.")
-        return
-
-    print(f"가장 운동을 많이 한 주의 횟수: {top_counts}")
-
-    average_freq = round(sum(top_counts) / len(top_counts))
-    print(f"\n상위 {len(top_counts)}개 주의 평균 운동 횟수는 약 {average_freq}회입니다.")
 
 if __name__ == '__main__':
+    # 스크립트 기준 경로(기존 구조 유지)
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(os.path.dirname(script_dir))
-    user_id = 12  # Example user ID, change as needed
-    input_json_path = os.path.join(project_root, 'data', 'json', f'user_{user_id}_workout_history.json')
 
-    analyze_top_workout_weeks(input_json_path)
+    input_file = os.path.join(project_root, 'data', 'parquet', 'workout_session.parquet')
+    output_file = os.path.join(project_root, 'data', 'analysis_results', 'user_frequency_sliding.csv')
 
+    # 파라미터는 필요에 맞게 조정 가능
+    calculate_frequency_sliding(
+        input_path=input_file,
+        output_path=output_file,
+        window_days=7,         # 슬라이딩 기간(일)
+        min_sessions=10,       # 이보다 적으면 랜덤 할당
+        exclude_zero=True,     # 0을 모드 계산에서 제외(권장)
+        random_choices=(3, 4), # 랜덤 할당 후보
+        tie_break="max"        # 모드 동률 시 min/max/median 중 선택
+    )
