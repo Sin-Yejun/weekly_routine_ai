@@ -3,6 +3,7 @@
 
 # Data 파일
 data/
+data/user_workout_history
 
 # Python 캐시 파일
 src/__pycache__

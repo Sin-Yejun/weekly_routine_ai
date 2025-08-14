@@ -10,20 +10,24 @@ def convert_csv_to_json(csv_path, json_path):
 
         # Map header names to indices for clarity
         header_map = {name.strip().replace('\n', ''): i for i, name in enumerate(header)}
-        # Key,Korean(ko),English(en),Japanese(ja),Simplified Chinese (zh-Hans),Traditional Chinese (zh-Hant),Indonesian (id),Deutsch (de),Netherland (nl),Español(es),Portuguese (pt),Italiano (it),Français (fr)
-        code_idx = header_map.get('Key', 0)  # Default to index 0 if 'Key' is not found
-        ko_idx = header_map.get('Korean(ko)')
-        en_idx = header_map.get('English(en)')
-        ja_idx = header_map.get('Japanese(ja)')
-        zh_hans_idx = header_map.get('Simplified Chinese (zh-Hans)')
-        zh_hant_idx = header_map.get('Traditional Chinese (zh-Hant)')
-        id_idx = header_map.get('Indonesian (id)')
-        de_idx = header_map.get('Deutsch (de)')
-        nl_idx = header_map.get('Netherland (nl)')
-        es_idx = header_map.get('Español(es)')
-        pt_idx = header_map.get('Portuguese (pt)')
-        it_idx = header_map.get('Italiano (it)')
-        fr_idx = header_map.get('Français (fr)')
+
+        code_idx = header_map.get('Code')
+        ko_idx = header_map.get('Name(ko)')
+        en_idx = header_map.get('Name(en)')
+        ja_idx = header_map.get('Name(ja)')
+        zh_hans_idx = header_map.get('Name(zh-Hans)')
+        zh_hant_idx = header_map.get('Name(zh-Hant)')
+        id_idx = header_map.get('Name(id)')
+        de_idx = header_map.get('Name(de)')
+        nl_idx = header_map.get('Name(nl)')
+        es_idx = header_map.get('Name(es)')
+        pt_idx = header_map.get('Name(pt)')
+        it_idx = header_map.get('Name(it)')
+        fr_idx = header_map.get('Name(fr)')
+        # Category,Info Type,Tool
+        bodypart_idx = header_map.get('Category')
+        info_type_idx = header_map.get('Info Type')
+        tool_idx = header_map.get('Tool')
 
         for row in csv_reader:
             # Skip empty rows
@@ -44,6 +48,9 @@ def convert_csv_to_json(csv_path, json_path):
                 'pt': row[pt_idx] if pt_idx is not None and len(row) > pt_idx else '',
                 'it': row[it_idx] if it_idx is not None and len(row) > it_idx else '',
                 'fr': row[fr_idx] if fr_idx is not None and len(row) > fr_idx else '',
+                'bodypart': int(row[bodypart_idx] if bodypart_idx is not None and len(row) > bodypart_idx else 0),
+                'info_type': list(map(int, row[info_type_idx].split(','))) if info_type_idx is not None and len(row) > info_type_idx else [],
+                'tool': int(row[tool_idx] if tool_idx is not None and len(row) > tool_idx else 0),
             }
             exercise_list.append(exercise_data)
 
@@ -53,5 +60,5 @@ def convert_csv_to_json(csv_path, json_path):
 if __name__ == '__main__':
     # Note: This script assumes it is run from the root directory of the project.
     # Adjust paths if necessary.
-    convert_csv_to_json('data/bodypart_name_db.csv', 'data/bodypart_name_multi.json')
+    convert_csv_to_json('data/csv/ai_exercise_list.csv', 'data/multilingual-pack/ai_exercise_list.json')
     print("Conversion complete. JSON file created.")

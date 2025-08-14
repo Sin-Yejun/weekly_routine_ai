@@ -1,50 +1,48 @@
 from pathlib import Path
-import sqlite3, pandas as pd, json
+import pandas as pd
 
-DB_PATH = Path("data/hajaSQLite.db")
+PARQUET_PATH = Path("data/parquet/user.parquet")
 
 def get_user_profile_text() -> str:
-    SQL = """
-    SELECT gender,
-           weight,
-           json_extract(goal,'$.level')        AS level,
-           json_extract(goal,'$.goal.mainText') AS main_text,
-           json_extract(goal,'$.goal.subText')  AS sub_text,
-           json_extract(goal,'$.frequency')     AS frequency
-    FROM setting
     """
+    Generates a text summary of the user's profile from the user.parquet file.
+    """
+    df = pd.read_parquet(PARQUET_PATH)
+    # Assuming a single user record in the parquet file
+    row = df.iloc[0]
 
-    with sqlite3.connect(DB_PATH) as conn:
-        row = pd.read_sql_query(SQL, conn).iloc[0]
-
-    # ── Preprocessing & Mapping ──────────────────────────────
-    level = int(row.level)
-    career = {0: "Beginner", 1: "Novice", 2: "Intermediate"}.get(level, "Advanced")
-
-    # json_extract may include quotes, so strip("\"")
-    main_text = str(row.main_text).strip("\"")
-    sub_text  = str(row.sub_text).strip("\"")
+    # --- Preprocessing & Mapping ---
     frequency = int(row.frequency)
 
-    # ── Final Text ────────────────────────────────
+    # --- Final Text ---
     return (
-        f"- Gender : {row.gender}\n"
-        f"- Weight : {row.weight}\n"
-        #f"- 운동 목표 : [{main_text}] - {sub_text}\n"
-        #f"- 운동 목표 : [다이어트 성공하기] - 이번엔 살을 꼭 빼고 싶어요.\n"
-        f"- Career : {career}\n"
-        f"- Weekly Workout Frequency : {frequency}"
+        f"- Gender: {row.gender}\n"
+        f"- Weight: {row.weight}kg\n"
+        f"- Workout Type: {row.type}\n"
+        f"- Training Level: {row.level}\n"
+        f"- Weekly Workout Frequency: {frequency}"
     )
 
-def get_user_frequency() -> int:
-    """사용자의 주간 운동 빈도를 반환합니다."""
-    SQL = "SELECT json_extract(goal,'$.frequency') AS frequency FROM setting"
-    with sqlite3.connect(DB_PATH) as conn:
-        frequency = pd.read_sql_query(SQL, conn)["frequency"].item()
+def get_user_frequency(user_id: int = None) -> int:
+    """
+    Returns the user's weekly workout frequency.
+    If user_id is provided, returns frequency for that user.
+    If user_id is None, returns frequency for the first user in the parquet file.
+    """
+    df = pd.read_parquet(PARQUET_PATH)
+    if user_id is not None:
+        user_df = df[df["id"] == user_id]
+        if user_df.empty:
+            raise ValueError(f"User with ID {user_id} not found in user.parquet")
+        frequency = user_df["frequency"].iloc[0]
+    else:
+        # Assuming a single user record or taking the first one if no user_id is specified
+        frequency = df["frequency"].iloc[0]
     return int(frequency)
 
 
-# 예시 호출
+# Example call
 if __name__ == "__main__":
     print(get_user_profile_text())
-    print(f"주간 운동 횟수: {get_user_frequency()}")
+    # print(f"Weekly workout frequency: {get_user_frequency()}")
+    #print(get_user_frequency(135687))  # Example user_id

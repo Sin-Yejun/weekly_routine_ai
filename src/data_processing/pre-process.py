@@ -1,12 +1,30 @@
-# pip install polars pyarrow (필요 시)
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Union
+from datetime import date, datetime
 import polars as pl
+from tqdm import tqdm
+
+# Load mapping files for bName and eName translation
+BODYPART_MAP_PATH = Path("data/multilingual-pack/bodypart_name_multi.json")
+EXERCISE_MAP_PATH = Path("data/multilingual-pack/exercise_list_multi.json")
+
+with BODYPART_MAP_PATH.open("r", encoding="utf-8") as f:
+    bodypart_data = json.load(f)
+bodypart_map = {item["code"]: item["en"] for item in bodypart_data}
+
+with EXERCISE_MAP_PATH.open("r", encoding="utf-8") as f:
+    exercise_data = json.load(f)
+exercise_map = {item["code"]: item["en"] for item in exercise_data}
+
 
 PARQUET_PATH = Path("data/parquet/workout_session.parquet")
-LIMIT = 3          # 전부 읽을 땐 None 로 변경
-SAVE_PATH = Path("data/merged_workout.json")
+
+def json_serializable(obj):
+    """JSON 직렬화를 위한 커스텀 인코더"""
+    if isinstance(obj, (date, datetime)):
+        return obj.isoformat()
+    raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
 
 def parse_sets_field(x: Any) -> Any:
     """
@@ -18,16 +36,34 @@ def parse_sets_field(x: Any) -> Any:
     if isinstance(x, str):
         x = x.strip()
         try:
-            return json.loads(x)  # "[{...}, {...}]" → [{...}, {...}]
+            return json.loads(x)
         except Exception:
             return x
     return x
+
+def clean_sets_data(sets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    sets 데이터에서 불필요한 필드들을 제거합니다.
+    weightLbs, state, kindof 필드를 제거하고 필수 필드만 유지합니다.
+    """
+    cleaned_sets = []
+    for set_data in sets:
+        if isinstance(set_data, dict):
+            # 필요한 필드만 유지
+            cleaned_set = {
+                "weight": set_data.get("weight", 0),
+                "reps": set_data.get("reps", 0),
+                "time": set_data.get("time", 0)
+            }
+            cleaned_sets.append(cleaned_set)
+    return cleaned_sets
 
 def parse_session_data(raw: Union[str, list, None]) -> List[Dict[str, Any]]:
     """
     한 행의 session_data를 파싱:
     - raw가 문자열이면 json.loads
     - 내부 각 항목의 'sets'를 다시 json.loads하여 진짜 리스트로 변환
+    - bName과 eName을 영어로 변환
     """
     if raw is None:
         return []
@@ -37,69 +73,89 @@ def parse_session_data(raw: Union[str, list, None]) -> List[Dict[str, Any]]:
 
     data = json.loads(raw) if isinstance(raw, str) else raw
     if not isinstance(data, list):
-        raise ValueError("session_data의 최상위 구조는 리스트여야 합니다.")
+        return []
 
     cleaned = []
     for obj in data:
         if not isinstance(obj, dict):
             continue
-        obj = dict(obj)  # 얕은 복사
+        obj = dict(obj)
+        
+        # bName과 eName을 영어로 변환
+        if "bTextId" in obj and obj["bTextId"] in bodypart_map:
+            obj["bName"] = bodypart_map[obj["bTextId"]]
+        if "eTextId" in obj and obj["eTextId"] in exercise_map:
+            obj["eName"] = exercise_map[obj["eTextId"]]
+
         if "sets" in obj:
-            obj["sets"] = parse_sets_field(obj["sets"])
+            parsed_sets = parse_sets_field(obj["sets"])
+            # sets 데이터 정리
+            if isinstance(parsed_sets, list):
+                obj["sets"] = clean_sets_data(parsed_sets)
+            else:
+                obj["sets"] = parsed_sets
         cleaned.append(obj)
     return cleaned
 
-def fetch_rows_from_parquet(path: Path, limit: Union[int, None] = None) -> List[Tuple[int, Any]]:
+def fetch_recent_user_workouts(path: Path, user_id: str, limit: int = 3) -> pl.DataFrame:
     """
-    Parquet에서 duration, session_data 컬럼만 읽어 (duration, session_data) 튜플 리스트 반환.
-    limit가 None이면 전체, 숫자면 앞에서부터 limit개.
+    특정 사용자의 가장 최근 운동 세션을 가져옵니다.
     """
-    lf = pl.scan_parquet(str(path)).select(["duration", "session_data"])
-    if limit is not None:
-        lf = lf.limit(limit)
+    columns_to_select = ["user_id", "id", "date", "session_data", "duration"]
 
-    rows: List[Tuple[int, Any]] = []
-    # streaming=True 로 메모리 절약
-    for d, s in lf.collect(streaming=True).iter_rows():
-        # duration이 None인 경우 대비
-        d = 0 if d is None else int(d)
-        rows.append((d, s))
-    return rows
+    lf = (
+        pl.scan_parquet(str(path))
+        .select(columns_to_select)
+        .filter(pl.col("user_id") == user_id)
+        .sort("date", descending=True)
+    )
 
-def build_pretty_json(rows: List[Tuple[int, Any]]) -> Dict[str, Any]:
+    return lf.collect(engine="streaming")
+
+def get_all_user_ids(path: Path) -> List[str]:
     """
-    여러 행을 받아 '예쁜' JSON으로 변환.
-    - 모든 duration이 같으면: {"duration": <값>, "items": [모든 운동 합침]}
-    - 다르면: {"sessions": [{"duration": d, "items": [...]}, ...]}
+    Parquet 파일에서 모든 고유 사용자 ID를 가져옵니다.
     """
-    parsed = []
-    durations = set()
+    df = pl.read_parquet(str(path))
+    return df["user_id"].unique().to_list()
 
-    for duration, session_data in rows:
-        items = parse_session_data(session_data)
-        parsed.append({"duration": duration, "items": items})
-        durations.add(duration)
+def process_user(user_id: str, output_dir: Path):
+    """A single user's data processing and saving logic."""
+    df = fetch_recent_user_workouts(PARQUET_PATH, user_id=user_id, limit=3)
 
-    if len(parsed) == 0:
-        return {"duration": 0, "items": []}
+    if df.is_empty():
+        # print(f"사용자 {user_id}에 대한 데이터가 없습니다.")
+        return
 
-    if len(parsed) == 1:
-        return parsed[0]
+    records = df.to_dicts()
 
-    if len(durations) == 1:
-        all_items: List[Dict[str, Any]] = []
-        for p in parsed:
-            all_items.extend(p["items"])
-        return {"duration": parsed[0]["duration"], "items": all_items}
-
-    return {"sessions": parsed}
+    for record in records:
+        record["session_data"] = parse_session_data(record.get("session_data"))
+    
+    save_path = output_dir / f"{user_id}.json"
+    
+    txt = json.dumps(records, ensure_ascii=False, indent=2, default=json_serializable)
+    save_path.write_text(txt, encoding="utf-8")
+    # print(f"사용자 {user_id}의 최근 운동 기록을 {save_path}에 저장했습니다.")
 
 def main() -> None:
-    rows = fetch_rows_from_parquet(PARQUET_PATH, limit=LIMIT)
-    result = build_pretty_json(rows)
-    txt = json.dumps(result, ensure_ascii=False, indent=2)
-    print(txt)
-    SAVE_PATH.write_text(txt, encoding="utf-8")
+    """
+    모든 사용자의 최근 운동 기록을 가져와서 JSON 파일로 저장합니다.
+    """
+    output_dir = Path("data/user_workout_history")
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    user_ids = get_all_user_ids(PARQUET_PATH)
+    
+    print(f"총 {len(user_ids)}명의 사용자에 대해 처리를 시작합니다.")
+
+    for user_id in tqdm(user_ids, desc="사용자 데이터 처리 중"):
+        try:
+            process_user(user_id, output_dir)
+        except Exception as e:
+            print(f"사용자 {user_id} 처리 중 오류 발생: {e}")
+    
+    print(f"\n모든 사용자 처리가 완료되었습니다. 결과는 {output_dir}에 저장되었습니다.")
 
 if __name__ == "__main__":
     main()

@@ -1,130 +1,110 @@
 # -*- coding: utf-8 -*-
 """
-이 스크립트는 SQLite 데이터베이스에서 최근 운동 기록을 조회하여
+이 스크립트는 Parquet 파일에서 최근 운동 기록을 조회하여
 가독성 좋은 텍스트 형식으로 요약합니다.
 
 주요 기능:
-- DB에서 최근 5일간의 운동 데이터를 가져옵니다.
+- Parquet에서 최근 운동 데이터를 가져옵니다.
 - 데이터를 가공하여 운동별, 세트별로 정리합니다.
 - 각 운동 세션을 텍스트로 요약하여 리스트로 반환합니다.
 """
-from typing import List, Dict
-import sqlite3, pandas as pd
+from typing import List, Dict, Any
+import polars as pl
+import pandas as pd
 from pathlib import Path
+import json
+
+# Load mapping files for bName and eName translation
+BODYPART_MAP_PATH = Path("data/multilingual-pack/bodypart_name_multi.json")
+EXERCISE_MAP_PATH = Path("data/multilingual-pack/exercise_list_multi.json")
+
+with BODYPART_MAP_PATH.open("r", encoding="utf-8") as f:
+    bodypart_data = json.load(f)
+bodypart_map = {item["code"]: item["en"] for item in bodypart_data}
+
+with EXERCISE_MAP_PATH.open("r", encoding="utf-8") as f:
+    exercise_data = json.load(f)
+exercise_map = {item["code"]: item["en"] for item in exercise_data}
+
+def parse_sets_field(x: Any) -> Any:
+    """
+    'sets' 필드가 문자열(JSON)로 들어있을 경우 리스트로 변환합니다.
+    """
+    if isinstance(x, str):
+        x = x.strip()
+        try:
+            return json.loads(x)
+        except Exception:
+            return x
+    return x
+
+def _load_workout_data_from_parquet(cnt: int) -> list[dict]:
+    """Helper function to load and parse workout data from Parquet."""
+    PARQUET_PATH = Path("data/parquet/workout_session.parquet")
+    
+    lf = pl.scan_parquet(str(PARQUET_PATH))
+    df_polar = lf.sort("date", descending=True).limit(cnt).collect()
+    df = df_polar.to_pandas()
+
+    workout_days = []
+    for _, row in df.iterrows():
+        try:
+            session_data_str = row.get('session_data', '[]')
+            session_data = json.loads(session_data_str) if isinstance(session_data_str, str) else session_data_str
+            if not isinstance(session_data, list):
+                session_data = []
+            
+            for exercise in session_data:
+                if 'sets' in exercise:
+                    exercise['sets'] = parse_sets_field(exercise['sets'])
+                
+                # Translate names to English
+                if "bTextId" in exercise and exercise["bTextId"] in bodypart_map:
+                    exercise["bName"] = bodypart_map[exercise["bTextId"]]
+                if "eTextId" in exercise:
+                    if exercise["eTextId"] in exercise_map:
+                        exercise["eName"] = exercise_map[exercise["eTextId"]]
+                    elif exercise["eTextId"].startswith("CUSTOM"):
+                        # CUSTOM으로 시작하는 경우 사용자 정의 운동명 생성
+                        custom_id = exercise["eTextId"].replace("CUSTOM_", "").replace("CUSTOM", "")
+                        if custom_id:
+                            exercise["eName"] = f"CUSTOM_WORKOUT_{custom_id}"
+                        else:
+                            exercise["eName"] = "CUSTOM_WORKOUT"
+
+        except (json.JSONDecodeError, TypeError):
+            session_data = []
+            
+        day = {
+            "dId": row.get('id'),
+            "date": row.get('date'),
+            "duration": row.get('duration'),
+            "exercises": session_data
+        }
+        workout_days.append(day)
+    return workout_days
 
 def get_latest_workout_texts(cnt: int) -> list[str]:
     """
-    데이터베이스에서 최근 운동 기록을 가져와 기본 정보만 포함하여 텍스트로 요약하여 반환합니다.
-    세트 상세 정보는 제외됩니다.
+    Parquet 파일에서 최근 운동 기록을 가져와 기본 정보만 포함하여 텍스트로 요약하여 반환합니다.
     """
-    # ───────────────────────────────────────────────────────────────
-    # 0. 설정값
-    # ───────────────────────────────────────────────────────────────
-    DB_PATH = Path("data/hajaSQLite.db")     # DB 파일 경로
-    KG2LBS   = 2.20462                      # kg → lbs 변환 상수
-
-    # ───────────────────────────────────────────────────────────────
-    # 1. SQL 쿼리 정의
-    #   - 'waiting' 상태가 아닌 완료된 세트만 조회합니다.
-    #   - 시스템 기본 운동(e_from_user = 0)을 기준으로 최신 5일치 d_id를 가져옵니다.
-    # ───────────────────────────────────────────────────────────────
-    SQL = f"""
-        WITH latest_day_ids AS (
-            SELECT DISTINCT d.d_id
-            FROM day_exercise d
-            JOIN setrep   s ON d.de_id = s.de_id
-            JOIN exercise e ON d.e_id  = e.e_id
-            WHERE e.e_from_user = 0
-            AND s.s_status    != 'waiting'
-            ORDER BY d.d_id DESC
-            LIMIT {cnt}
-        )
-        SELECT da.d_date, d.d_id,                 
-            b.b_name, b.b_text_id, 
-            s.s_kind, s.s_reps, s.s_rpe, s.s_time, s.s_weight,
-            e.e_name, e.e_info_type, e.e_text_id,
-            e.t_id
-        FROM latest_day_ids l
-        JOIN day_exercise d ON l.d_id = d.d_id
-        JOIN day da ON da.d_id = d.d_id
-        JOIN exercise      e ON d.e_id = e.e_id
-        JOIN setrep        s ON d.de_id = s.de_id
-        JOIN bodypart      b ON b.b_id = e.b_id
-        WHERE e.e_from_user = 0
-        AND s.s_status    != 'waiting'
-        ORDER BY d.de_id, s.s_id;
-    """
-
-    # ───────────────────────────────────────────────────────────────
-    # 2. DB 조회 → DataFrame으로 변환
-    # ───────────────────────────────────────────────────────────────
-    with sqlite3.connect(DB_PATH) as conn:
-        df = pd.read_sql_query(SQL, conn)
-
-    # ───────────────────────────────────────────────────────────────
-    # 3. 데이터 가공 및 구조화 함수
-    # ───────────────────────────────────────────────────────────────
-    def kg_to_lbs(kg: float) -> int:
-        """kg을 lbs로 변환하고, 소수점을 반올림합니다."""
-        return int(round(kg * KG2LBS)) if kg else 0
-
-    def build_structured_data(df: pd.DataFrame) -> list[dict]:
-        """
-        DataFrame을 날짜별, 운동별로 그룹화하여 Python 객체(딕셔너리 리스트)로 재구성합니다.
-        이 구조는 후속 텍스트 요약 단계에서 사용됩니다.
-        """
-        days = []
-        # d_id를 기준으로 날짜별로 그룹화
-        for d_id, df_day in df.groupby("d_id", sort=False):
-            d_date = df_day["d_date"].iloc[0].split(" ")[0] 
-            exercise_objs, de_arr_index = [], 0
-            
-            # 운동(e_name) 단위로 다시 그룹화
-            group_cols = ["b_name", "b_text_id", "e_name", "e_info_type", "e_text_id", "t_id"]
-            for keys, g in df_day.groupby(group_cols, sort=False):
-                b_name, b_text_id, e_name, e_info_type, e_text_id, t_id = keys
-                
-                # 각 운동에 포함된 세트 목록 생성
-                sets = [{
-                    "sKind"     : row["s_kind"],
-                    "sReps"     : int(row["s_reps"]) if row["s_reps"] is not None else None,
-                    "sRpe"      : row["s_rpe"],
-                    "sStatus"   : "done",              # 'waiting'이 제외되었으므로 'done'으로 간주
-                    "sTime"     : int(row["s_time"]),
-                    "sWeight"   : float(row["s_weight"]) if row["s_weight"] is not None else 0,
-                    "sWeightLbs": kg_to_lbs(row["s_weight"]) if row["s_weight"] is not None else 0
-                } for _, row in g.iterrows()]
-
-                # 운동 객체 생성
-                exercise_objs.append({
-                    "bName"            : b_name,
-                    "bTextId"          : b_text_id,
-                    "data"             : sets,
-                    "deArrIndex"       : de_arr_index,
-                    "deSecondUnit"     : None,
-                    "deSortIndex"      : 1000,
-                    "deSupersetMainDeId": None,
-                    "eInfoType"        : int(e_info_type),
-                    "eName"            : e_name,
-                    "eTextId"          : e_text_id,
-                    "tId"              : int(t_id)
-                })
-                de_arr_index += 1
-            
-            # 최종적으로 날짜 객체에 운동 목록 추가
-            days.append({"dId": int(d_id), "date": d_date, "exercises": exercise_objs})
-        return days
-        
-    # 데이터를 처리하기 쉬운 구조로 변환
-    structured_data = build_structured_data(df)
+    workout_days = _load_workout_data_from_parquet(cnt)
     
-    # dId(날짜 ID)를 기준으로 내림차순 정렬 (최신순)
-    workout_days = sorted(structured_data, key=lambda d: d["dId"], reverse=True)
-
-    # 각 날짜별로 텍스트 요약 생성 (간략 버전)
     texts = []
     for idx, day in enumerate(workout_days, 1):
         texts.append(text_summary(day, idx))
+        
+    return texts
+
+def get_latest_workout_texts_detail(cnt: int) -> list[str]:
+    """
+    Parquet 파일에서 최근 운동 기록을 가져와 상세 정보를 포함하여 텍스트로 요약하여 반환합니다.
+    """
+    workout_days = _load_workout_data_from_parquet(cnt)
+
+    texts = []
+    for idx, day in enumerate(workout_days, 1):
+        texts.append(_text_summary_detail(day, idx))
         
     return texts
 
@@ -132,189 +112,86 @@ def text_summary(day: Dict, order: int) -> str:
     """
     하루치 운동 데이터를 받아 기본 텍스트 요약을 생성합니다. (세트 상세 정보 제외)
     """
-    header = f"Recent Workout #{order}"
+    duration = day.get('duration')
+    duration_str = f" - Duration: {duration}min" if duration else ""
+    header = f"Recent Workout #{order}{duration_str}"
     lines  = [header]
-    for ex in day["exercises"]:
-        # 부위, 운동 이름, 세트 수만 포함 (세트 상세 정보 제외)
-        line = (
-            f"{ex['bName']:<3}- {ex['eName']} ({ex['eTextId']}) "
-            f"{len(ex['data'])}sets"
-            # f"{compress_sets([{'reps':d['sReps'], 'weight':d['sWeight'],'kind': d['sKind'], 'rpe': d['sRpe']} for d in ex['data']])}"
-        )
-        lines.append(line)
+    if "exercises" in day and day["exercises"]:
+        for ex in day["exercises"]:
+            b_name = ex.get('bName', 'N/A')
+            num_sets = len(ex.get('sets', []))
+            line = (
+                f"{b_name:<12}- {ex.get('eName', 'N/A')} ({ex.get('eTextId', 'N/A')}) "
+                f"{num_sets}sets"
+            )
+            lines.append(line)
     return "\n".join(lines)
-
-def compress_sets(sets: List[Dict]) -> str:
-    """
-    세트 리스트를 '7x20 / 5x60(Drop)'과 같은 압축된 문자열로 변환합니다.
-    - reps: 반복 횟수
-    - weight: 무게 (kg)
-    - kind: 세트 종류 (1: 웜업, 2: 드롭, 3: 실패)
-    """
-    #kind_token = {1: "w", 2: "d", 3: "f"}
-    out = []
-    for s in sets:
-        reps   = s.get("reps")
-        weight = s.get("weight")
-        #token  = kind_token.get(s.get("kind"))
-        rpe = s.get("rpe")
-
-        # 무게(kg)가 정수이면 소수점 없이 표시 (예: 60.0 → 60)
-        w_disp = int(weight) if weight is not None and float(weight).is_integer() else weight
-        
-        # reps와 weight를 조합하여 기본 문자열 생성
-        base = f"{reps}" if w_disp == 0 else f"{reps}x{w_disp}"
-        
-        # kind 토큰이 있으면 괄호와 함께 추가
-        #suffix1 = f"{token}" if token else ""
-        
-        # RPE가 있는 경우에만 표시 (nan 값 제외)
-        #suffix2 = ""
-        # if pd.notna(rpe) and rpe:
-        #     rpe_disp = int(rpe) if float(rpe).is_integer() else rpe
-        #     suffix2 = f" (rpe-{rpe_disp})"
-
-        #out.append(base + suffix1 + suffix2)
-        out.append(base)
-
-    return " / ".join(out)
-
-def get_latest_workout_texts_detail(cnt: int) -> list[str]:
-    """
-    데이터베이스에서 최근 운동 기록을 가져와 상세 정보를 포함하여 텍스트로 요약하여 반환합니다.
-    세트별 무게와 반복 횟수 정보가 포함됩니다.
-    """
-    # get_latest_workout_texts 함수와 코드 중복이 있지만, 
-    # 명확한 구분을 위해 로직을 분리했습니다.
-    
-    # ───────────────────────────────────────────────────────────────
-    # 0. 설정값
-    # ───────────────────────────────────────────────────────────────
-    DB_PATH = Path("data/hajaSQLite.db")     # DB 파일 경로
-    KG2LBS   = 2.20462                      # kg → lbs 변환 상수
-
-    # ───────────────────────────────────────────────────────────────
-    # 1. SQL 쿼리 정의
-    #   - 'waiting' 상태가 아닌 완료된 세트만 조회합니다.
-    #   - 시스템 기본 운동(e_from_user = 0)을 기준으로 최신 5일치 d_id를 가져옵니다.
-    # ───────────────────────────────────────────────────────────────
-    SQL = f"""
-        WITH latest_day_ids AS (
-            SELECT DISTINCT d.d_id
-            FROM day_exercise d
-            JOIN setrep   s ON d.de_id = s.de_id
-            JOIN exercise e ON d.e_id  = e.e_id
-            WHERE e.e_from_user = 0
-            AND s.s_status    != 'waiting'
-            ORDER BY d.d_id DESC
-            LIMIT {cnt}
-        )
-        SELECT da.d_date, d.d_id,                 
-            b.b_name, b.b_text_id, 
-            s.s_kind, s.s_reps, s.s_rpe, s.s_time, s.s_weight,
-            e.e_name, e.e_info_type, e.e_text_id,
-            e.t_id
-        FROM latest_day_ids l
-        JOIN day_exercise d ON l.d_id = d.d_id
-        JOIN day da ON da.d_id = d.d_id
-        JOIN exercise      e ON d.e_id = e.e_id
-        JOIN setrep        s ON d.de_id = s.de_id
-        JOIN bodypart      b ON b.b_id = e.b_id
-        WHERE e.e_from_user = 0
-        AND s.s_status    != 'waiting'
-        ORDER BY d.de_id, s.s_id;
-    """
-
-    # ───────────────────────────────────────────────────────────────
-    # 2. DB 조회 → DataFrame으로 변환
-    # ───────────────────────────────────────────────────────────────
-    with sqlite3.connect(DB_PATH) as conn:
-        df = pd.read_sql_query(SQL, conn)
-    
-    # kg_to_lbs 함수 정의 - get_latest_workout_texts와 동일
-    def kg_to_lbs(kg: float) -> int:
-        """kg을 lbs로 변환하고, 소수점을 반올림합니다."""
-        return int(round(kg * KG2LBS)) if kg else 0
-    
-    # build_structured_data 함수 정의 - get_latest_workout_texts와 동일
-    def build_structured_data(df: pd.DataFrame) -> list[dict]:
-        """DataFrame을 날짜별, 운동별로 그룹화하여 Python 객체로 재구성합니다."""
-        days = []
-        # d_id를 기준으로 날짜별로 그룹화
-        for d_id, df_day in df.groupby("d_id", sort=False):
-            d_date = df_day["d_date"].iloc[0].split(" ")[0] 
-            exercise_objs, de_arr_index = [], 0
-            
-            # 운동(e_name) 단위로 다시 그룹화
-            group_cols = ["b_name", "b_text_id", "e_name", "e_info_type", "e_text_id", "t_id"]
-            for keys, g in df_day.groupby(group_cols, sort=False):
-                b_name, b_text_id, e_name, e_info_type, e_text_id, t_id = keys
-                
-                # 각 운동에 포함된 세트 목록 생성
-                sets = [{
-                    "sKind"     : row["s_kind"],
-                    "sReps"     : int(row["s_reps"]) if row["s_reps"] is not None else None,
-                    "sRpe"      : row["s_rpe"],
-                    "sStatus"   : "done",
-                    "sTime"     : int(row["s_time"]),
-                    "sWeight"   : float(row["s_weight"]) if row["s_weight"] is not None else 0,
-                    "sWeightLbs": kg_to_lbs(row["s_weight"]) if row["s_weight"] is not None else 0
-                } for _, row in g.iterrows()]
-
-                # 운동 객체 생성
-                exercise_objs.append({
-                    "bName"            : b_name,
-                    "bTextId"          : b_text_id,
-                    "data"             : sets,
-                    "deArrIndex"       : de_arr_index,
-                    "deSecondUnit"     : None,
-                    "deSortIndex"      : 1000,
-                    "deSupersetMainDeId": None,
-                    "eInfoType"        : int(e_info_type),
-                    "eName"            : e_name,
-                    "eTextId"          : e_text_id,
-                    "tId"              : int(t_id)
-                })
-                de_arr_index += 1
-            
-            # 최종적으로 날짜 객체에 운동 목록 추가
-            days.append({"dId": int(d_id), "date": d_date, "exercises": exercise_objs})
-        return days
-        
-    # 데이터를 처리하기 쉬운 구조로 변환
-    structured_data = build_structured_data(df)
-    
-    # dId(날짜 ID)를 기준으로 내림차순 정렬 (최신순)
-    workout_days = sorted(structured_data, key=lambda d: d["dId"], reverse=True)
-
-    # 각 날짜별로 텍스트 요약 생성 (상세 버전)
-    texts = []
-    for idx, day in enumerate(workout_days, 1):
-        texts.append(_text_summary_detail(day, idx))
-        
-    return texts
 
 def _text_summary_detail(day: Dict, order: int) -> str:
     """
     하루치 운동 데이터를 받아 세부 세트 정보를 포함한 상세 텍스트 요약을 생성합니다.
     """
-    header = f"Recent Workout #{order}"
+    duration = day.get('duration')
+    duration_str = f" - Duration: {duration}min" if duration else ""
+    header = f"Recent Workout #{order}{duration_str}"
     lines  = [header]
-    for ex in day["exercises"]:
-        # 부위, 운동 이름, 세트 수, 세트 상세 정보 포함
-        line = (
-            f"{ex['bName']:<3}- {ex['eName']} ({ex['eTextId']}) "
-            f"{len(ex['data'])}sets: "
-            f"{compress_sets([{'reps':d['sReps'], 'weight':d['sWeight'],'kind': d['sKind'], 'rpe': d['sRpe']} for d in ex['data']])}"
-        )
-        lines.append(line)
+    if "exercises" in day and day["exercises"]:
+        for ex in day["exercises"]:
+            b_name = ex.get('bName', 'N/A')
+            num_sets = len(ex.get('sets', []))
+            sets_data = ex.get('sets', [])
+            
+            compressed_sets_str = compress_sets(sets_data)
+
+            line = (
+                f"{b_name:<12}- {ex.get('eName', 'N/A')} ({ex.get('eTextId', 'N/A')}) "
+                f"{num_sets}sets: "
+                f"{compressed_sets_str}"
+            )
+            lines.append(line)
     return "\n".join(lines)
+
+def compress_sets(sets: List[Dict]) -> str:
+    """
+    세트 리스트를 '7x20 / 5x60 / 1800s'과 같은 압축된 문자열로 변환합니다.
+    """
+    out = []
+    if not sets:
+        return ""
+        
+    for s in sets:
+        if not isinstance(s, dict):
+            continue
+        reps   = s.get("reps")
+        weight = s.get("weight")
+        time = s.get("time")
+
+        if time and time > 0:
+            out.append(f"{time}s")
+            continue
+
+        w_disp = int(weight) if weight is not None and isinstance(weight, (int, float)) and float(weight).is_integer() else weight
+        
+        base = f"{reps}"
+        if w_disp is not None and w_disp != 0:
+            base += f"x{w_disp}"
+        
+        out.append(base)
+
+    return " / ".join(out)
 
 # ───────────────────────────────────────────────────────────────
 # 스크립트 직접 실행 시 결과 출력
 # ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    workout_texts = get_latest_workout_texts(10)
-    for text in workout_texts:
+    # print("--- Simple Summary ---")
+    # workout_texts = get_latest_workout_texts(5)
+    # for text in workout_texts:
+    #     print(text)
+    #     print()
+
+    print("\n--- Detailed Summary ---")
+    workout_texts_detail = get_latest_workout_texts_detail(10)
+    for text in workout_texts_detail:
         print(text)
         print()

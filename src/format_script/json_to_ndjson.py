@@ -9,8 +9,8 @@ class DecimalEncoder(json.JSONEncoder):
             return float(o)
         return super(DecimalEncoder, self).default(o)
 
-src = "data/json/user_gender.json"
-dst = "data/json/user_gender.ndjson"
+src = "data/json/workout_days.json"
+dst = "data/json/workout_days.ndjson"
 
 def find_array_prefix(path: str) -> str | None:
     # JSON 스트림에서 'start_array'가 처음 나오는 prefix를 탐색
