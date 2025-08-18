@@ -10,12 +10,12 @@ from tqdm import tqdm
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Path Definitions ---
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent # weekly_routine_ai is the root
 DATA_DIR = BASE_DIR / 'data'
-USER_HISTORY_DIR = DATA_DIR / '01_raw/user_workout_history'
-PARQUET_USER_PATH = DATA_DIR / '02_processed/parquet' / 'user_v2.parquet'
-BODYPART_MAP_PATH = DATA_DIR / '03_core_assets/multilingual-pack' / 'bodypart_name_multi.json'
-EXERCISE_MAP_PATH = DATA_DIR / '03_core_assets/multilingual-pack' / 'exercise_list_multi.json'
+USER_HISTORY_DIR = DATA_DIR / '01_raw' / 'user_workout_history'
+PARQUET_USER_PATH = DATA_DIR / '02_processed' / 'parquet' / 'user_v2.parquet'
+BODYPART_MAP_PATH = DATA_DIR / '03_core_assets' / 'multilingual-pack' / 'bodypart_name_multi.json'
+EXERCISE_MAP_PATH = DATA_DIR / '03_core_assets' / 'multilingual-pack' / 'exercise_list_multi.json'
 EXERCISE_CATALOG_PATH = DATA_DIR / '02_processed' / 'processed_query_result.json'
 OUTPUT_PATH = DATA_DIR / 'finetuning_data.jsonl'
 
@@ -26,11 +26,11 @@ def load_shared_data():
     logging.info("Loading shared data...")
     try:
         user_df = pd.read_parquet(PARQUET_USER_PATH)
-        with BODYPART_MAP_PATH.open("r", encoding="utf-8") as f:
+        with open(BODYPART_MAP_PATH, "r", encoding="utf-8") as f:
             bodypart_map = {item["code"]: item["en"] for item in json.load(f)}
-        with EXERCISE_MAP_PATH.open("r", encoding="utf-8") as f:
+        with open(EXERCISE_MAP_PATH, "r", encoding="utf-8") as f:
             exercise_map = {item["code"]: item["en"] for item in json.load(f)}
-        with EXERCISE_CATALOG_PATH.open("r", encoding="utf-8") as f:
+        with open(EXERCISE_CATALOG_PATH, "r", encoding="utf-8") as f:
             exercise_catalog = json.load(f)
         logging.info("Shared data loaded successfully.")
         return user_df, bodypart_map, exercise_map, exercise_catalog
@@ -105,11 +105,13 @@ def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_
     exercise_list_text = "\n".join(json.dumps(item, ensure_ascii=False) for item in exercise_catalog)
     
     # This is a simplified example output structure
-    example_output = '[{"session_data": [...], "duration": 60}, ...]'
+    example_output = '[{"session_data": [...], "duration": 60}, ...]' # Note: Escaped quotes within the string literal
 
-    prompt = f"""
-## [Task]
+    prompt = f"""## [Task]
 weekly-routine
+
+## [Primary Goal]
+Generate a personalized, safe, and effective weekly workout routine based on the user's profile, recent history, and stated goals.
 
 ## [User Info]
 {user_info_txt}
@@ -117,40 +119,75 @@ weekly-routine
 ## [Recent Workout History]
 {history_summary_txt}
 
-## Instructions
-- You are an AI trainer. Generate a **personalized week-long detailed workout routine** using only the information in [User Info] and [Recent Workout History].
-- Consider the user's goals, weekly frequency ({frequency} days), recent movement patterns, and injuries/limitations.
-- **Output MUST be a valid JSON array only** (no prose, no comments, **no code fences**).
-- The JSON array length **MUST equal {frequency}**.
-- Each session object MUST include:
-  - "session_data": an array of exercises (see constraints below)
-  - "duration": total minutes for the session
-- Each exercise object MUST include:
-  - "sets": list of set objects with keys "weight" (kg), "reps" (count), "time" (seconds).
-  - "bName": one of ["Leg","Chest","Back","Shoulder","Arm","Lifting","Abs","etc","Cardio"]
-  - "eName": human-readable exercise name
-  - "bTextId": "CAT_<AREA>"
-  - "eTextId": canonical exercise id
-- **Level gating (mandatory):** Adapt based on user's level.
-- **Load selection**: Base loads on the user's most recent successful working set.
+## [Core Instructions]
+1.  **Role**: You are an expert AI personal trainer.
+2.  **Personalization**: Generate a **detailed, week-long workout routine** tailored to the [User Info] and [Recent Workout History].
+3.  **Data-Driven**: Base your recommendations *only* on the provided data. Do not invent exercises not in the catalog unless necessary.
+4.  **Output Format**:
+    *   **MUST be a valid JSON array** of session objects.
+    *   No prose, comments, or markdown code fences (```).
+    *   The root of the output must be `[` and the end must be `]`.
+    *   The number of session objects in the array **MUST exactly match the user's weekly frequency ({frequency} days)**.
 
-## Available Exercise Catalog (unrestricted)
+## [Detailed JSON Structure]
+
+### Session Object:
+-   `"session_data"`: An array of Exercise Objects.
+-   `"duration"`: Total estimated duration of the session in minutes.
+
+### Exercise Object:
+-   `"sets"`: Array of Set Objects.
+-   `"bName"`: Body part name. Must be one of: `["Leg", "Chest", "Back", "Shoulder", "Arm", "Lifting", "Abs", "etc", "Cardio"]`.
+-   `"eName"`: Human-readable exercise name from the catalog.
+-   `"bTextId"`: Body part category ID (e.g., `"CAT_LEG"`).
+-   `"eTextId"`: Canonical exercise ID from the catalog. If an exercise is not in the catalog, create a new, logical `UPPER_SNAKE_CASE` ID (e.g., `"NEW_CARDIO_MACHINE"`).
+
+### Set Object:
+-   `"weight"`: Weight in kg.
+-   `"reps"`: Repetition count.
+-   `"time"`: Time in seconds.
+-   **Consistency Rules (based on `eInfoType` from catalog):**
+    *   `eInfoType = 1` (Time-based): `time > 0`, `reps = 0`, `weight = 0.0`.
+    *   `eInfoType = 2` (Bodyweight/Reps-only): `reps > 0`, `time = 0`, `weight = 0.0`.
+    *   `eInfoType = 6` (Weight-based): `reps > 0`, `weight >= 0`, `time = 0`.
+
+## [Training Principles]
+
+### 1. Level Gating (Mandatory)
+-   **Beginner**: Focus on machine-based exercises and bodyweight movements. Avoid complex free-weight compounds (e.g., barbell squats, deadlifts) and high-skill gymnastics (e.g., pull-ups, muscle-ups). Substitute with safer alternatives (e.g., Leg Press instead of Barbell Squat, Lat Pulldown instead of Pull-up).
+-   **Novice**: Introduce basic free-weight exercises (e.g., dumbbell press, goblet squats) as accessories, while keeping machines for main strength work.
+-   **Intermediate**: Prioritize free-weight compound movements for main lifts. Use machines and isolation exercises for supplemental volume.
+-   **Advanced/Elite**: Design the routine around the user's specific `Workout Type` (e.g., strength, hypertrophy). Expect higher intensity, volume, and inclusion of advanced techniques.
+
+### 2. Load Selection & Progression
+-   **Existing Movements**: Base the load on the user's most recent successful working set for that exercise in the [Recent Workout History].
+-   **Progressive Overload**: Apply a small, logical increase (e.g., 2.5-5% weight increase or +1-2 reps) compared to the last relevant session.
+-   **New Movements or No History**: If no recent data exists, estimate a conservative starting weight based on the user's level and body weight. It's better to start too light than too heavy.
+
+### 3. Routine Structure
+-   **Balance**: Ensure a balanced distribution of exercises across major muscle groups throughout the week. Avoid overworking a single muscle group.
+-   **Rest Days**: The number of workouts implies rest days. Structure the routine to allow for adequate recovery (e.g., don't schedule two heavy leg days back-to-back).
+-   **Goal Alignment**: The exercise selection and structure should reflect the user's `Workout Type` (e.g., more compound lifts for 'strength', more volume and isolation for 'bodybuilding').
+
+## [Available Exercise Catalog]
 {exercise_list_text}
 
-## Example Output (structure only; do NOT copy these numbers)
+## [Example Output] (This is a structural guide ONLY. Do NOT copy these values.)
 {example_output}
 
-## Final Instruction
-- Return **ONLY** the JSON array. Do not add any explanations.
+## [Final Instruction]
+- Review all instructions carefully.
+- Return **ONLY** the generated JSON array.
 """
     return prompt
+
 
 def main():
     """Main function to generate finetuning data."""
     user_df, bodypart_map, exercise_map, exercise_catalog = load_shared_data()
-    
+
     user_files = [f for f in USER_HISTORY_DIR.glob('*.json')]
-    
+
     processed_count = 0
     skipped_count = 0
 
