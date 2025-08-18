@@ -12,11 +12,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # --- Path Definitions ---
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / 'data'
-USER_HISTORY_DIR = DATA_DIR / 'user_workout_history'
-PARQUET_USER_PATH = DATA_DIR / 'parquet' / 'user.parquet'
-BODYPART_MAP_PATH = DATA_DIR / 'multilingual-pack' / 'bodypart_name_multi.json'
-EXERCISE_MAP_PATH = DATA_DIR / 'multilingual-pack' / 'exercise_list_multi.json'
-EXERCISE_CATALOG_PATH = DATA_DIR / 'json' / 'processed_query_result.json'
+USER_HISTORY_DIR = DATA_DIR / '01_raw/user_workout_history'
+PARQUET_USER_PATH = DATA_DIR / '02_processed/parquet' / 'user_v2.parquet'
+BODYPART_MAP_PATH = DATA_DIR / '03_core_assets/multilingual-pack' / 'bodypart_name_multi.json'
+EXERCISE_MAP_PATH = DATA_DIR / '03_core_assets/multilingual-pack' / 'exercise_list_multi.json'
+EXERCISE_CATALOG_PATH = DATA_DIR / '02_processed' / 'processed_query_result.json'
 OUTPUT_PATH = DATA_DIR / 'finetuning_data.jsonl'
 
 # --- Helper Functions (Adapted from original scripts) ---

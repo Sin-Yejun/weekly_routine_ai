@@ -29,8 +29,8 @@ def generate_weekly_workout_from_history(user_id: int):
         frequency = 3
 
     # 2. Define the path to the recent workouts data file
-    input_path = project_root / f"data/user_{user_id}_recent_workouts.json"
-
+    input_path = project_root / f"data/99_archive/user_{user_id}_recent_workouts.json"
+    
     if not input_path.exists():
         print(f"Error: Input file not found at {input_path}")
         print("Please run the pre-processing script first.")

@@ -23,7 +23,7 @@ def create_prompt():
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(os.path.dirname(script_dir))
-        json_path = os.path.join(project_root, 'data/json', 'processed_query_result.json')
+        json_path = 'data/02_processed/processed_query_result.json'
         with open(json_path, 'r', encoding='utf-8') as f:
             exercise_list = json.load(f)
     except:
@@ -68,7 +68,7 @@ weekly-routine
   5) Elite: same structure as Advanced with higher loading/volume and tighter progression.
 - **Load selection**: Base loads on the user's most recent successful working set for that movement. If uncertain, start **5–10% below** the heaviest recent working set. If there is no recent record, determine working set loads considering the user’s body weight and training level.
 
-## Available Exercise Catalog (unrestricted)
+## Available Exercise Catalog
 {exercise_list_text}
 
 ## Example Output (structure only; do NOT copy these numbers and do NOT include backticks in your final answer)

@@ -15,8 +15,8 @@ from pathlib import Path
 import json
 
 # Load mapping files for bName and eName translation
-BODYPART_MAP_PATH = Path("data/multilingual-pack/bodypart_name_multi.json")
-EXERCISE_MAP_PATH = Path("data/multilingual-pack/exercise_list_multi.json")
+BODYPART_MAP_PATH = Path("data/03_core_assets/multilingual-pack/bodypart_name_multi.json")
+EXERCISE_MAP_PATH = Path("data/03_core_assets/multilingual-pack/exercise_list_multi.json")
 
 with BODYPART_MAP_PATH.open("r", encoding="utf-8") as f:
     bodypart_data = json.load(f)
@@ -40,7 +40,7 @@ def parse_sets_field(x: Any) -> Any:
 
 def _load_workout_data_from_parquet(cnt: int) -> list[dict]:
     """Helper function to load and parse workout data from Parquet."""
-    PARQUET_PATH = Path("data/parquet/workout_session.parquet")
+    PARQUET_PATH = Path("data/02_processed/parquet/workout_session.parquet")
     
     lf = pl.scan_parquet(str(PARQUET_PATH))
     df_polar = lf.sort("date", descending=True).limit(cnt).collect()

@@ -1,7 +1,7 @@
 from pathlib import Path
 import pandas as pd
 
-PARQUET_PATH = Path("data/parquet/user.parquet")
+PARQUET_PATH = Path("data/02_processed/parquet/user.parquet")
 
 def get_user_profile_text() -> str:
     """
