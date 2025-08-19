@@ -9,17 +9,15 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Path Definitions ---
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / 'data'
-FINETUNING_FILE_PATH = DATA_DIR / 'finetuning_data.jsonl'
+FINETUNING_FILE_PATH = '/Users/yejunsin/Documents/weekly_routine_ai/data/finetuning_data_v2.jsonl'
 
 def debug_specific_record(line_number: int):
     """
     Reads a specific line from the .jsonl file and prints detailed debugging info.
     """
-    if not FINETUNING_FILE_PATH.exists():
-        logging.error(f"Debug failed: File not found at {FINETUNING_FILE_PATH}")
-        return
+    # if not FINETUNING_FILE_PATH.exists():
+    #     logging.error(f"Debug failed: File not found at {FINETUNING_FILE_PATH}")
+    #     return
 
     logging.info(f"Attempting to read line {line_number} from {FINETUNING_FILE_PATH}...")
 

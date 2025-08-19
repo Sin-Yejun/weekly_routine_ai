@@ -106,7 +106,7 @@ def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_
     exercise_list_text = "\n".join(json.dumps(item, ensure_ascii=False) for item in exercise_catalog)
     
     # This is a simplified example output structure
-    example_output = '[{"session_data": [...], "duration": 60}, ...]' # Note: Escaped quotes within the string literal
+    example_output = '[{"session_data": [...], "duration": 60}, ...]'
 
     prompt = f"""
 ## [Task]
@@ -183,95 +183,85 @@ Generate a personalized, safe, and effective weekly workout routine based on the
 """
     return prompt
 
-
 def main():
-    """Main function to generate finetuning data."""
+    """Main function to generate and print a single finetuning prompt."""
     user_df, bodypart_map, exercise_map, exercise_catalog = load_shared_data()
 
     user_files = [f for f in USER_HISTORY_DIR.glob('*.json')]
 
-    processed_count = 0
-    skipped_count = 0
+    # Find the first valid user to process
+    for user_file in user_files:
+        try:
+            user_id = int(user_file.stem)
+        except (ValueError, IndexError):
+            continue # Skip if filename is not a valid user ID
 
-    with open(OUTPUT_PATH, 'w', encoding='utf-8') as out_file:
-        for user_file in tqdm(user_files, desc="Processing users"):
-            try:
-                user_id = int(user_file.stem)
-            except (ValueError, IndexError):
-                logging.warning(f"Could not parse user ID from filename: {user_file.name}. Skipping.")
-                skipped_count += 1
-                continue
+        # 1. Get user info and frequency
+        user_info_txt, frequency = get_user_info(user_df, user_id)
+        if not user_info_txt:
+            continue # Skip if user not in parquet
 
-            # 1. Get user info and frequency
-            user_info_txt, frequency = get_user_info(user_df, user_id)
-            if not user_info_txt:
-                # logging.info(f"User ID {user_id} not found in user.parquet. Skipping.")
-                skipped_count += 1
-                continue
+        # 2. Load user history
+        with user_file.open('r', encoding='utf-8') as f:
+            user_history = json.load(f)
+        
+        # 3. Check if there is enough data
+        required_records = frequency + 10
+        if len(user_history) < required_records:
+            continue # Skip if not enough records
 
-            # 2. Load user history
-            with user_file.open('r', encoding='utf-8') as f:
-                user_history = json.load(f)
-            
-            # Data is assumed to be sorted by date descending
-            
-            # 3. Check if there is enough data
-            required_records = frequency + 10
-            if len(user_history) < required_records:
-                # logging.info(f"User {user_id} has insufficient records ({len(user_history)} < {required_records}). Skipping.")
-                skipped_count += 1
-                continue
+        # If we reach here, we found a valid user to test with.
+        print(f"--- Found valid user for testing: {user_id} ---")
 
-            # 4. Split data into output and history summary parts
-            output_sessions = user_history[:frequency]
-            history_for_summary = user_history[frequency:required_records]
+        # 4. Split data into output and history summary parts
+        output_sessions = user_history[:frequency]
+        history_for_summary = user_history[frequency:required_records]
 
-            # 5. Format the output data
-            formatted_output = [{"session_data": s.get("session_data"), "duration": s.get("duration")} for s in output_sessions]
+        # 5. Create a filtered exercise catalog for the prompt
+        output_exercise_ids = set()
+        for session in output_sessions:
+            if session.get("session_data"):
+                for exercise in session["session_data"]:
+                    if exercise.get("eTextId"):
+                        output_exercise_ids.add(exercise["eTextId"])
 
-            # 6. Create a filtered exercise catalog for the prompt
-            output_exercise_ids = set()
-            for session in output_sessions:
-                if session.get("session_data"):
-                    for exercise in session["session_data"]:
-                        if exercise.get("eTextId"):
-                            output_exercise_ids.add(exercise["eTextId"])
+        history_exercise_ids = set()
+        for day in history_for_summary:
+            if "session_data" in day and day["session_data"]:
+                for ex in day["session_data"]:
+                    if ex.get("eTextId"):
+                        history_exercise_ids.add(ex["eTextId"])
 
-            history_exercise_ids = set()
-            for day in history_for_summary:
-                if "session_data" in day and day["session_data"]:
-                    for ex in day["session_data"]:
-                        if ex.get("eTextId"):
-                            history_exercise_ids.add(ex["eTextId"])
+        required_exercise_ids = output_exercise_ids.union(history_exercise_ids)
+        
+        required_catalog = [ex for ex in exercise_catalog if ex.get("eTextId") in required_exercise_ids]
+        
+        included_ids = {ex['eTextId'] for ex in required_catalog if 'eTextId' in ex}
+        remaining_exercises = [ex for ex in exercise_catalog if ex.get("eTextId") not in included_ids]
+        
+        num_to_add = min(10, len(remaining_exercises))
+        random.seed(user_id) # Use user_id for deterministic randomness per user
+        random_exercises = random.sample(remaining_exercises, num_to_add)
+        
+        filtered_exercise_catalog = required_catalog + random_exercises
 
-            required_exercise_ids = output_exercise_ids.union(history_exercise_ids)
-            
-            required_catalog = [ex for ex in exercise_catalog if ex.get("eTextId") in required_exercise_ids]
-            
-            included_ids = {ex['eTextId'] for ex in required_catalog if 'eTextId' in ex}
-            remaining_exercises = [ex for ex in exercise_catalog if ex.get("eTextId") not in included_ids]
-            
-            num_to_add = min(10, len(remaining_exercises))
-            random.seed(user_id) # Use user_id for deterministic randomness per user
-            random_exercises = random.sample(remaining_exercises, num_to_add)
-            
-            filtered_exercise_catalog = required_catalog + random_exercises
+        # 6. Create history summary text
+        history_summary_txt = summarize_user_history(history_for_summary, bodypart_map, exercise_map)
 
-            # 7. Create history summary text
-            history_summary_txt = summarize_user_history(history_for_summary, bodypart_map, exercise_map)
+        # 7. Create the final input prompt
+        final_prompt = create_final_prompt(user_info_txt, history_summary_txt, frequency, filtered_exercise_catalog)
 
-            # 8. Create the final input prompt
-            final_prompt = create_final_prompt(user_info_txt, history_summary_txt, frequency, filtered_exercise_catalog)
+        # 8. Print the prompt
+        print("--- GENERATED PROMPT ---")
+        print(final_prompt)
+        print("--- END OF PROMPT ---")
+        
+        # We've processed one user, so we're done.
+        break 
+    else:
+        # This block runs if the loop completes without a `break`
+        print("Could not find any user with sufficient data to generate a test prompt.")
 
-            # 9. Write to file
-            finetuning_record = {"input": final_prompt, "output": json.dumps(formatted_output, ensure_ascii=False)}
-            out_file.write(json.dumps(finetuning_record, ensure_ascii=False) + '\n')
-            processed_count += 1
-
-    logging.info(f"--- Processing Complete ---")
-    logging.info(f"Successfully processed: {processed_count} users.")
-    logging.info(f"Skipped (insufficient data or not found): {skipped_count} users.")
-    logging.info(f"Output saved to: {OUTPUT_PATH}")
 
 if __name__ == "__main__":
     main()
