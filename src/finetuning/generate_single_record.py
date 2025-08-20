@@ -18,9 +18,10 @@ PARQUET_USER_PATH = DATA_DIR / '02_processed' / 'parquet' / 'user_v2.parquet'
 BODYPART_MAP_PATH = DATA_DIR / '03_core_assets' / 'multilingual-pack' / 'bodypart_name_multi.json'
 EXERCISE_MAP_PATH = DATA_DIR / '03_core_assets' / 'multilingual-pack' / 'exercise_list_multi.json'
 EXERCISE_CATALOG_PATH = DATA_DIR / '02_processed' / 'processed_query_result.json'
-OUTPUT_PATH = DATA_DIR / 'finetuning_data.jsonl'
+# Use a new output path for the single record
+OUTPUT_PATH = DATA_DIR / 'single_finetuning_record.json'
 
-# --- Helper Functions (Adapted from original scripts) ---
+# --- Helper Functions (Copied from create_finetuning_data.py) ---
 
 def load_shared_data():
     """Loads dataframes and maps needed for processing."""
@@ -97,7 +98,6 @@ def summarize_user_history(workout_days: list, bodypart_map: dict, exercise_map:
                 line = f"- {e_text_id}: {num_sets}sets: {compressed_sets_str}"
                 lines.append(line)
         
-        # Only include workouts that have actual exercise data
         if len(lines) > 1:
             texts.append("\n".join(lines))
             
@@ -105,17 +105,13 @@ def summarize_user_history(workout_days: list, bodypart_map: dict, exercise_map:
 
 def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_catalog):
     """Builds a balanced and more concise prompt for the model."""
-    # 1. Use the compact catalog format
     compact_catalog_list = [
         f'["{e.get("eTextId", "")}", "{e.get("bTextId", "")}", {e.get("eInfoType", 0)}, "{e.get("eName", "")}"]'
         for e in exercise_catalog
     ]
-    exercise_list_text = ",\n".join(compact_catalog_list)
-
-    # The output format is now the ultra-compact array
+    exercise_list_text = "\n".join(compact_catalog_list)
     example_output = '[[60, [["BB_BSQT", [[80,10,0], [90,8,0]]]]]]'
 
-    # 2. Use more concise instructions with detailed Level Gating
     prompt = f"""
 ## [Task]
 Generate a weekly workout routine based on user data.
@@ -156,11 +152,6 @@ Return **ONLY** the generated JSON array.
 """
     return prompt
 
-    return prompt
-
-    return prompt
-
-
 def dehydrate_to_array(full_routine):
     """Converts a full routine to an ultra-compact array format."""
     ultra_compact_routine = []
@@ -181,90 +172,86 @@ def dehydrate_to_array(full_routine):
     return ultra_compact_routine
 
 def main():
-    """Main function to generate finetuning data."""
+    """Main function to generate a single finetuning record."""
     user_df, bodypart_map, exercise_map, exercise_catalog = load_shared_data()
 
-    user_files = [f for f in USER_HISTORY_DIR.glob('*.json')]
+    user_files = [f for f in USER_HISTORY_DIR.glob('*.json')] # Corrected path usage
 
-    processed_count = 0
-    skipped_count = 0
+    for user_file in tqdm(user_files, desc="Finding a valid user"):
+        try:
+            user_id = int(user_file.stem)
+        except (ValueError, IndexError):
+            continue
 
-    with open(OUTPUT_PATH, 'w', encoding='utf-8') as out_file:
-        for user_file in tqdm(user_files, desc="Processing users"):
-            try:
-                user_id = int(user_file.stem)
-            except (ValueError, IndexError):
-                logging.warning(f"Could not parse user ID from filename: {user_file.name}. Skipping.")
-                skipped_count += 1
-                continue
+        user_info_txt, frequency = get_user_info(user_df, user_id)
+        if not user_info_txt:
+            continue
 
-            # 1. Get user info and frequency
-            user_info_txt, frequency = get_user_info(user_df, user_id)
-            if not user_info_txt:
-                skipped_count += 1
-                continue
+        with user_file.open('r', encoding='utf-8') as f:
+            user_history = json.load(f)
+        
+        required_records = frequency + 10
+        if len(user_history) < required_records:
+            continue
 
-            # 2. Load user history
-            with user_file.open('r', encoding='utf-8') as f:
-                user_history = json.load(f)
-            
-            # 3. Check if there is enough data
-            required_records = frequency + 10
-            if len(user_history) < required_records:
-                skipped_count += 1
-                continue
+        # --- Found a valid user, now process them ---
+        
+        output_sessions = user_history[:frequency]
+        history_for_summary = user_history[frequency:required_records]
 
-            # 4. Split data into output and history summary parts
-            output_sessions = user_history[:frequency]
-            history_for_summary = user_history[frequency:required_records]
+        output_array = dehydrate_to_array(output_sessions)
 
-            # 5. Format the output data to the ultra-compact array format
-            output_array = dehydrate_to_array(output_sessions)
-
-            # 6. Create a filtered exercise catalog for the prompt
-            output_exercise_ids = set()
+        output_exercise_ids = set()
+        if output_sessions:
             for session in output_sessions:
                 if session.get("session_data"):
                     for exercise in session["session_data"]:
                         if exercise.get("eTextId"):
                             output_exercise_ids.add(exercise["eTextId"])
 
-            history_exercise_ids = set()
+        history_exercise_ids = set()
+        if history_for_summary:
             for day in history_for_summary:
                 if "session_data" in day and day["session_data"]:
                     for ex in day["session_data"]:
                         if ex.get("eTextId"):
                             history_exercise_ids.add(ex["eTextId"])
 
-            required_exercise_ids = output_exercise_ids.union(history_exercise_ids)
-            
-            required_catalog = [ex for ex in exercise_catalog if ex.get("eTextId") in required_exercise_ids]
-            
-            included_ids = {ex['eTextId'] for ex in required_catalog if 'eTextId' in ex}
-            remaining_exercises = [ex for ex in exercise_catalog if ex.get("eTextId") not in included_ids]
-            
-            num_to_add = min(10, len(remaining_exercises))
-            random.seed(user_id)
-            random_exercises = random.sample(remaining_exercises, num_to_add)
-            
-            filtered_exercise_catalog = required_catalog + random_exercises
+        required_exercise_ids = output_exercise_ids.union(history_exercise_ids)
+        
+        required_catalog = [ex for ex in exercise_catalog if ex.get("eTextId") in required_exercise_ids]
+        
+        included_ids = {ex['eTextId'] for ex in required_catalog if 'eTextId' in ex}
+        remaining_exercises = [ex for ex in exercise_catalog if ex.get("eTextId") not in included_ids]
+        
+        num_to_add = min(10, len(remaining_exercises))
+        random.seed(user_id)
+        random_exercises = random.sample(remaining_exercises, num_to_add)
+        
+        filtered_exercise_catalog = required_catalog + random_exercises
 
-            # 7. Create history summary text
-            history_summary_txt = summarize_user_history(history_for_summary, bodypart_map, exercise_map)
+        history_summary_txt = summarize_user_history(history_for_summary, bodypart_map, exercise_map)
 
-            # 8. Create the final input prompt
-            final_prompt = create_final_prompt(user_info_txt, history_summary_txt, frequency, filtered_exercise_catalog)
+        final_prompt = create_final_prompt(user_info_txt, history_summary_txt, frequency, filtered_exercise_catalog)
 
-            # 9. Write to file
-            # Use separators=(',',':') for minified JSON string to save space
-            finetuning_record = {"input": final_prompt, "output": json.dumps(output_array, ensure_ascii=False, separators=(',',':'))}
-            out_file.write(json.dumps(finetuning_record, ensure_ascii=False) + '\n')
-            processed_count += 1
+        finetuning_record = {
+            "input": final_prompt, 
+            "output": json.dumps(output_array, ensure_ascii=False, separators=(',',':'))
+        }
 
-    logging.info(f"--- Processing Complete ---")
-    logging.info(f"Successfully processed: {processed_count} users.")
-    logging.info(f"Skipped (insufficient data or not found): {skipped_count} users.")
-    logging.info(f"Output saved to: {OUTPUT_PATH}")
+        logging.info(f"Found valid user {user_id}. Writing single record to {OUTPUT_PATH}")
+        with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
+            # Use indent for readability for the overall file structure
+            json.dump(finetuning_record, f, ensure_ascii=False, indent=2)
+        
+        print(f"\nSuccessfully generated a single finetuning record for user {user_id}.")
+        print(f"File saved to: {OUTPUT_PATH}")
+        
+        # Break the loop since we only need one
+        break
+    else:
+        print("\nCould not find a user with sufficient data to generate a record.")
+
 
 if __name__ == "__main__":
     main()
