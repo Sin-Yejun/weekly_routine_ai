@@ -76,44 +76,49 @@ def compress_sets(sets: list) -> str:
     return " / ".join(out)
 
 def summarize_user_history(workout_days: list, bodypart_map: dict, exercise_map: dict) -> str:
-    """Creates a detailed text summary from a list of user workout sessions."""
+    """Creates a compact text summary of user workout sessions using eTextId."""
     texts = []
     for idx, day in enumerate(workout_days, 1):
         duration = day.get('duration')
-        duration_str = f" - Duration: {duration}min" if duration else ""
-        header = f"Recent Workout #{idx}{duration_str}"
+        duration_str = f" (Duration: {duration}min)" if duration else ""
+        header = f"[Workout #{idx}{duration_str}]"
         lines = [header]
         if "session_data" in day and day["session_data"]:
             for ex in day["session_data"]:
-                b_name = bodypart_map.get(ex.get('bTextId'), ex.get('bName', 'N/A'))
-                e_name = exercise_map.get(ex.get('eTextId'), ex.get('eName', 'N/A'))
+                e_text_id = ex.get('eTextId', 'N/A')
                 
-                # Handle cases where 'sets' might be None
                 sets_data = ex.get('sets') or []
-                num_sets = len(sets_data)
+                if not sets_data:
+                    continue
                 
+                num_sets = len(sets_data)
                 compressed_sets_str = compress_sets(sets_data)
-                line = (
-                    f"{b_name:<12}- {e_name} ({ex.get('eTextId', 'N/A')}) "
-                    f"{num_sets}sets: {compressed_sets_str}"
-                )
+                
+                line = f"- {e_text_id}: {num_sets}sets: {compressed_sets_str}"
                 lines.append(line)
-        texts.append("\n".join(lines))
+        
+        # Only include workouts that have actual exercise data
+        if len(lines) > 1:
+            texts.append("\n".join(lines))
+            
     return "\n\n".join(texts)
 
 def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_catalog):
-    """Builds the final prompt for the model."""
-    exercise_list_text = "\n".join(json.dumps(item, ensure_ascii=False) for item in exercise_catalog)
-    
+    """Builds a balanced and more concise prompt for the model."""
+    # 1. Use the compact catalog format
+    compact_catalog_list = [
+        f'["{e.get("eTextId", "")}", "{e.get("bTextId", "")}", {e.get("eInfoType", 0)}, "{e.get("eName", "")}"]'
+        for e in exercise_catalog
+    ]
+    exercise_list_text = ",\n".join(compact_catalog_list)
+
     # This is a simplified example output structure
     example_output = '[{"session_data": [...], "duration": 60}, ...]'
 
+    # 2. Use more concise instructions with detailed Level Gating
     prompt = f"""
 ## [Task]
-weekly-routine
-
-## [Primary Goal]
-Generate a personalized, safe, and effective weekly workout routine based on the user's profile, recent history, and stated goals.
+Generate a weekly workout routine based on user data.
 
 ## [User Info]
 {user_info_txt}
@@ -121,67 +126,41 @@ Generate a personalized, safe, and effective weekly workout routine based on the
 ## [Recent Workout History]
 {history_summary_txt}
 
-## [Core Instructions]
+## [Instructions]
 1.  **Role**: You are an expert AI personal trainer.
-2.  **Personalization**: Generate a **detailed, week-long workout routine** tailored to the [User Info] and [Recent Workout History].
-3.  **Data-Driven**: Base your recommendations *only* on the provided data. Do not invent exercises not in the catalog unless necessary.
-4.  **Output Format**:
-    *   **MUST be a valid JSON array** of session objects.
-    *   No prose, comments, or markdown code fences (```).
-    *   The root of the output must be `[` and the end must be `]`.
-    *   The number of session objects in the array **MUST exactly match the user's weekly frequency ({frequency} days)**.
+2.  **Goal**: Create a detailed, week-long workout routine for the user.
+3.  **Data-Driven**: Base recommendations *only* on the provided data. Use the catalog.
+4.  **Output Format**: MUST be a valid JSON array of session objects, with a length of exactly {frequency}. No comments or markdown.
 
-## [Detailed JSON Structure]
-
-### Session Object:
--   `"session_data"`: An array of Exercise Objects.
--   `"duration"`: Total estimated duration of the session in minutes.
-
-### Exercise Object:
--   `"sets"`: Array of Set Objects.
--   `"bName"`: Body part name. Must be one of: `["Leg", "Chest", "Back", "Shoulder", "Arm", "Lifting", "Abs", "etc", "Cardio"]`.
--   `"eName"`: Human-readable exercise name from the catalog.
--   `"bTextId"`: Body part category ID (e.g., `"CAT_LEG"`).
--   `"eTextId"`: Canonical exercise ID from the catalog. If an exercise is not in the catalog, create a new, logical `UPPER_SNAKE_CASE` ID (e.g., `"NEW_CARDIO_MACHINE"`).
-
-### Set Object:
--   `"weight"`: Weight in kg.
--   `"reps"`: Repetition count.
--   `"time"`: Time in seconds.
--   **Consistency Rules (based on `eInfoType` from catalog):**
-    *   `eInfoType = 1` (Time-based): `time > 0`, `reps = 0`, `weight = 0.0`.
-    *   `eInfoType = 2` (Bodyweight/Reps-only): `reps > 0`, `time = 0`, `weight = 0.0`.
-    *   `eInfoType = 6` (Weight-based): `reps > 0`, `weight >= 0`, `time = 0`.
+## [JSON Schema]
+- **Session**: {{"session_data": "[Exercise]", "duration": "int"}}
+- **Exercise**: {{"sets": "[Set]", "bName": "str", "eName": "str", "bTextId": "str", "eTextId": "str"}}
+- **Set**: {{"weight": "float", "reps": "int", "time": "int"}}
+- **Set Rules by eInfoType**: 1(time>0, r=0, w=0), 2(reps>0, t=0, w=0), 6(reps>0, t=0, w>=0).
 
 ## [Training Principles]
-
-### 1. Level Gating (Mandatory)
--   **Beginner**: Focus on machine-based exercises and bodyweight movements. Avoid complex free-weight compounds (e.g., barbell squats, deadlifts) and high-skill gymnastics (e.g., pull-ups, muscle-ups). Substitute with safer alternatives (e.g., Leg Press instead of Barbell Squat, Lat Pulldown instead of Pull-up).
--   **Novice**: Introduce basic free-weight exercises (e.g., dumbbell press, goblet squats) as accessories, while keeping machines for main strength work.
--   **Intermediate**: Prioritize free-weight compound movements for main lifts. Use machines and isolation exercises for supplemental volume.
--   **Advanced/Elite**: Design the routine around the user's specific `Workout Type` (e.g., strength, hypertrophy). Expect higher intensity, volume, and inclusion of advanced techniques.
-
-### 2. Load Selection & Progression
--   **Existing Movements**: Base the load on the user's most recent successful working set for that exercise in the [Recent Workout History].
--   **Progressive Overload**: Apply a small, logical increase (e.g., 2.5-5% weight increase or +1-2 reps) compared to the last relevant session.
--   **New Movements or No History**: If no recent data exists, estimate a conservative starting weight based on the user's level and body weight. It's better to start too light than too heavy.
-
-### 3. Routine Structure
--   **Balance**: Ensure a balanced distribution of exercises across major muscle groups throughout the week. Avoid overworking a single muscle group.
--   **Rest Days**: The number of workouts implies rest days. Structure the routine to allow for adequate recovery (e.g., don't schedule two heavy leg days back-to-back).
--   **Goal Alignment**: The exercise selection and structure should reflect the user's `Workout Type` (e.g., more compound lifts for 'strength', more volume and isolation for 'bodybuilding').
+- **Level Gating**:
+  - **Beginner**: Mainly bodyweight exercises, assisted by machines. Avoid complex free-weights.
+  - **Novice**: Mainly machines for strength, assisted by basic free-weights.
+  - **Intermediate**: Mainly free-weights for strength, assisted by machines.
+  - **Advanced**: Design routine based on `Workout Type` with higher specificity and detail.
+  - **Elite**: More advanced and higher intensity routines than Advanced, using heavy weights.
+- **Progression**: Apply progressive overload. Slightly increase weight (~2.5-5%) or reps (+1-2) from the last relevant workout. For new exercises, estimate a conservative starting weight.
+- **Structure**: Ensure balanced muscle group distribution. Allow for rest days. Align routine with user's `Workout Type` (e.g., strength vs. bodybuilding).
 
 ## [Available Exercise Catalog]
+[
 {exercise_list_text}
+]
 
-## [Example Output] (This is a structural guide ONLY. Do NOT copy these values.)
+## [Example Output] (Structural guide ONLY. Do NOT copy values.)
 {example_output}
 
 ## [Final Instruction]
-- Review all instructions carefully.
-- Return **ONLY** the generated JSON array.
+Return **ONLY** the generated JSON array.
 """
     return prompt
+
 
 def main():
     """Main function to generate and print a single finetuning prompt."""
