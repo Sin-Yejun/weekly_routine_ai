@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Prompt Generation Tester v2</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>AI Prompt Generation Tester v2</h1>
+        
+        <div class="main-grid">
+            <!-- User Input Section -->
+            <div class="grid-section">
+                <h2>1. User Info</h2>
+                <div class="form-group">
+                    <label for="gender-select">Gender</label>
+                    <select id="gender-select">
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="weight-input">Weight (kg)</label>
+                    <input type="number" id="weight-input" value="75">
+                </div>
+                <div class="form-group">
+                    <label for="level-select">Training Level</label>
+                    <select id="level-select">
+                        <option value="Beginner">Beginner</option>
+                        <option value="Novice">Novice</option>
+                        <option value="Intermediate" selected>Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                        <option value="Elite">Elite</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="type-select">Workout Type</label>
+                    <select id="type-select">
+                        <option value="bodybuilding">Bodybuilding</option>
+                        <option value="strength">Strength</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="frequency-input">Weekly Workout Frequency</label>
+                    <input type="number" id="frequency-input" value="3" min="1" max="7">
+                </div>
+            </div>
+
+            <!-- Workout History Section -->
+            <div class="grid-section">
+                <h2>2. Workout History</h2>
+                <div class="form-group">
+                    <label for="user-history-select">Select User to Load History</label>
+                    <select id="user-history-select">
+                        <option value="">Loading users...</option>
+                    </select>
+                </div>
+                <div class="history-box" id="history-display">
+                    <p>Select a user to see their workout history.</p>
+                </div>
+            </div>
+
+            <!-- Exercise Catalog Section -->
+            <div class="grid-section full-width">
+                <h2>3. Available Exercise Catalog</h2>
+                <div class="filter-bar">
+                    <div class="form-group">
+                        <label for="b-name-filter">Filter by Body Part</label>
+                        <select id="b-name-filter">
+                            <option value="all">All Body Parts</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="t-id-filter">Filter by Tool</label>
+                        <select id="t-id-filter">
+                            <option value="all">All Tools</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="catalog-box" id="catalog-display">
+                    <p>Loading exercise catalog...</p>
+                </div>
+            </div>
+        </div>
+
+        <button id="generate-btn">Generate Prompt</button>
+
+        <div class="results-area">
+            <h2>Generated Prompt</h2>
+            <pre id="prompt-output">Fill in the details above and click generate...</pre>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
