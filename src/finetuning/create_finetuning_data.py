@@ -156,10 +156,6 @@ Return **ONLY** the generated JSON array.
 """
     return prompt
 
-    return prompt
-
-    return prompt
-
 
 def dehydrate_to_array(full_routine):
     """Converts a full routine to an ultra-compact array format."""
