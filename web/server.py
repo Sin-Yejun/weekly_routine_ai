@@ -95,8 +95,8 @@ def summarize_user_history(workout_days: list) -> str:
 def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_catalog):
     compact_catalog_list = []
     for e in exercise_catalog:
-        e_text_id = e.get("eTextId") or e.get("e_text_id") or ""
-        b_text_id = e.get("bTextId") or e.get("b_text_id") or ""
+        e_text_id = e.get("e_text_id") or e.get("eTextId") or ""
+        b_text_id = 'CAT_' + (e.get("b_name", "").upper() or e.get("bName", "").upper() or "")
         e_info_type = (
             e.get("eInfoType")
             if e.get("eInfoType") is not None
@@ -104,17 +104,16 @@ def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_
         )
         e_name = e.get("eName") or e.get("e_name") or ""
 
-        # JSON 아님(문자열 템플릿)이지만, 따옴표 충돌 대비 최소 이스케이프
-        e_text_id = str(e_text_id).replace('"', '\\"')
-        b_text_id = str(b_text_id).replace('"', '\\"')
-        e_name = str(e_name).replace('"', '\\"')
+        e_text_id = str(e_text_id).replace('"', '\"')
+        b_text_id = str(b_text_id).replace('"', '\"')
+        e_name = str(e_name).replace('"', '\"')
 
         compact_catalog_list.append(
             f'["{e_text_id}", "{b_text_id}", {e_info_type}, "{e_name}"]'
         )
 
     exercise_list_text = "\n".join(compact_catalog_list)
-    example_output = '[{"session_data": [...], "duration": 60}, ...]'
+    example_output = '[[60, [["BB_BSQT", [[80,10,0], [90,8,0]]]]]]'
 
     prompt = f"""## [Task]
 Generate a weekly workout routine based on user data.
@@ -129,13 +128,8 @@ Generate a weekly workout routine based on user data.
 1.  **Role**: You are an expert AI personal trainer.
 2.  **Goal**: Create a detailed, week-long workout routine for the user.
 3.  **Data-Driven**: Base recommendations *only* on the provided data. Use the catalog.
-4.  **Output Format**: MUST be a valid JSON array of session objects, with a length of exactly {frequency}. No comments or markdown.
-
-## [JSON Schema]
-- **Session**: {{"session_data": "[Exercise]", "duration": "int"}}
-- **Exercise**: {{"sets": "[Set]", "bName": "str", "eName": "str", "bTextId": "str", "eTextId": "str"}}
-- **Set**: {{"weight": "float", "reps": "int", "time": "int"}}
-- **Set Rules by eInfoType**: 1(time>0, r=0, w=0), 2(reps>0, t=0, w=0), 6(reps>0, t=0, w>=0).
+4.  **Output Format**: MUST be a valid JSON array of arrays (ultra-compact format), with a length of exactly {frequency}. No comments or markdown.
+    - **Schema**: `[ [duration, [ [eTextId, [ [w,r,t], ... ]], ... ]], ... ]`
 
 ## [Training Principles]
 - **Level Gating**:
@@ -159,6 +153,25 @@ Generate a weekly workout routine based on user data.
 Return **ONLY** the generated JSON array.
 """
     return prompt
+
+def dehydrate_to_array(full_routine):
+    """Converts a full routine to an ultra-compact array format."""
+    ultra_compact_routine = []
+    if not isinstance(full_routine, list):
+        return ultra_compact_routine
+        
+    for session in full_routine:
+        exercises_array = []
+        if session.get("session_data"):
+            for exercise in session.get("session_data", []):
+                sets_array = []
+                if exercise.get("sets"):
+                    for s in exercise.get("sets", []):
+                        sets_array.append([s.get("weight", 0), s.get("reps", 0), s.get("time", 0)])
+                exercises_array.append([exercise.get("eTextId") or exercise.get("e_text_id"), sets_array])
+        session_array = [session.get("duration"), exercises_array]
+        ultra_compact_routine.append(session_array)
+    return ultra_compact_routine
 
 
 # --- API Endpoints ---
@@ -212,21 +225,40 @@ def get_exercises():
 
 @app.route('/api/generate-prompt', methods=['POST'])
 def generate_prompt_api():
-    """Generates a finetuning prompt based on provided user info, history, and catalog."""
+    """Generates a finetuning prompt and the ideal output based on provided data."""
     data = request.get_json()
     if not data or 'userInfo' not in data or 'workoutHistory' not in data or 'exerciseCatalog' not in data:
         return jsonify({"error": "Missing required data: userInfo, workoutHistory, or exerciseCatalog."} ), 400
 
     try:
-        user_info_txt, frequency = format_user_info(data['userInfo'])
-        history_summary_txt = summarize_user_history(data['workoutHistory'])
-        
-        # The exerciseCatalog is now directly passed from the frontend, no need for backend filtering
-        final_prompt = create_final_prompt(user_info_txt, history_summary_txt, frequency, data['exerciseCatalog'])
+        user_info = data['userInfo']
+        workout_history = data['workoutHistory']
+        exercise_catalog = data['exerciseCatalog']
 
-        return jsonify({"prompt": final_prompt})
+        user_info_txt, frequency = format_user_info(user_info)
+
+        # Split history into what's used for the prompt and what's used for the target output
+        # The most recent `frequency` sessions are the target output
+        output_sessions = workout_history[:frequency]
+        history_for_summary = workout_history[frequency:]
+
+        # Generate the summary text for the prompt from the older history
+        history_summary_txt = summarize_user_history(history_for_summary)
+        
+        # Generate the prompt
+        final_prompt = create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_catalog)
+
+        # Generate the target output array from the most recent sessions
+        output_array = dehydrate_to_array(output_sessions)
+
+        return jsonify({
+            "prompt": final_prompt,
+            "output": json.dumps(output_array, indent=2, ensure_ascii=False) # Use dumps for nice formatting
+        })
 
     except Exception as e:
+        # It's helpful to log the exception for debugging
+        app.logger.error(f"Error in generate_prompt_api: {e}", exc_info=True)
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"} ), 500
 
 if __name__ == '__main__':

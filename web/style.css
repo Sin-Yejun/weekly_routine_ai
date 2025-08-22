@@ -125,6 +125,13 @@ button:disabled {
     margin-top: 30px;
 }
 
+.results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-top: 20px;
+}
+
 pre {
     background-color: #2d2d2d;
     color: #f4f4f4;
@@ -133,4 +140,125 @@ pre {
     white-space: pre-wrap;      
     word-wrap: break-word;      
     overflow-x: auto;
+    height: 400px; /* Add a fixed height */
+    overflow-y: auto; /* Allow scrolling */
+}
+
+/* --- Checkbox Filter Improvements --- */
+
+.filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px; /* Space between checkboxes */
+    padding: 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+    margin-bottom: 15px; /* Space below the filter group */
+}
+
+.filter-option {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+    padding: 5px 0;
+    min-width: 120px; /* Ensure some minimum width for options */
+}
+
+.filter-option input[type="checkbox"] {
+    /* Hide default checkbox */
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.filter-option .filter-item-label,
+.filter-option .filter-all-label {
+    position: relative;
+    padding-left: 25px; /* Space for custom checkbox */
+    margin-bottom: 0; /* Override default label margin */
+    cursor: pointer;
+    font-size: 14px;
+    color: #555;
+}
+
+/* Custom checkbox indicator */
+.filter-option .filter-item-label::before,
+.filter-option .filter-all-label::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+    transition: all 0.2s ease;
+}
+
+/* Checked state */
+.filter-option input[type="checkbox"]:checked + .filter-item-label::before,
+.filter-option input[type="checkbox"]:checked + .filter-all-label::before {
+    border-color: #1a73e8;
+    background-color: #1a73e8;
+}
+
+/* Checkmark for checked state */
+.filter-option input[type="checkbox"]:checked + .filter-item-label::after,
+.filter-option input[type="checkbox"]:checked + .filter-all-label::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+    width: 6px;
+    height: 12px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+}
+
+/* Focus state */
+.filter-option input[type="checkbox"]:focus + .filter-item-label::before,
+.filter-option input[type="checkbox"]:focus + .filter-all-label::before {
+    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.3);
+}
+
+/* Disabled state */
+.filter-option input[type="checkbox"]:disabled + .filter-item-label,
+.filter-option input[type="checkbox"]:disabled + .filter-all-label {
+    color: #aaa;
+    cursor: not-allowed;
+}
+
+.filter-option input[type="checkbox"]:disabled + .filter-item-label::before,
+.filter-option input[type="checkbox"]:disabled + .filter-all-label::before {
+    border-color: #eee;
+    background-color: #f0f0f0;
+}
+
+/* Specific styling for "All" checkbox label */
+.filter-option .filter-all-label {
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #ddd; /* Separator */
+    padding-bottom: 5px;
+    margin-bottom: 5px;
+    width: 100%; /* Make it span full width */
+}
+
+.filter-option .filter-all-label::before {
+    border-radius: 50%; /* Make "All" checkbox round */
+}
+
+/* Responsive layout for filter groups */
+@media (min-width: 768px) {
+    .filter-group {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        display: grid; /* Use grid for better control */
+    }
 }

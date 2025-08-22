@@ -68,15 +68,11 @@
                 <div class="filter-bar">
                     <div class="form-group">
                         <label for="b-name-filter">Filter by Body Part</label>
-                        <select id="b-name-filter">
-                            <option value="all">All Body Parts</option>
-                        </select>
+                        <div id="b-name-filter-container" class="filter-group"></div>
                     </div>
                     <div class="form-group">
                         <label for="t-id-filter">Filter by Tool</label>
-                        <select id="t-id-filter">
-                            <option value="all">All Tools</option>
-                        </select>
+                        <div id="t-id-filter-container" class="filter-group"></div>
                     </div>
                 </div>
                 <div class="catalog-box" id="catalog-display">
@@ -85,11 +81,17 @@
             </div>
         </div>
 
-        <button id="generate-btn">Generate Prompt</button>
+        <button id="generate-btn">Generate Prompt & Output</button>
 
-        <div class="results-area">
-            <h2>Generated Prompt</h2>
-            <pre id="prompt-output">Fill in the details above and click generate...</pre>
+        <div class="results-grid">
+            <div class="results-area">
+                <h2>Generated Prompt</h2>
+                <pre id="prompt-output">Fill in the details above and click generate...</pre>
+            </div>
+            <div class="results-area">
+                <h2>Ideal Output</h2>
+                <pre id="output-display">Ideal output will appear here...</pre>
+            </div>
         </div>
     </div>
 
