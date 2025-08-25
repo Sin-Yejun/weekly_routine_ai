@@ -3,6 +3,7 @@ import json
 import os
 import pandas as pd
 import random
+import requests
 
 # --- Flask App Initialization --
 # Serve static files from the 'web' directory
@@ -14,6 +15,8 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 USER_HISTORY_DIR = os.path.join(DATA_DIR, '01_raw', 'user_workout_history')
 PARQUET_USER_PATH = os.path.join(DATA_DIR, '02_processed', 'parquet', 'user_v2.parquet')
 EXERCISE_CATALOG_PATH = os.path.join(DATA_DIR, '03_core_assets', 'multilingual-pack', 'post_process_en_from_ai_list.json')
+VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://localhost:8000/v1")
+VLLM_MODEL    = os.getenv("VLLM_MODEL", "routine")  # --lora-modules에서 지정한 이름
 
 # --- Helper Functions from test_prompt.py ---
 
@@ -260,6 +263,40 @@ def generate_prompt_api():
         # It's helpful to log the exception for debugging
         app.logger.error(f"Error in generate_prompt_api: {e}", exc_info=True)
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"} ), 500
+
+
+@app.route('/api/infer', methods=['POST'])
+def infer_api():
+    """
+    Body: { "prompt": "<string>", "temperature": 0.0, "max_tokens": 1024 }
+    Calls vLLM OpenAI-compatible server and returns the model response text.
+    """
+    data = request.get_json() or {}
+    prompt = (data.get("prompt") or "").strip()
+    if not prompt:
+        return jsonify({"error": "Missing prompt"}), 400
+
+    payload = {
+        "model": VLLM_MODEL,  # e.g. "routine"
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": float(data.get("temperature", 0.0)),
+        "max_tokens": int(data.get("max_tokens", 1024)),
+    }
+
+    try:
+        r = requests.post(f"{VLLM_BASE_URL}/chat/completions", json=payload, timeout=120)
+        if r.status_code != 200:
+            try:
+                err = r.json()
+            except Exception:
+                err = {"error": r.text}
+            return jsonify({"error": f"vLLM error ({r.status_code}): {err}"}), 502
+
+        jr = r.json()
+        text = jr["choices"][0]["message"]["content"]
+        return jsonify({"response": text})
+    except requests.RequestException as e:
+        return jsonify({"error": f"Failed to reach vLLM server: {e}"}), 502
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

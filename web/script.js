@@ -401,8 +401,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    promptOutput.textContent = 'Generating... Please wait.';
-    outputDisplay.textContent = 'Generating... Please wait.';
+    promptOutput.textContent = 'Generating prompt...';
+    outputDisplay.textContent = 'Building ideal output from history...';
+    const modelOutputEl = document.getElementById('model-output');
+    if (modelOutputEl) modelOutputEl.textContent = 'Calling model...';
+
     generateBtn.disabled = true;
 
     fetch('/api/generate-prompt', {
@@ -423,11 +426,29 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(data => {
         promptOutput.textContent = data.prompt;
         outputDisplay.textContent = data.output; // Display the ideal output
+
+        return fetch('/api/infer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: data.prompt,
+            temperature: 0.0,
+            max_tokens: 1024
+          })
+        })
+        .then(r => {
+          if (!r.ok) return r.json().then(err => { throw new Error(err.error || 'Model error'); });
+          return r.json();
+        })
+        .then(model => {
+          if (modelOutputEl) modelOutputEl.textContent = model.response;
+        });
       })
       .catch(error => {
         const errorMessage = `Error: ${error.message}`;
         promptOutput.textContent = errorMessage;
         outputDisplay.textContent = errorMessage;
+        if (modelOutputEl) modelOutputEl.textContent = errorMessage;
         console.error('Error generating prompt:', error);
       })
       .finally(() => { generateBtn.disabled = false; });
