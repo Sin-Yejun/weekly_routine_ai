@@ -478,17 +478,26 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    modelOutputEl.textContent = 'Calling vLLM server...';
-    generateVllmBtn.disabled = true;
-
-    fetch('/api/infer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const selectedModel = document.getElementById('model-selector').value;
+    let endpoint = '/api/infer'; // Default vLLM endpoint
+    let payload = {
         prompt: prompt,
         temperature: 0.1,
-        max_tokens: 3072 // Increased max_tokens for potentially long routines
-      })
+        max_tokens: 3072
+    };
+
+    if (selectedModel === 'openai') {
+        endpoint = '/generate-openai';
+        payload = { prompt: prompt }; // OpenAI endpoint has a simpler payload
+    }
+
+    modelOutputEl.textContent = `Calling ${selectedModel.toUpperCase()} server...`;
+    generateVllmBtn.disabled = true;
+
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     })
     .then(r => {
       if (!r.ok) return r.json().then(err => { throw new Error(err.error || 'Model error'); });
@@ -496,12 +505,13 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .then(model => {
       modelOutputEl.textContent = model.response;
-      formattedOutputEl.textContent = model.formatted_summary;
+      // OpenAI response may not have formatted_summary, so handle that
+      formattedOutputEl.textContent = model.formatted_summary || 'Not available for this model.';
     })
     .catch(error => {
         const errorMessage = `Error: ${error.message}`;
         modelOutputEl.textContent = errorMessage;
-        console.error('Error inferring from model:', error);
+        console.error(`Error inferring from model ${selectedModel}:`, error);
     })
     .finally(() => {
         generateVllmBtn.disabled = false;

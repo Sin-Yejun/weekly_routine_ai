@@ -1,11 +1,14 @@
 from flask import Flask, jsonify, request, send_from_directory
 import json
 import os
+import logging
 import pandas as pd
 import random
 import requests
+import openai
 from openai import OpenAI
 from json_repair import loads as repair_json
+from dotenv import load_dotenv
 
 from util import summarize_user_history, FormattingStyle
 
@@ -30,6 +33,8 @@ def _to_number(x):
 # --- Flask App Initialization --
 # Serve static files from the 'web' directory
 app = Flask(__name__, static_folder='.', static_url_path='')
+load_dotenv()
+app.logger.setLevel(logging.INFO)
 
 # --- Path Definitions ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -38,8 +43,13 @@ USER_HISTORY_DIR = os.path.join(DATA_DIR, '01_raw', 'user_workout_history')
 PARQUET_USER_PATH = os.path.join(DATA_DIR, '02_processed', 'parquet', 'user_v2.parquet')
 EXERCISE_CATALOG_PATH = os.path.join(DATA_DIR, '03_core_assets', 'multilingual-pack', 'post_process_en_from_ai_list.json')
 QUERY_RESULT_PATH = os.path.join(DATA_DIR, '02_processed', 'query_result.json')
+
+# --- Model & API Configuration ---
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
 VLLM_MODEL    = os.getenv("VLLM_MODEL", "google/gemma-3-4b-it")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+
 
 # --- Load Exercise Name Map ---
 exercise_name_map = {}
@@ -113,6 +123,7 @@ def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_
         )
 
     exercise_list_text = "\n".join(compact_catalog_list)
+    # MODIFIED: Example now shows the wrapping object
     example_output = '[[60, [["BB_BSQT", [[80,10,0], [90,8,0, ... ]], ... ]], ... ]'
 
     prompt = f"""## [Task]
@@ -128,8 +139,10 @@ Generate a weekly workout routine based on user data.
 1.  **Role**: You are an expert AI personal trainer.
 2.  **Goal**: Create a detailed, week-long workout routine for the user.
 3.  **Data-Driven**: Base recommendations *only* on the provided data. Use the catalog.
-4.  **Output Format**: MUST be a valid JSON array of arrays (ultra-compact format), with a length of exactly {frequency}. No comments or markdown.
-    - **Schema**: `[ [duration, [ [eTextId, [ [w,r,t], ... ]], ... ]], ... ]`
+4.  **Output Format**: MUST be a valid JSON object with a single key "routine".
+    - The value of "routine" MUST be a JSON array of arrays (ultra-compact format).
+    - The length of the "routine" array must be exactly {frequency}.
+    - **Schema**: `[[duration, [ [eTextId, [ [w,r,t], ... ]], ... ]], ... ]`
 
 ## [Training Principles]
 - **Level Gating**:
@@ -139,20 +152,24 @@ Generate a weekly workout routine based on user data.
   - **Advanced**: Design routine based on `Workout Type` with higher specificity and detail.
   - **Elite**: More advanced and higher intensity routines than Advanced, using heavy weights.
 - **Progression**: Apply progressive overload. Slightly increase weight (~2.5-5%) or reps (+1-2) from the last relevant workout. For new exercises, estimate a conservative starting weight.
-- **Structure**: Ensure balanced muscle group distribution. Allow for rest days. Align routine with user\'s `Workout Type` (e.g., strength vs. bodybuilding).
-
+- **Structure**: Ensure balanced muscle group distribution. Allow for rest days. Align routine with user's `Workout Type` (e.g., strength vs. bodybuilding).
 ## [Available Exercise Catalog]
 [
 {exercise_list_text}
 ]
-
 ## [Example Output] (Structural guide ONLY. Do NOT copy values.)
 {example_output}
 
-## [Final Instruction]
-Return **ONLY** the generated JSON array.
+## [RESPONSE FORMAT]
+- Your response MUST be a single JSON object and nothing else.
+- Do NOT include any text, explanations, or markdown like ```json.
+- Your entire response must start with `{{` and end with `}}`.
+
+## [START RESPONSE]
 """
     return prompt
+
+
 
 def dehydrate_to_array(full_routine):
     """Converts a full routine to an ultra-compact array format."""
@@ -410,6 +427,98 @@ def infer_api():
     except Exception as e:
         app.logger.error(f"Error calling vLLM server: {e}", exc_info=True)
         return jsonify({"error": f"Failed to reach or process response from vLLM server: {e}"}), 502
+
+@app.route('/generate-openai', methods=['POST'])
+def generate_openai_api():
+    """
+    Calls the OpenAI API, gets a routine, and returns both the raw
+    JSON and a human-readable formatted summary.
+    """
+    app.logger.info("Received request for /generate-openai")
+    data = request.get_json() or {}
+    prompt = (data.get("prompt") or "").strip()
+
+    if not prompt:
+        app.logger.error("Request is missing a prompt.")
+        return jsonify({"error": "Missing prompt"}), 400
+    
+    if not OPENAI_API_KEY:
+        app.logger.error("OPENAI_API_KEY environment variable is not set.")
+        return jsonify({"error": "OPENAI_API_KEY environment variable not set."}), 500
+
+    try:
+        app.logger.info(f"Calling OpenAI API with model: {OPENAI_MODEL}")
+        client = OpenAI(api_key=OPENAI_API_KEY)
+
+        resp = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": "You are an expert AI personal trainer. You will be given user data and a catalog of exercises. Your task is to generate a weekly workout routine. Your response MUST be a valid JSON array of arrays, conforming to the schema provided in the user prompt. Do not include any explanatory text, markdown, or any characters outside of the JSON array."},
+                {"role": "user", "content": prompt}
+            ],
+            max_completion_tokens=int(data.get("max_tokens", 3072)),
+            response_format={"type": "json_object"}
+        )
+        
+        raw_response_text = resp.choices[0].message.content
+        app.logger.info(f"Raw OpenAI output received: {raw_response_text}")
+        
+        formatted_summary = "Could not parse or format the model output."
+        try:
+            app.logger.info("Attempting to repair JSON from model response.")
+            repaired_json = repair_json(raw_response_text)
+            app.logger.info(f"Successfully repaired JSON: {repaired_json}")
+
+            is_error_dict = False
+            if isinstance(repaired_json, dict):
+                app.logger.info("Repaired JSON is a dict, searching for a list value.")
+                original_dict = repaired_json
+                found_list = False
+                for key, value in repaired_json.items():
+                    if isinstance(value, list):
+                        repaired_json = value
+                        app.logger.info(f"Found and extracted list from dict key '{key}'.")
+                        found_list = True
+                        break
+                
+                if not found_list:
+                    is_error_dict = True
+                    formatted_summary = f"Model returned an error object:\n{json.dumps(original_dict, indent=2)}"
+                    app.logger.warning(f"Model returned a JSON object that does not contain a routine list: {original_dict}")
+
+            if not is_error_dict:
+                app.logger.info("Attempting to hydrate routine from repaired JSON.")
+                hydrated_routine = group_and_hydrate(repaired_json)
+                app.logger.info("Successfully hydrated routine.")
+
+                app.logger.info("Attempting to format summary from hydrated routine.")
+                formatted_summary = summarize_user_history(hydrated_routine, exercise_name_map, FormattingStyle.FORMATTED_ROUTINE)
+                app.logger.info("Successfully formatted summary.")
+
+        except Exception as e:
+            app.logger.error(f"Error during OpenAI response post-processing: {e}", exc_info=True)
+            pass
+
+        return jsonify({
+            "response": raw_response_text,
+            "formatted_summary": formatted_summary
+        })
+
+    except openai.APIStatusError as e:
+        app.logger.error(f"OpenAI API returned an error status: {e}")
+        error_json = e.response.json()
+        raw_response_text = json.dumps(error_json)
+        formatted_summary = f"Model API returned an error:\n{json.dumps(error_json, indent=2)}"
+        
+        return jsonify({
+            "response": raw_response_text,
+            "formatted_summary": formatted_summary
+        })
+
+    except Exception as e:
+        app.logger.error(f"An unexpected error occurred in generate_openai_api: {e}", exc_info=True)
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 502
+
 
 if __name__ == '__main__':
     app.run(

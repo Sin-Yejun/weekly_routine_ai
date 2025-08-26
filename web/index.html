@@ -3,104 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Prompt Generation Tester v2</title>
+    <title>Advanced AI Routine Generator</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>AI Prompt Generation Tester v2</h1>
-        
-        <div class="main-grid">
-            <!-- User Input Section -->
-            <div class="grid-section">
-                <h2>1. User Info</h2>
-                <div class="form-group">
-                    <label for="gender-select">Gender</label>
-                    <select id="gender-select">
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="weight-input">Weight (kg)</label>
-                    <input type="number" id="weight-input" value="75">
-                </div>
-                <div class="form-group">
-                    <label for="level-select">Training Level</label>
-                    <select id="level-select">
-                        <option value="Beginner">Beginner</option>
-                        <option value="Novice">Novice</option>
-                        <option value="Intermediate" selected>Intermediate</option>
-                        <option value="Advanced">Advanced</option>
-                        <option value="Elite">Elite</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="type-select">Workout Type</label>
-                    <select id="type-select">
-                        <option value="bodybuilding">Bodybuilding</option>
-                        <option value="strength">Strength</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="frequency-input">Weekly Workout Frequency</label>
-                    <input type="number" id="frequency-input" value="3" min="1" max="7">
-                </div>
-            </div>
+        <h1>Advanced AI Routine Generator</h1>
 
-            <!-- Workout History Section -->
-            <div class="grid-section">
-                <h2>2. Workout History</h2>
+        <div class="main-grid">
+            <!-- User Selection & History -->
+            <div class="grid-section user-section">
+                <h2>User & History</h2>
                 <div class="form-group">
-                    <label for="user-history-select">Select User to Load History</label>
+                    <label for="user-history-select">Select User:</label>
                     <select id="user-history-select">
-                        <option value="">Loading users...</option>
+                        <option value="">-- Loading Users --</option>
                     </select>
                 </div>
-                <div class="history-box" id="history-display">
+                <div id="history-display" class="history-container">
                     <p>Select a user to see their workout history.</p>
                 </div>
             </div>
 
-            <!-- Exercise Catalog Section -->
-            <div class="grid-section full-width">
-                <h2>3. Available Exercise Catalog</h2>
-                <div class="filter-bar">
-                    <div class="form-group">
-                        <label for="b-name-filter">Filter by Body Part</label>
-                        <div id="b-name-filter-container" class="filter-group"></div>
+            <!-- Exercise Catalog & Filters -->
+            <div class="grid-section catalog-section">
+                <h2>Exercise Catalog</h2>
+                <div class="filters">
+                    <div id="b-name-filter-container" class="filter-group">
+                        <h3>Filter by Body Part</h3>
                     </div>
-                    <div class="form-group">
-                        <label for="t-id-filter">Filter by Tool</label>
-                        <div id="t-id-filter-container" class="filter-group"></div>
+                    <div id="t-id-filter-container" class="filter-group">
+                        <h3>Filter by Tool</h3>
                     </div>
                 </div>
-                <div class="catalog-box" id="catalog-display">
-                    <p>Loading exercise catalog...</p>
+                <div id="catalog-display" class="catalog-container">
+                    <p>Loading exercises...</p>
                 </div>
             </div>
-        </div>
 
-        <div class="button-group">
-            <button id="generate-prompt-btn">1. Generate Prompt</button>
-            <button id="generate-vllm-btn" class="hidden">2. Generate Routine with vLLM</button>
-        </div>
+            <!-- User Info & Prompt Generation -->
+            <div class="grid-section user-info-section">
+                <h2>User Info</h2>
+                <div class="user-inputs">
+                    <div class="form-group">
+                        <label for="gender-select">Gender:</label>
+                        <select id="gender-select">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="weight-input">Weight (kg):</label>
+                        <input type="number" id="weight-input" value="75">
+                    </div>
+                    <div class="form-group">
+                        <label for="level-select">Level:</label>
+                        <select id="level-select">
+                            <option value="Beginner">Beginner</option>
+                            <option value="Novice">Novice</option>
+                            <option value="Intermediate" selected>Intermediate</option>
+                            <option value="Advanced">Advanced</option>
+                            <option value="Elite">Elite</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="type-select">Workout Type:</label>
+                        <select id="type-select">
+                            <option value="bodybuilding" selected>Bodybuilding</option>
+                            <option value="powerlifting">Powerlifting</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="frequency-input">Frequency (days/week):</label>
+                        <input type="number" id="frequency-input" min="1" max="7" value="3">
+                    </div>
+                </div>
+                <button id="generate-prompt-btn">Generate Prompt</button>
+            </div>
 
-        <div class="results-area">
-                <h2>Generated Prompt (Editable)</h2>
-                <textarea id="prompt-output" rows="30" placeholder="Fill in the details above and click 'Generate Prompt'..."></textarea>
-            </div>
-            <div class="results-area">
-                <h2>Model Response</h2>
-                <pre id="model-output">Model response will appear here...</pre>
-            </div>
-            <div class="results-area">
-                <h2>Formatted Routine</h2>
-                <pre id="formatted-output">(Formatted routine will appear here)</pre>
+            <!-- Prompt & Model Output -->
+            <div class="grid-section output-section">
+                <h2>Generated Prompt & Model Output</h2>
+                <div class="form-group">
+                    <label for="prompt-output">Generated Prompt:</label>
+                    <textarea id="prompt-output" readonly placeholder="Prompt will appear here..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="model-selector">Select Model:</label>
+                    <select id="model-selector">
+                        <option value="vllm" selected>vLLM</option>
+                        <option value="openai">OpenAI</option>
+                    </select>
+                </div>
+                <button id="generate-vllm-btn" class="hidden">Generate Routine</button>
+                <div class="outputs">
+                    <div class="output-box">
+                        <h3>Raw Model Output</h3>
+                        <pre id="model-output"></pre>
+                    </div>
+                    <div class="output-box">
+                        <h3>Formatted Summary</h3>
+                        <pre id="formatted-output"></pre>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
     <script src="script.js"></script>
 </body>
 </html>
