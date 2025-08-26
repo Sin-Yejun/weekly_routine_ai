@@ -5,6 +5,27 @@ import pandas as pd
 import random
 import requests
 from openai import OpenAI
+from json_repair import loads as repair_json
+
+from util import summarize_user_history, FormattingStyle
+
+def _to_number(x):
+    """Converts any numeric/string form to a number safely. Returns 0 on failure."""
+    if isinstance(x, (int, float)):
+        return int(x) if isinstance(x, float) and x.is_integer() else x
+    if isinstance(x, str):
+        s = x.strip()
+        try:
+            if '.' in s:
+                v = float(s)
+                return int(v) if v.is_integer() else v
+            return int(s)
+        except (ValueError, TypeError):
+            m = re.search(r'-?\d+(?:\.\d+)?', s)
+            if m:
+                v = float(m.group(0))
+                return int(v) if v.is_integer() else v
+    return 0
 
 # --- Flask App Initialization --
 # Serve static files from the 'web' directory
@@ -16,8 +37,25 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 USER_HISTORY_DIR = os.path.join(DATA_DIR, '01_raw', 'user_workout_history')
 PARQUET_USER_PATH = os.path.join(DATA_DIR, '02_processed', 'parquet', 'user_v2.parquet')
 EXERCISE_CATALOG_PATH = os.path.join(DATA_DIR, '03_core_assets', 'multilingual-pack', 'post_process_en_from_ai_list.json')
-VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://localhost:8000/v1")
+QUERY_RESULT_PATH = os.path.join(DATA_DIR, '02_processed', 'query_result.json')
+VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
 VLLM_MODEL    = os.getenv("VLLM_MODEL", "google/gemma-3-4b-it")
+
+# --- Load Exercise Name Map ---
+exercise_name_map = {}
+try:
+    with open(QUERY_RESULT_PATH, 'r', encoding='utf-8') as f:
+        query_result = json.load(f)
+        for exercise in query_result:
+            e_text_id = exercise.get('eTextId')
+            if e_text_id:
+                exercise_name_map[e_text_id] = {
+                    'bName': exercise.get('bName'),
+                    'eName': exercise.get('eName')
+                }
+except (FileNotFoundError, json.JSONDecodeError) as e:
+    print(f"Warning: Could not load or parse {QUERY_RESULT_PATH}: {e}")
+
 
 # --- Helper Functions from test_prompt.py ---
 
@@ -37,7 +75,6 @@ def format_user_info(user_info):
     )
     return profile_text, frequency
 
-
 def get_user_info(user_df, user_id):
     user_series = user_df[user_df["id"] == user_id]
     if user_series.empty:
@@ -55,49 +92,6 @@ def get_user_info(user_df, user_id):
     )
     return profile_text, frequency
 
-def compress_sets(sets: list) -> str:
-    out = []
-    if not sets:
-        return ""
-    for s in sets:
-        if not isinstance(s, dict): continue
-        reps, weight, time = s.get("reps"), s.get("weight"), s.get("time")
-        if time and time > 0:
-            out.append(f"{time}s")
-            continue
-        w_disp = int(weight) if weight is not None and isinstance(weight, (int, float)) and float(weight).is_integer() else weight
-        base = ""
-        if w_disp is not None and w_disp != 0:
-            base = f"{w_disp}x{reps}"
-        else:
-            base = f"{reps}"
-        out.append(base)
-    return " / ".join(out)
-
-def summarize_user_history(workout_days: list) -> str:
-    texts = []
-    for idx, day in enumerate(workout_days, 1):
-        duration = day.get('duration')
-        duration_str = f" (Duration: {duration}min)" if duration else ""
-        header = f"[Workout #{idx}{duration_str}]"
-        lines = [header]
-        if "session_data" in day and day["session_data"]:
-            for ex in day["session_data"]:
-                # 다양한 케이스 허용
-                e_text_id = (ex.get('eTextId') or ex.get('e_text_id') or
-                             ex.get('eName') or ex.get('e_name') or 'N/A')
-                sets_data = ex.get('sets') or []
-                if not sets_data:
-                    continue
-                num_sets = len(sets_data)
-                compressed_sets_str = compress_sets(sets_data)
-                line = f"- {e_text_id}: {num_sets}sets: {compressed_sets_str}"
-                lines.append(line)
-        if len(lines) > 1:
-            texts.append("\n".join(lines))
-    return "\n\n".join(texts)
-
-
 def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_catalog):
     compact_catalog_list = []
     for e in exercise_catalog:
@@ -110,9 +104,9 @@ def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_
         )
         e_name = e.get("eName") or e.get("e_name") or ""
 
-        e_text_id = str(e_text_id).replace('"', '\"')
-        b_text_id = str(b_text_id).replace('"', '\"')
-        e_name = str(e_name).replace('"', '\"')
+        e_text_id = str(e_text_id).replace('"', '"')
+        b_text_id = str(b_text_id).replace('"', '"')
+        e_name = str(e_name).replace('"', '"')
 
         compact_catalog_list.append(
             f'["{e_text_id}", "{b_text_id}", {e_info_type}, "{e_name}"]'
@@ -145,7 +139,7 @@ Generate a weekly workout routine based on user data.
   - **Advanced**: Design routine based on `Workout Type` with higher specificity and detail.
   - **Elite**: More advanced and higher intensity routines than Advanced, using heavy weights.
 - **Progression**: Apply progressive overload. Slightly increase weight (~2.5-5%) or reps (+1-2) from the last relevant workout. For new exercises, estimate a conservative starting weight.
-- **Structure**: Ensure balanced muscle group distribution. Allow for rest days. Align routine with user's `Workout Type` (e.g., strength vs. bodybuilding).
+- **Structure**: Ensure balanced muscle group distribution. Allow for rest days. Align routine with user\'s `Workout Type` (e.g., strength vs. bodybuilding).
 
 ## [Available Exercise Catalog]
 [
@@ -180,36 +174,101 @@ def dehydrate_to_array(full_routine):
     return ultra_compact_routine
 
 
+def group_and_hydrate(repaired_json):
+    """
+    불완전/중첩 JSON 안에서 [duration, [exercises]] 세션을 모두 수집하되,
+    '탐지 방식'이 달라 생기는 중복만 제거하고 실제로 같은 내용의 '다른 날'은 유지.
+    """
+    # 잘못 한 번 더 감싼 경우 풀기
+    if isinstance(repaired_json, list) and len(repaired_json) == 1 and isinstance(repaired_json[0], list):
+        repaired_json = repaired_json[0]
+
+    sessions_by_origin = {}  # origin_key -> [duration, exercises]
+    order = []
+
+    def walk(node):
+        if not isinstance(node, list):
+            return
+
+        # 1) 정확한 페어: [duration, [exercises]]
+        if len(node) == 2 and isinstance(node[0], (int, float)) and isinstance(node[1], list):
+            origin = f"exact:{id(node)}"  # 이 리스트 객체 자체가 오리진
+            if origin not in sessions_by_origin:
+                sessions_by_origin[origin] = [node[0], node[1]]
+                order.append(origin)
+            # 하위에 또 세션이 숨어 있을 수 있으니 계속 탐색
+            for el in node:
+                walk(el)
+            return  # 이 노드에서는 분리형 탐지는 중복 유발하므로 스킵
+
+        # 2) 분리형: 같은 리스트 안에서 ... duration, [exercises], ...
+        for i in range(len(node) - 1):
+            if isinstance(node[i], (int, float)) and isinstance(node[i + 1], list):
+                origin = f"adj:{id(node)}:{i}"  # 같은 부모 리스트의 i 위치에서 발견
+                if origin not in sessions_by_origin:
+                    sessions_by_origin[origin] = [node[i], node[i + 1]]
+                    order.append(origin)
+
+        # 3) 더 깊이
+        for el in node:
+            walk(el)
+
+    walk(repaired_json)
+
+    # 오리진 기준으로만 중복 제거된(=탐지중복만 제거된) 세션들을 순서대로 반환
+    unique_in_order = [sessions_by_origin[k] for k in order]
+    return hydrate_from_array(unique_in_order)
+
+
 def hydrate_from_array(compact_routine):
     """Converts an ultra-compact array format back to a full routine structure."""
     full_routine = []
     if not isinstance(compact_routine, list):
         return full_routine
 
+    # 어떤 깊이의 중첩된 리스트에서도 [w,r,t] 형태의 세트 리스트를 추출하는 내부 함수
+    def _find_and_parse_sets(data_block):
+        # data_block이 [w,r,t] 형태인지 확인
+        if isinstance(data_block, list) and len(data_block) == 3:
+            # 리스트의 요소들이 숫자로 직접 변환 가능한지 확인 (즉, [w,r,t] 형태의 실제 세트인지)
+            if all(not isinstance(x, (list, dict)) for x in data_block):
+                try:
+                    w, r, t = _to_number(data_block[0]), _to_number(data_block[1]), _to_number(data_block[2])
+                    if r >= 0:
+                        yield {"weight": w, "reps": r, "time": t}
+                        return # 성공적으로 파싱했으면 더 깊이 들어가지 않음
+                except (TypeError, ValueError):
+                    pass # 숫자로 변환 실패 시, 하위 리스트로 간주하고 계속 진행
+
+        # 리스트인 경우 (그리고 위에서 실제 세트로 처리되지 않았다면), 하위 요소들을 재귀적으로 탐색
+        if isinstance(data_block, list):
+            for item in data_block:
+                yield from _find_and_parse_sets(item)
+
     for session_array in compact_routine:
         if not isinstance(session_array, list) or len(session_array) != 2:
             continue
-        
+
         duration, exercises_array = session_array
         session_data = []
         if isinstance(exercises_array, list):
             for exercise_array in exercises_array:
-                if not isinstance(exercise_array, list) or len(exercise_array) != 2:
+                if not isinstance(exercise_array, list) or len(exercise_array) < 1:
                     continue
-                
-                e_text_id, sets_array = exercise_array
+
+                e_text_id = exercise_array[0]
+                # eTextId 이후의 모든 요소를 세트 데이터 후보로 간주
+                raw_set_data_blocks = exercise_array[1:]
+
                 sets_data = []
-                if isinstance(sets_array, list):
-                    for s_array in sets_array:
-                        if not isinstance(s_array, list) or len(s_array) != 3:
-                            continue
-                        w, r, t = s_array
-                        sets_data.append({"weight": w, "reps": r, "time": t})
-                
+                for block in raw_set_data_blocks:
+                    sets_data.extend(list(_find_and_parse_sets(block)))
+
                 session_data.append({"eTextId": e_text_id, "sets": sets_data})
-        
+
         full_routine.append({"duration": duration, "session_data": session_data})
     return full_routine
+
 
 
 # --- API Endpoints ---
@@ -234,9 +293,12 @@ def get_users():
             if col not in user_df.columns:
                 user_df[col] = None # or a suitable default
 
-        users = user_df[user_columns].to_dict(orient='records')
+        # Safely convert pandas DataFrame to list of dicts, avoiding numpy type issues
+        users_json_str = user_df[user_columns].to_json(orient='records')
+        users = json.loads(users_json_str)
         
-        return jsonify(users)
+        # Return only the first 10 users for a cleaner UI
+        return jsonify(users[:10])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -272,7 +334,7 @@ def generate_prompt_api():
     """Generates a finetuning prompt based on provided data."""
     data = request.get_json()
     if not data or 'userInfo' not in data or 'workoutHistory' not in data or 'exerciseCatalog' not in data:
-        return jsonify({"error": "Missing required data: userInfo, workoutHistory, or exerciseCatalog."}), 400
+        return jsonify({"error": "Missing required data: userInfo, workoutHistory, or exerciseCatalog."} ), 400
 
     try:
         user_info = data['userInfo']
@@ -281,15 +343,10 @@ def generate_prompt_api():
 
         user_info_txt, frequency = format_user_info(user_info)
 
-        # Use the entire selected history for the prompt summary.
-        # The concept of splitting history for an "ideal output" is obsolete.
-        history_summary_txt = summarize_user_history(workout_history)
+        history_summary_txt = summarize_user_history(workout_history, exercise_name_map, FormattingStyle.HISTORY_SUMMARY)
         
-        # Generate the prompt
         final_prompt = create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_catalog)
 
-        # The "output" field is no longer used by the frontend for Ideal Output,
-        # but we can return an empty string to prevent breaking the JS if it still expects the key.
         return jsonify({
             "prompt": final_prompt,
             "output": "" 
@@ -297,7 +354,7 @@ def generate_prompt_api():
 
     except Exception as e:
         app.logger.error(f"Error in generate_prompt_api: {e}", exc_info=True)
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"} ), 500
 
 
 @app.route('/api/infer', methods=['POST'])
@@ -313,7 +370,6 @@ def infer_api():
         return jsonify({"error": "Missing prompt"}), 400
 
     try:
-        # Connect directly to the vLLM server using the environment variable
         client = OpenAI(base_url=VLLM_BASE_URL, api_key="token-1234")
 
         resp = client.chat.completions.create(
@@ -327,29 +383,24 @@ def infer_api():
         
         raw_response_text = resp.choices[0].message.content
 
-        # Post-processing
         app.logger.info(f"Raw model output to be processed: {raw_response_text}")
         formatted_summary = "Could not parse or format the model output."
         try:
-            # Pre-process the raw text to extract only the JSON part
-            # This handles cases where the model wraps the JSON in markdown ```json ... ```
             first_bracket = raw_response_text.find('[')
             last_bracket = raw_response_text.rfind(']')
             
             if first_bracket != -1 and last_bracket != -1:
                 json_string = raw_response_text[first_bracket:last_bracket+1]
-                # 1. Parse the cleaned JSON string
-                model_output_array = json.loads(json_string)
-                # 2. Hydrate the compact array to a structured format
-                hydrated_routine = hydrate_from_array(model_output_array)
-                # 3. Summarize the structured routine into a readable string
-                formatted_summary = summarize_user_history(hydrated_routine)
+                
+                repaired_json = repair_json(json_string)
+                
+                hydrated_routine = group_and_hydrate(repaired_json)
+
+                formatted_summary = summarize_user_history(hydrated_routine, exercise_name_map, FormattingStyle.FORMATTED_ROUTINE)
             else:
-                # If no JSON array is found, keep the error message
                 app.logger.error(f"Could not find JSON array in raw output: {raw_response_text}")
         except Exception as e:
             app.logger.error(f"Error during post-processing: {e}", exc_info=True)
-            # If formatting fails, we still return the raw response
 
         return jsonify({
             "response": raw_response_text,
@@ -361,4 +412,8 @@ def infer_api():
         return jsonify({"error": f"Failed to reach or process response from vLLM server: {e}"}), 502
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    app.run(
+        debug=False,
+        host=os.getenv("WEB_HOST", "127.0.0.1"),
+        port=int(os.getenv("WEB_PORT", "5001")),
+    )

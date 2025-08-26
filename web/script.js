@@ -326,7 +326,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // -------- Initial Data Fetching --------
   // Users
   fetch('/api/users')
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(err => { throw new Error(err.error || 'Failed to fetch users'); });
+      }
+      return response.json();
+    })
     .then(users => {
       usersById.clear();
       userHistorySelect.innerHTML = '<option value="">-- Select a User --</option>';
@@ -345,7 +350,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Exercises
   fetch('/api/exercises')
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw new Error(err.error || 'Failed to fetch exercises') });
+        }
+        return response.json();
+    })
     .then(exercises => {
       allExercises = Array.isArray(exercises) ? exercises : [];
       assignExerciseKeys(allExercises);      // 키 부여 + Map 구성
@@ -387,7 +397,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetch and display workout history
     historyDisplay.textContent = 'Loading history...';
     fetch(`/api/users/${selectedUserId}/history`)
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw new Error(err.error || 'Failed to fetch history') });
+        }
+        return response.json();
+      })
       .then(history => displayHistory(history))
       .catch(error => {
         historyDisplay.textContent = 'Error loading history.';
