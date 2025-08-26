@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import random
 import requests
+from openai import OpenAI
 
 # --- Flask App Initialization --
 # Serve static files from the 'web' directory
@@ -16,7 +17,7 @@ USER_HISTORY_DIR = os.path.join(DATA_DIR, '01_raw', 'user_workout_history')
 PARQUET_USER_PATH = os.path.join(DATA_DIR, '02_processed', 'parquet', 'user_v2.parquet')
 EXERCISE_CATALOG_PATH = os.path.join(DATA_DIR, '03_core_assets', 'multilingual-pack', 'post_process_en_from_ai_list.json')
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://localhost:8000/v1")
-VLLM_MODEL    = os.getenv("VLLM_MODEL", "routine")  # --lora-modules에서 지정한 이름
+VLLM_MODEL    = os.getenv("VLLM_MODEL", "google/gemma-3-4b-it")
 
 # --- Helper Functions from test_prompt.py ---
 
@@ -65,9 +66,11 @@ def compress_sets(sets: list) -> str:
             out.append(f"{time}s")
             continue
         w_disp = int(weight) if weight is not None and isinstance(weight, (int, float)) and float(weight).is_integer() else weight
-        base = f"{reps}"
+        base = ""
         if w_disp is not None and w_disp != 0:
-            base += f"x{w_disp}"
+            base = f"{w_disp}x{reps}"
+        else:
+            base = f"{reps}"
         out.append(base)
     return " / ".join(out)
 
@@ -116,7 +119,7 @@ def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_
         )
 
     exercise_list_text = "\n".join(compact_catalog_list)
-    example_output = '[[60, [["BB_BSQT", [[80,10,0], [90,8,0]]]]]]'
+    example_output = '[[60, [["BB_BSQT", [[80,10,0], [90,8,0, ... ]], ... ]], ... ]'
 
     prompt = f"""## [Task]
 Generate a weekly workout routine based on user data.
@@ -177,6 +180,38 @@ def dehydrate_to_array(full_routine):
     return ultra_compact_routine
 
 
+def hydrate_from_array(compact_routine):
+    """Converts an ultra-compact array format back to a full routine structure."""
+    full_routine = []
+    if not isinstance(compact_routine, list):
+        return full_routine
+
+    for session_array in compact_routine:
+        if not isinstance(session_array, list) or len(session_array) != 2:
+            continue
+        
+        duration, exercises_array = session_array
+        session_data = []
+        if isinstance(exercises_array, list):
+            for exercise_array in exercises_array:
+                if not isinstance(exercise_array, list) or len(exercise_array) != 2:
+                    continue
+                
+                e_text_id, sets_array = exercise_array
+                sets_data = []
+                if isinstance(sets_array, list):
+                    for s_array in sets_array:
+                        if not isinstance(s_array, list) or len(s_array) != 3:
+                            continue
+                        w, r, t = s_array
+                        sets_data.append({"weight": w, "reps": r, "time": t})
+                
+                session_data.append({"eTextId": e_text_id, "sets": sets_data})
+        
+        full_routine.append({"duration": duration, "session_data": session_data})
+    return full_routine
+
+
 # --- API Endpoints ---
 
 @app.route('/')
@@ -192,8 +227,14 @@ def get_users():
             
         user_df = pd.read_parquet(PARQUET_USER_PATH)
         
-        # TODO: Filter users based on history file length in a future step
-        users = user_df[['id', 'gender', 'level']].to_dict(orient='records')
+        # Return all relevant user fields for the UI
+        user_columns = ['id', 'gender', 'level', 'weight', 'type', 'frequency']
+        # Ensure all columns exist, fill missing with a default if necessary
+        for col in user_columns:
+            if col not in user_df.columns:
+                user_df[col] = None # or a suitable default
+
+        users = user_df[user_columns].to_dict(orient='records')
         
         return jsonify(users)
     except Exception as e:
@@ -228,10 +269,10 @@ def get_exercises():
 
 @app.route('/api/generate-prompt', methods=['POST'])
 def generate_prompt_api():
-    """Generates a finetuning prompt and the ideal output based on provided data."""
+    """Generates a finetuning prompt based on provided data."""
     data = request.get_json()
     if not data or 'userInfo' not in data or 'workoutHistory' not in data or 'exerciseCatalog' not in data:
-        return jsonify({"error": "Missing required data: userInfo, workoutHistory, or exerciseCatalog."} ), 400
+        return jsonify({"error": "Missing required data: userInfo, workoutHistory, or exerciseCatalog."}), 400
 
     try:
         user_info = data['userInfo']
@@ -240,63 +281,84 @@ def generate_prompt_api():
 
         user_info_txt, frequency = format_user_info(user_info)
 
-        # Split history into what's used for the prompt and what's used for the target output
-        # The most recent `frequency` sessions are the target output
-        output_sessions = workout_history[:frequency]
-        history_for_summary = workout_history[frequency:]
-
-        # Generate the summary text for the prompt from the older history
-        history_summary_txt = summarize_user_history(history_for_summary)
+        # Use the entire selected history for the prompt summary.
+        # The concept of splitting history for an "ideal output" is obsolete.
+        history_summary_txt = summarize_user_history(workout_history)
         
         # Generate the prompt
         final_prompt = create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_catalog)
 
-        # Generate the target output array from the most recent sessions
-        output_array = dehydrate_to_array(output_sessions)
-
+        # The "output" field is no longer used by the frontend for Ideal Output,
+        # but we can return an empty string to prevent breaking the JS if it still expects the key.
         return jsonify({
             "prompt": final_prompt,
-            "output": json.dumps(output_array, indent=2, ensure_ascii=False) # Use dumps for nice formatting
+            "output": "" 
         })
 
     except Exception as e:
-        # It's helpful to log the exception for debugging
         app.logger.error(f"Error in generate_prompt_api: {e}", exc_info=True)
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"} ), 500
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
 
 @app.route('/api/infer', methods=['POST'])
 def infer_api():
     """
     Body: { "prompt": "<string>", "temperature": 0.0, "max_tokens": 1024 }
-    Calls vLLM OpenAI-compatible server and returns the model response text.
+    Calls the vLLM server, gets a routine, and returns both the raw
+    JSON and a human-readable formatted summary.
     """
     data = request.get_json() or {}
     prompt = (data.get("prompt") or "").strip()
     if not prompt:
         return jsonify({"error": "Missing prompt"}), 400
 
-    payload = {
-        "model": VLLM_MODEL,  # e.g. "routine"
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": float(data.get("temperature", 0.0)),
-        "max_tokens": int(data.get("max_tokens", 1024)),
-    }
-
     try:
-        r = requests.post(f"{VLLM_BASE_URL}/chat/completions", json=payload, timeout=120)
-        if r.status_code != 200:
-            try:
-                err = r.json()
-            except Exception:
-                err = {"error": r.text}
-            return jsonify({"error": f"vLLM error ({r.status_code}): {err}"}), 502
+        # Connect directly to the vLLM server using the environment variable
+        client = OpenAI(base_url=VLLM_BASE_URL, api_key="token-1234")
 
-        jr = r.json()
-        text = jr["choices"][0]["message"]["content"]
-        return jsonify({"response": text})
-    except requests.RequestException as e:
-        return jsonify({"error": f"Failed to reach vLLM server: {e}"}), 502
+        resp = client.chat.completions.create(
+            model=VLLM_MODEL,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=float(data.get("temperature", 0.0)),
+            max_tokens=int(data.get("max_tokens", 2048)),
+        )
+        
+        raw_response_text = resp.choices[0].message.content
+
+        # Post-processing
+        app.logger.info(f"Raw model output to be processed: {raw_response_text}")
+        formatted_summary = "Could not parse or format the model output."
+        try:
+            # Pre-process the raw text to extract only the JSON part
+            # This handles cases where the model wraps the JSON in markdown ```json ... ```
+            first_bracket = raw_response_text.find('[')
+            last_bracket = raw_response_text.rfind(']')
+            
+            if first_bracket != -1 and last_bracket != -1:
+                json_string = raw_response_text[first_bracket:last_bracket+1]
+                # 1. Parse the cleaned JSON string
+                model_output_array = json.loads(json_string)
+                # 2. Hydrate the compact array to a structured format
+                hydrated_routine = hydrate_from_array(model_output_array)
+                # 3. Summarize the structured routine into a readable string
+                formatted_summary = summarize_user_history(hydrated_routine)
+            else:
+                # If no JSON array is found, keep the error message
+                app.logger.error(f"Could not find JSON array in raw output: {raw_response_text}")
+        except Exception as e:
+            app.logger.error(f"Error during post-processing: {e}", exc_info=True)
+            # If formatting fails, we still return the raw response
+
+        return jsonify({
+            "response": raw_response_text,
+            "formatted_summary": formatted_summary
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error calling vLLM server: {e}", exc_info=True)
+        return jsonify({"error": f"Failed to reach or process response from vLLM server: {e}"}), 502
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

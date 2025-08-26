@@ -5,9 +5,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const bNameFilterContainer = document.getElementById('b-name-filter-container');
   const tIdFilterContainer   = document.getElementById('t-id-filter-container');
   const catalogDisplay    = document.getElementById('catalog-display');
-  const generateBtn       = document.getElementById('generate-btn');
-  const promptOutput      = document.getElementById('prompt-output');
-  const outputDisplay     = document.getElementById('output-display');
+  const generatePromptBtn = document.getElementById('generate-prompt-btn');
+  const generateVllmBtn   = document.getElementById('generate-vllm-btn');
+  const promptOutput      = document.getElementById('prompt-output'); // Now a textarea
+  const modelOutputEl     = document.getElementById('model-output');
+  const formattedOutputEl = document.getElementById('formatted-output');
 
   // User Info Inputs
   const genderSelect   = document.getElementById('gender-select');
@@ -18,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- State ---
   let allExercises   = [];         // 전체 운동 목록
+  let usersById      = new Map();  // 전체 유저 정보 (ID로 조회)
   let exerciseById   = new Map();  // key -> exercise 객체
   let currentHistory = [];         // 현재 유저의 전체 히스토리
   let selectedHistory = [];        // 체크된 히스토리만 모음
@@ -277,8 +280,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // 기본값: 전체 선택
-    selectedHistory = [...currentHistory];
+    // Default selection: Top 10 or all if fewer than 10
+    const defaultSelectionCount = Math.min(10, currentHistory.length);
+    selectedHistory = currentHistory.slice(0, defaultSelectionCount);
 
     currentHistory.forEach((session, index) => {
       const item = document.createElement('div');
@@ -288,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
       checkbox.type = 'checkbox';
       checkbox.id = `hist-${index}`;
       checkbox.dataset.index = String(index);
-      checkbox.checked = true;
+      checkbox.checked = index < defaultSelectionCount; // Check only the first 10 (or fewer)
 
       const summary = Array.isArray(session.session_data)
         ? session.session_data.map(s =>
@@ -324,8 +328,10 @@ document.addEventListener('DOMContentLoaded', () => {
   fetch('/api/users')
     .then(response => response.json())
     .then(users => {
+      usersById.clear();
       userHistorySelect.innerHTML = '<option value="">-- Select a User --</option>';
       users.forEach(user => {
+        usersById.set(String(user.id), user); // Store full user object
         const option = document.createElement('option');
         option.value = user.id;
         option.textContent = `User ID: ${user.id}`;
@@ -366,6 +372,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Update user info panel
+    const userData = usersById.get(selectedUserId);
+    if (userData) {
+        const gender = (userData.gender || '').toLowerCase();
+        genderSelect.value = gender === 'female' ? 'Female' : 'Male';
+
+        weightInput.value = userData.weight || 75;
+        levelSelect.value = userData.level || 'Intermediate';
+        typeSelect.value = userData.type || 'bodybuilding';
+        frequencyInput.value = userData.frequency || 3;
+    }
+
+    // Fetch and display workout history
     historyDisplay.textContent = 'Loading history...';
     fetch(`/api/users/${selectedUserId}/history`)
       .then(response => response.json())
@@ -378,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   
 
-  generateBtn.addEventListener('click', () => {
+  generatePromptBtn.addEventListener('click', () => {
     // Gather User Info
     const userInfo = {
       gender: genderSelect.value,
@@ -396,17 +415,15 @@ document.addEventListener('DOMContentLoaded', () => {
       .filter(Boolean);
 
     if (selectedExercises.length === 0) {
-      promptOutput.textContent = 'Please select at least one exercise from the catalog.';
-      outputDisplay.textContent = ''; // Clear output display
+      promptOutput.value = 'Please select at least one exercise from the catalog.';
       return;
     }
 
-    promptOutput.textContent = 'Generating prompt...';
-    outputDisplay.textContent = 'Building ideal output from history...';
-    const modelOutputEl = document.getElementById('model-output');
-    if (modelOutputEl) modelOutputEl.textContent = 'Calling model...';
+    promptOutput.value = 'Generating prompt...';
+    modelOutputEl.textContent = 'Waiting for prompt generation...';
 
-    generateBtn.disabled = true;
+    generatePromptBtn.disabled = true;
+    generateVllmBtn.classList.add('hidden'); // Hide vLLM button during generation
 
     fetch('/api/generate-prompt', {
       method: 'POST',
@@ -424,33 +441,55 @@ document.addEventListener('DOMContentLoaded', () => {
         return response.json();
       })
       .then(data => {
-        promptOutput.textContent = data.prompt;
-        outputDisplay.textContent = data.output; // Display the ideal output
-
-        return fetch('/api/infer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: data.prompt,
-            temperature: 0.0,
-            max_tokens: 1024
-          })
-        })
-        .then(r => {
-          if (!r.ok) return r.json().then(err => { throw new Error(err.error || 'Model error'); });
-          return r.json();
-        })
-        .then(model => {
-          if (modelOutputEl) modelOutputEl.textContent = model.response;
-        });
+        promptOutput.value = data.prompt; // Use .value for textarea
+        modelOutputEl.textContent = 'Prompt generated. Click the button below to call the model.';
+        generateVllmBtn.classList.remove('hidden'); // Show the vLLM button
       })
       .catch(error => {
         const errorMessage = `Error: ${error.message}`;
-        promptOutput.textContent = errorMessage;
-        outputDisplay.textContent = errorMessage;
-        if (modelOutputEl) modelOutputEl.textContent = errorMessage;
+        promptOutput.value = errorMessage;
+        modelOutputEl.textContent = errorMessage;
         console.error('Error generating prompt:', error);
       })
-      .finally(() => { generateBtn.disabled = false; });
+      .finally(() => {
+        generatePromptBtn.disabled = false;
+      });
+  });
+
+  generateVllmBtn.addEventListener('click', () => {
+    const prompt = promptOutput.value;
+    if (!prompt || prompt.startsWith('Generating prompt...') || prompt.startsWith('Error:')) {
+      modelOutputEl.textContent = 'Cannot generate routine without a valid prompt.';
+      return;
+    }
+
+    modelOutputEl.textContent = 'Calling vLLM server...';
+    generateVllmBtn.disabled = true;
+
+    fetch('/api/infer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: prompt,
+        temperature: 0.1,
+        max_tokens: 3072 // Increased max_tokens for potentially long routines
+      })
+    })
+    .then(r => {
+      if (!r.ok) return r.json().then(err => { throw new Error(err.error || 'Model error'); });
+      return r.json();
+    })
+    .then(model => {
+      modelOutputEl.textContent = model.response;
+      formattedOutputEl.textContent = model.formatted_summary;
+    })
+    .catch(error => {
+        const errorMessage = `Error: ${error.message}`;
+        modelOutputEl.textContent = errorMessage;
+        console.error('Error inferring from model:', error);
+    })
+    .finally(() => {
+        generateVllmBtn.disabled = false;
+    });
   });
 });
