@@ -74,9 +74,9 @@ select, input[type="number"] {
     margin-bottom: 15px;
 }
 
-.history-box, .catalog-box {
-    height: 200px;
-    overflow-y: auto;
+.history-container, .catalog-container {
+    max-height: 400px; /* Use max-height for flexibility */
+    overflow-y: auto;  /* Ensure vertical scroll */
     border: 1px solid #ddd;
     border-radius: 5px;
     padding: 10px;

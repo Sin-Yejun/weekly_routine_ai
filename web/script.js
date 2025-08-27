@@ -1,41 +1,41 @@
 document.addEventListener('DOMContentLoaded', () => {
   // --- UI Elements ---
   const userHistorySelect = document.getElementById('user-history-select');
-  const historyDisplay    = document.getElementById('history-display');
+  const historyDisplay = document.getElementById('history-display');
   const bNameFilterContainer = document.getElementById('b-name-filter-container');
-  const tIdFilterContainer   = document.getElementById('t-id-filter-container');
-  const catalogDisplay    = document.getElementById('catalog-display');
+  const tIdFilterContainer = document.getElementById('t-id-filter-container');
+  const catalogDisplay = document.getElementById('catalog-display');
   const generatePromptBtn = document.getElementById('generate-prompt-btn');
-  const generateVllmBtn   = document.getElementById('generate-vllm-btn');
-  const promptOutput      = document.getElementById('prompt-output'); // Now a textarea
-  const modelOutputEl     = document.getElementById('model-output');
+  const generateVllmBtn = document.getElementById('generate-vllm-btn');
+  const promptOutput = document.getElementById('prompt-output'); // Now a textarea
+  const modelOutputEl = document.getElementById('model-output');
   const formattedOutputEl = document.getElementById('formatted-output');
 
   // User Info Inputs
-  const genderSelect   = document.getElementById('gender-select');
-  const weightInput    = document.getElementById('weight-input');
-  const levelSelect    = document.getElementById('level-select');
-  const typeSelect     = document.getElementById('type-select');
+  const genderSelect = document.getElementById('gender-select');
+  const weightInput = document.getElementById('weight-input');
+  const levelSelect = document.getElementById('level-select');
+  const typeSelect = document.getElementById('type-select');
   const frequencyInput = document.getElementById('frequency-input');
 
   // --- State ---
-  let allExercises   = [];         // 전체 운동 목록
-  let usersById      = new Map();  // 전체 유저 정보 (ID로 조회)
-  let exerciseById   = new Map();  // key -> exercise 객체
+  let allExercises = [];         // 전체 운동 목록
+  let usersById = new Map();  // 전체 유저 정보 (ID로 조회)
+  let exerciseById = new Map();  // key -> exercise 객체
   let currentHistory = [];         // 현재 유저의 전체 히스토리
   let selectedHistory = [];        // 체크된 히스토리만 모음
   let selectedCatalogExercises = new Set(); // 수동으로 선택된 카탈로그 운동
 
   // --- Constants ---
   const TOOL_ID_NAMES = {
-    '1': '바벨',
-    '2': '덤벨',
-    '3': '머신',
-    '4': '맨몸',
-    '5': 'EZ',
-    '6': '케틀벨',
-    '7': '기타',
-    '': '기타' // Default for unknown/empty tool IDs
+    '1': 'Barbell',
+    '2': 'Dumbbells',
+    '3': 'Machine',
+    '4': 'Body Weight',
+    '5': 'EZ Bar',
+    '6': 'Kettlebell',
+    '7': 'Other',
+    '8': 'Pull-up Bar'
   };
 
   // -------- Helpers --------
@@ -44,9 +44,9 @@ document.addEventListener('DOMContentLoaded', () => {
     exerciseById.clear();
     exercises.forEach((ex, i) => {
       if (!ex._exKey) {
-        const eName   = ex.e_name ?? ex.eName ?? 'exercise';
-        const rawId   = ex.e_text_id ?? ex.eTextId;
-        ex._exKey     = String(rawId ?? `${eName}_${i}`); // 안정적 fallback
+        const eName = ex.e_name ?? ex.eName ?? 'exercise';
+        const rawId = ex.e_text_id ?? ex.eTextId;
+        ex._exKey = String(rawId ?? `${eName}_${i}`); // 안정적 fallback
       }
       exerciseById.set(ex._exKey, ex);
     });
@@ -161,10 +161,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add or update items
     exercises.forEach((ex) => {
-      const key   = ex._exKey ?? String(ex.e_text_id ?? ex.eTextId ?? ex.e_name ?? ex.eName);
-      const name  = ex.e_name ?? ex.eName ?? '(no name)';
+      const key = ex._exKey ?? String(ex.e_text_id ?? ex.eTextId ?? ex.e_name ?? ex.eName);
+      const name = ex.e_name ?? ex.eName ?? '(no name)';
       const bname = ex.b_name ?? ex.bName ?? 'Unknown';
-      const tool  = ex.t_id ?? ex.tId ?? ''; // Get raw tool ID
+      const tool = ex.t_id ?? ex.tId ?? ''; // Get raw tool ID
 
       let item = catalogDisplay.querySelector(`#ex-item-${key}`); // Check if item already exists
       let checkbox;
@@ -217,11 +217,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function filterExercises() {
     const selectedBNames = Array.from(bNameFilterContainer.querySelectorAll('input[type="checkbox"]'))
-                                .filter(cb => cb.checked && cb.dataset.value !== 'all')
-                                .map(cb => cb.dataset.value);
-    const selectedTIds   = Array.from(tIdFilterContainer.querySelectorAll('input[type="checkbox"]'))
-                                .filter(cb => cb.checked && cb.dataset.value !== 'all')
-                                .map(cb => cb.dataset.value);
+      .filter(cb => cb.checked && cb.dataset.value !== 'all')
+      .map(cb => cb.dataset.value);
+    const selectedTIds = Array.from(tIdFilterContainer.querySelectorAll('input[type="checkbox"]'))
+      .filter(cb => cb.checked && cb.dataset.value !== 'all')
+      .map(cb => cb.dataset.value);
 
     const filtered = allExercises.filter(ex => {
       const b = String(ex.b_name ?? ex.bName ?? 'Unknown');
@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const t = String(ex.t_id ?? ex.tId ?? '');
 
         const matchesFilter = (selectedBNames.length === 0 || selectedBNames.includes(b)) &&
-                              (selectedTIds.length === 0 || selectedTIds.includes(t));
+          (selectedTIds.length === 0 || selectedTIds.includes(t));
 
         checkbox.disabled = !matchesFilter;
         // If it doesn't match the filter, uncheck it (but preserve manual check if filter is re-applied)
@@ -296,8 +296,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const summary = Array.isArray(session.session_data)
         ? session.session_data.map(s =>
-            s.eName || s.e_name || s.eTextId || s.e_text_id || 'Unknown'
-          ).join(', ')
+          s.eName || s.e_name || s.eTextId || s.e_text_id || 'Unknown'
+        ).join(', ')
         : 'No exercises';
 
       const label = document.createElement('label');
@@ -351,10 +351,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Exercises
   fetch('/api/exercises')
     .then(response => {
-        if (!response.ok) {
-            return response.json().then(err => { throw new Error(err.error || 'Failed to fetch exercises') });
-        }
-        return response.json();
+      if (!response.ok) {
+        return response.json().then(err => { throw new Error(err.error || 'Failed to fetch exercises') });
+      }
+      return response.json();
     })
     .then(exercises => {
       allExercises = Array.isArray(exercises) ? exercises : [];
@@ -385,13 +385,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update user info panel
     const userData = usersById.get(selectedUserId);
     if (userData) {
-        const gender = (userData.gender || '').toLowerCase();
-        genderSelect.value = gender === 'female' ? 'Female' : 'Male';
+      const gender = (userData.gender || '').toLowerCase();
+      genderSelect.value = gender === 'female' ? 'Female' : 'Male';
 
-        weightInput.value = userData.weight || 75;
-        levelSelect.value = userData.level || 'Intermediate';
-        typeSelect.value = userData.type || 'bodybuilding';
-        frequencyInput.value = userData.frequency || 3;
+      weightInput.value = userData.weight || 75;
+      levelSelect.value = userData.level || 'Intermediate';
+      typeSelect.value = userData.type || 'bodybuilding';
+      frequencyInput.value = userData.frequency || 3;
     }
 
     // Fetch and display workout history
@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetch(`/api/users/${selectedUserId}/history`)
       .then(response => {
         if (!response.ok) {
-            return response.json().then(err => { throw new Error(err.error || 'Failed to fetch history') });
+          return response.json().then(err => { throw new Error(err.error || 'Failed to fetch history') });
         }
         return response.json();
       })
@@ -410,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
   });
 
-  
+
 
   generatePromptBtn.addEventListener('click', () => {
     // Gather User Info
@@ -481,14 +481,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectedModel = document.getElementById('model-selector').value;
     let endpoint = '/api/infer'; // Default vLLM endpoint
     let payload = {
-        prompt: prompt,
-        temperature: 0.1,
-        max_tokens: 3072
+      prompt: prompt,
+      temperature: 0.1,
+      max_tokens: 3072
     };
 
     if (selectedModel === 'openai') {
-        endpoint = '/generate-openai';
-        payload = { prompt: prompt }; // OpenAI endpoint has a simpler payload
+      endpoint = '/generate-openai';
+      payload = {
+          prompt: prompt,
+          temperature: 0.1,
+          max_tokens: 3072
+      }; // Make payload consistent
     }
 
     modelOutputEl.textContent = `Calling ${selectedModel.toUpperCase()} server...`;
@@ -499,22 +503,22 @@ document.addEventListener('DOMContentLoaded', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
-    .then(r => {
-      if (!r.ok) return r.json().then(err => { throw new Error(err.error || 'Model error'); });
-      return r.json();
-    })
-    .then(model => {
-      modelOutputEl.textContent = model.response;
-      // OpenAI response may not have formatted_summary, so handle that
-      formattedOutputEl.textContent = model.formatted_summary || 'Not available for this model.';
-    })
-    .catch(error => {
+      .then(r => {
+        if (!r.ok) return r.json().then(err => { throw new Error(err.error || 'Model error'); });
+        return r.json();
+      })
+      .then(model => {
+        modelOutputEl.textContent = model.response;
+        // OpenAI response may not have formatted_summary, so handle that
+        formattedOutputEl.textContent = model.formatted_summary || 'Not available for this model.';
+      })
+      .catch(error => {
         const errorMessage = `Error: ${error.message}`;
         modelOutputEl.textContent = errorMessage;
         console.error(`Error inferring from model ${selectedModel}:`, error);
-    })
-    .finally(() => {
+      })
+      .finally(() => {
         generateVllmBtn.disabled = false;
-    });
+      });
   });
 });

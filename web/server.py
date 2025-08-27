@@ -48,8 +48,21 @@ QUERY_RESULT_PATH = os.path.join(DATA_DIR, '02_processed', 'query_result.json')
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
 VLLM_MODEL    = os.getenv("VLLM_MODEL", "google/gemma-3-4b-it")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL")
 
+
+# --- Constants ---
+TOOL_ID_NAMES = {
+    '1': 'Barbell',
+    '2': 'Dumbbells',
+    '3': 'Machine',
+    '4': 'Body Weight',
+    '5': 'EZ Bar',
+    '6': 'Kettlebell',
+    '7': 'Other',
+    '8': 'Pull-up Bar',
+    '': 'Other'
+}
 
 # --- Load Exercise Name Map ---
 exercise_name_map = {}
@@ -107,6 +120,9 @@ def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_
     for e in exercise_catalog:
         e_text_id = e.get("e_text_id") or e.get("eTextId") or ""
         b_text_id = 'CAT_' + (e.get("b_name", "").upper() or e.get("bName", "").upper() or "")
+        t_id = str(e.get("t_id") or e.get("tId") or "")
+        tool_name = TOOL_ID_NAMES.get(t_id, 'Other')
+        
         e_info_type = (
             e.get("eInfoType")
             if e.get("eInfoType") is not None
@@ -114,10 +130,15 @@ def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_
         )
         e_name = e.get("eName") or e.get("e_name") or ""
 
-        e_text_id = str(e_text_id).replace('"', '"')
-        b_text_id = str(b_text_id).replace('"', '"')
-        e_name = str(e_name).replace('"', '"')
-
+        e_text_id = str(e_text_id).replace('"', '\"')
+        b_text_id = str(b_text_id).replace('"', '\"')
+        e_name = str(e_name).replace('"', '\"')
+        tool_name = str(tool_name).replace('"', '\"')
+        
+        # 운동 도구 이름 들어간 버전
+        # compact_catalog_list.append(
+        #     f'["{e_text_id}", "{b_text_id}", {e_info_type}, "{e_name}", "{tool_name}"]'
+        # )
         compact_catalog_list.append(
             f'["{e_text_id}", "{b_text_id}", {e_info_type}, "{e_name}"]'
         )
@@ -126,7 +147,8 @@ def create_final_prompt(user_info_txt, history_summary_txt, frequency, exercise_
     # MODIFIED: Example now shows the wrapping object
     example_output = '[[60, [["BB_BSQT", [[80,10,0], [90,8,0, ... ]], ... ]], ... ]'
 
-    prompt = f"""## [Task]
+    prompt = f"""
+## [Task]
 Generate a weekly workout routine based on user data.
 
 ## [User Info]
@@ -139,10 +161,8 @@ Generate a weekly workout routine based on user data.
 1.  **Role**: You are an expert AI personal trainer.
 2.  **Goal**: Create a detailed, week-long workout routine for the user.
 3.  **Data-Driven**: Base recommendations *only* on the provided data. Use the catalog.
-4.  **Output Format**: MUST be a valid JSON object with a single key "routine".
-    - The value of "routine" MUST be a JSON array of arrays (ultra-compact format).
-    - The length of the "routine" array must be exactly {frequency}.
-    - **Schema**: `[[duration, [ [eTextId, [ [w,r,t], ... ]], ... ]], ... ]`
+4.  **Output Format**: MUST be a valid JSON array of arrays (ultra-compact format), with a length of exactly {frequency}. No comments or markdown.
+    - **Schema**: `[ [duration, [ [eTextId, [ [w,r,t], ... ]], ... ]], ... ]`
 
 ## [Training Principles]
 - **Level Gating**:
@@ -153,19 +173,17 @@ Generate a weekly workout routine based on user data.
   - **Elite**: More advanced and higher intensity routines than Advanced, using heavy weights.
 - **Progression**: Apply progressive overload. Slightly increase weight (~2.5-5%) or reps (+1-2) from the last relevant workout. For new exercises, estimate a conservative starting weight.
 - **Structure**: Ensure balanced muscle group distribution. Allow for rest days. Align routine with user's `Workout Type` (e.g., strength vs. bodybuilding).
+
 ## [Available Exercise Catalog]
 [
 {exercise_list_text}
 ]
+
 ## [Example Output] (Structural guide ONLY. Do NOT copy values.)
 {example_output}
 
-## [RESPONSE FORMAT]
-- Your response MUST be a single JSON object and nothing else.
-- Do NOT include any text, explanations, or markdown like ```json.
-- Your entire response must start with `{{` and end with `}}`.
-
-## [START RESPONSE]
+## [Final Instruction]
+Return **ONLY** the generated JSON array.
 """
     return prompt
 
@@ -389,16 +407,17 @@ def infer_api():
     try:
         client = OpenAI(base_url=VLLM_BASE_URL, api_key="token-1234")
 
-        resp = client.chat.completions.create(
+        resp = client.responses.create(
             model=VLLM_MODEL,
-            messages=[
-                {"role": "user", "content": prompt}
+            input=[
+                {
+                    "role": "user",
+                    "content": "Say 'double bubble bath' ten times fast.",
+                },
             ],
-            temperature=float(data.get("temperature", 0.0)),
-            max_tokens=int(data.get("max_tokens", 2048)),
         )
         
-        raw_response_text = resp.choices[0].message.content
+        raw_response_text = resp.output_text
 
         app.logger.info(f"Raw model output to be processed: {raw_response_text}")
         formatted_summary = "Could not parse or format the model output."
@@ -456,9 +475,12 @@ def generate_openai_api():
                 {"role": "system", "content": "You are an expert AI personal trainer. You will be given user data and a catalog of exercises. Your task is to generate a weekly workout routine. Your response MUST be a valid JSON array of arrays, conforming to the schema provided in the user prompt. Do not include any explanatory text, markdown, or any characters outside of the JSON array."},
                 {"role": "user", "content": prompt}
             ],
-            max_completion_tokens=int(data.get("max_tokens", 3072)),
-            response_format={"type": "json_object"}
+            max_completion_tokens=int(data.get("max_tokens", 3072))
         )
+        
+        print("--- Full OpenAI Response Object ---")
+        print(resp)
+        print("---------------------------------")
         
         raw_response_text = resp.choices[0].message.content
         app.logger.info(f"Raw OpenAI output received: {raw_response_text}")
