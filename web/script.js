@@ -526,4 +526,41 @@ document.addEventListener('DOMContentLoaded', () => {
         generateVllmBtn.disabled = false;
       });
   });
+
+  // --- Filter Dropdown Logic ---
+  document.addEventListener('click', (event) => {
+    const toggleButton = event.target.closest('.filter-toggle-btn');
+    const filterGroup = event.target.closest('.filter-group');
+
+    // If the click is on a toggle button, handle the toggle
+    if (toggleButton) {
+      const targetId = toggleButton.dataset.target;
+      const targetGroup = document.getElementById(targetId);
+      if (!targetGroup) return;
+
+      // Close other open dropdowns
+      document.querySelectorAll('.filter-group:not(.hidden)').forEach(group => {
+        if (group.id !== targetId) {
+          group.classList.add('hidden');
+          document.querySelector(`[data-target="${group.id}"]`)?.classList.remove('active');
+        }
+      });
+
+      // Toggle the current dropdown
+      targetGroup.classList.toggle('hidden');
+      toggleButton.classList.toggle('active');
+      return; // Stop further processing
+    }
+
+    // If the click is inside a filter group, do nothing
+    if (filterGroup) {
+      return;
+    }
+
+    // If the click is outside both buttons and groups, close everything
+    document.querySelectorAll('.filter-group:not(.hidden)').forEach(group => {
+      group.classList.add('hidden');
+      document.querySelector(`[data-target="${group.id}"]`)?.classList.remove('active');
+    });
+  });
 });

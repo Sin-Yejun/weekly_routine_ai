@@ -31,11 +31,17 @@
             <div class="grid-section catalog-section">
                 <h2>Exercise Catalog</h2>
                 <div class="filters">
-                    <div id="b-name-filter-container" class="filter-group">
-                        <h3>Filter by Body Part</h3>
+                    <div class="filter-container">
+                        <button class="filter-toggle-btn" data-target="b-name-filter-container">Filter by Body Part</button>
+                        <div id="b-name-filter-container" class="filter-group hidden">
+                            <!-- Checkboxes will be populated here by JS -->
+                        </div>
                     </div>
-                    <div id="t-id-filter-container" class="filter-group">
-                        <h3>Filter by Tool</h3>
+                    <div class="filter-container">
+                        <button class="filter-toggle-btn" data-target="t-id-filter-container">Filter by Tool</button>
+                        <div id="t-id-filter-container" class="filter-group hidden">
+                            <!-- Checkboxes will be populated here by JS -->
+                        </div>
                     </div>
                 </div>
                 <div id="catalog-display" class="catalog-container">
