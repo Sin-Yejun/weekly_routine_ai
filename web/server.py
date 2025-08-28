@@ -1,3 +1,4 @@
+import re
 from flask import Flask, jsonify, request, send_from_directory
 import json
 import os
@@ -407,17 +408,16 @@ def infer_api():
     try:
         client = OpenAI(base_url=VLLM_BASE_URL, api_key="token-1234")
 
-        resp = client.responses.create(
+        resp = client.chat.completions.create(
             model=VLLM_MODEL,
-            input=[
-                {
-                    "role": "user",
-                    "content": "Say 'double bubble bath' ten times fast.",
-                },
+            messages=[
+                {"role": "user", "content": prompt}
             ],
+            temperature = float(data.get("temperature", 0.1)),
+            max_tokens=int(data.get("max_tokens", 3072))
         )
         
-        raw_response_text = resp.output_text
+        raw_response_text = resp.choices[0].message.content
 
         app.logger.info(f"Raw model output to be processed: {raw_response_text}")
         formatted_summary = "Could not parse or format the model output."
@@ -447,13 +447,9 @@ def infer_api():
         app.logger.error(f"Error calling vLLM server: {e}", exc_info=True)
         return jsonify({"error": f"Failed to reach or process response from vLLM server: {e}"}), 502
 
-@app.route('/generate-openai', methods=['POST'])
+@app.route('/api/generate-openai', methods=['POST'])  # 경로 통일
 def generate_openai_api():
-    """
-    Calls the OpenAI API, gets a routine, and returns both the raw
-    JSON and a human-readable formatted summary.
-    """
-    app.logger.info("Received request for /generate-openai")
+    app.logger.info("Received request for /api/generate-openai")
     data = request.get_json() or {}
     prompt = (data.get("prompt") or "").strip()
 
@@ -465,61 +461,52 @@ def generate_openai_api():
         app.logger.error("OPENAI_API_KEY environment variable is not set.")
         return jsonify({"error": "OPENAI_API_KEY environment variable not set."}), 500
 
+    model = OPENAI_MODEL or "gpt-4o-mini"  # 기본값
+    max_completion_tokens = int(data.get("max_tokens", 3072))
+
     try:
-        app.logger.info(f"Calling OpenAI API with model: {OPENAI_MODEL}")
+        app.logger.info(f"Calling OpenAI API with model: {model}")
         client = OpenAI(api_key=OPENAI_API_KEY)
 
-        resp = client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": "You are an expert AI personal trainer. You will be given user data and a catalog of exercises. Your task is to generate a weekly workout routine. Your response MUST be a valid JSON array of arrays, conforming to the schema provided in the user prompt. Do not include any explanatory text, markdown, or any characters outside of the JSON array."},
-                {"role": "user", "content": prompt}
+        resp = client.responses.create(
+            model=model,
+            input=[
+                {
+                    "role": "user",
+                    "content":prompt,
+                },
             ],
-            max_completion_tokens=int(data.get("max_tokens", 3072))
         )
         
-        print("--- Full OpenAI Response Object ---")
-        print(resp)
-        print("---------------------------------")
-        
-        raw_response_text = resp.choices[0].message.content
-        app.logger.info(f"Raw OpenAI output received: {raw_response_text}")
-        
+        raw_response_text = resp.output_text
+        app.logger.info(f"Raw OpenAI output received (len={len(raw_response_text)}).")
+
+        # vLLM과 동일한 방식으로 JSON 추출∙수리
         formatted_summary = "Could not parse or format the model output."
         try:
-            app.logger.info("Attempting to repair JSON from model response.")
-            repaired_json = repair_json(raw_response_text)
-            app.logger.info(f"Successfully repaired JSON: {repaired_json}")
+            first_bracket = raw_response_text.find('[')
+            last_bracket = raw_response_text.rfind(']')
+            if first_bracket != -1 and last_bracket != -1:
+                json_string = raw_response_text[first_bracket:last_bracket+1]
+            else:
+                json_string = raw_response_text  # 모델이 정말로 JSON만 줬을 때
 
-            is_error_dict = False
+            repaired_json = repair_json(json_string)
+
+            # dict로 감싸져 온 경우 list 파트만 뽑기
             if isinstance(repaired_json, dict):
-                app.logger.info("Repaired JSON is a dict, searching for a list value.")
-                original_dict = repaired_json
-                found_list = False
-                for key, value in repaired_json.items():
-                    if isinstance(value, list):
-                        repaired_json = value
-                        app.logger.info(f"Found and extracted list from dict key '{key}'.")
-                        found_list = True
+                for v in repaired_json.values():
+                    if isinstance(v, list):
+                        repaired_json = v
                         break
-                
-                if not found_list:
-                    is_error_dict = True
-                    formatted_summary = f"Model returned an error object:\n{json.dumps(original_dict, indent=2)}"
-                    app.logger.warning(f"Model returned a JSON object that does not contain a routine list: {original_dict}")
 
-            if not is_error_dict:
-                app.logger.info("Attempting to hydrate routine from repaired JSON.")
-                hydrated_routine = group_and_hydrate(repaired_json)
-                app.logger.info("Successfully hydrated routine.")
-
-                app.logger.info("Attempting to format summary from hydrated routine.")
-                formatted_summary = summarize_user_history(hydrated_routine, exercise_name_map, FormattingStyle.FORMATTED_ROUTINE)
-                app.logger.info("Successfully formatted summary.")
+            hydrated_routine = group_and_hydrate(repaired_json)
+            formatted_summary = summarize_user_history(
+                hydrated_routine, exercise_name_map, FormattingStyle.FORMATTED_ROUTINE
+            )
 
         except Exception as e:
             app.logger.error(f"Error during OpenAI response post-processing: {e}", exc_info=True)
-            pass
 
         return jsonify({
             "response": raw_response_text,
@@ -527,14 +514,15 @@ def generate_openai_api():
         })
 
     except openai.APIStatusError as e:
+        # OpenAI v1 SDK 표준 에러 처리
         app.logger.error(f"OpenAI API returned an error status: {e}")
-        error_json = e.response.json()
-        raw_response_text = json.dumps(error_json)
-        formatted_summary = f"Model API returned an error:\n{json.dumps(error_json, indent=2)}"
-        
+        try:
+            error_json = e.response.json()
+        except Exception:
+            error_json = {"error": str(e)}
         return jsonify({
-            "response": raw_response_text,
-            "formatted_summary": formatted_summary
+            "response": json.dumps(error_json),
+            "formatted_summary": f"Model API returned an error:\n{json.dumps(error_json, indent=2)}"
         })
 
     except Exception as e:

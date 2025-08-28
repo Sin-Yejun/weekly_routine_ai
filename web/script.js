@@ -487,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (selectedModel === 'openai') {
-      endpoint = '/generate-openai';
+      endpoint = '/api/generate-openai';
       payload = {
           prompt: prompt,
           temperature: 0.1,
