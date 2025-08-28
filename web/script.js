@@ -25,6 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentHistory = [];         // 현재 유저의 전체 히스토리
   let selectedHistory = [];        // 체크된 히스토리만 모음
   let selectedCatalogExercises = new Set(); // 수동으로 선택된 카탈로그 운동
+  let totalBNames = 0;
+  let totalTIds = 0;
 
   // --- Constants ---
   const TOOL_ID_NAMES = {
@@ -122,12 +124,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const bNames = [...new Set(
       exercises.map(ex => (ex.b_name ?? ex.bName ?? 'Unknown'))
     )].sort((a, b) => a.localeCompare(b));
+    totalBNames = bNames.length;
     createCheckboxes(bNameFilterContainer, bNames, 'bname');
 
     // Tool 목록
     const tIds = [...new Set(
       exercises.map(ex => (ex.t_id ?? ex.tId ?? ''))
     )].filter(v => v !== '').map(String);
+    
+    totalTIds = tIds.length;
 
     // 숫자-문자 섞여 있어도 보기 좋게 정렬
     tIds.sort((a, b) => {
@@ -227,8 +232,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const b = String(ex.b_name ?? ex.bName ?? 'Unknown');
       const t = String(ex.t_id ?? ex.tId ?? '');
 
-      const okB = selectedBNames.length === 0 || selectedBNames.includes(b);
-      const okT = selectedTIds.length === 0 || selectedTIds.includes(t);
+      const okB = selectedBNames.length === totalBNames || selectedBNames.includes(b);
+      const okT = selectedTIds.length === totalTIds || selectedTIds.includes(t);
 
       return okB && okT;
     });
@@ -246,8 +251,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const b = String(ex.b_name ?? ex.bName ?? 'Unknown');
         const t = String(ex.t_id ?? ex.tId ?? '');
 
-        const matchesFilter = (selectedBNames.length === 0 || selectedBNames.includes(b)) &&
-          (selectedTIds.length === 0 || selectedTIds.includes(t));
+        const matchesFilter = (selectedBNames.length === totalBNames || selectedBNames.includes(b)) &&
+          (selectedTIds.length === totalTIds || selectedTIds.includes(t));
 
         checkbox.disabled = !matchesFilter;
         // If it doesn't match the filter, uncheck it (but preserve manual check if filter is re-applied)

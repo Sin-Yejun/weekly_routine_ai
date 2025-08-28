@@ -24,7 +24,7 @@ h1 {
 
 .main-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 30px;
     margin-bottom: 20px;
 }
@@ -261,4 +261,10 @@ pre {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         display: grid; /* Use grid for better control */
     }
+}
+
+/* Custom styles for prompt output */
+#prompt-output {
+    min-height: 300px;
+    min-width: 100%;
 }

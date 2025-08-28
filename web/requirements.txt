@@ -1,5 +1,6 @@
-# Add other existing dependencies here if any
+flask
+pandas
+requests
 openai
+json_repair
 python-dotenv
-fastapi
-uvicorn
