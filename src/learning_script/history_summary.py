@@ -1,197 +1,191 @@
 # -*- coding: utf-8 -*-
 """
-이 스크립트는 Parquet 파일에서 최근 운동 기록을 조회하여
-가독성 좋은 텍스트 형식으로 요약합니다.
+weekly_streak_dataset.parquet의 prev_weeks를 사람이 읽기 좋은 텍스트로 변환.
 
-주요 기능:
-- Parquet에서 최근 운동 데이터를 가져옵니다.
-- 데이터를 가공하여 운동별, 세트별로 정리합니다.
-- 각 운동 세션을 텍스트로 요약하여 리스트로 반환합니다.
+- prev_weeks 예시 원소:
+  { "week": 1, "week_start": "2025-08-25", "weekly_exercises": [...] }
+
+- 각 weekly_exercises는 [ { "_type":"session_header", ... }, exercise1, exercise2, ... , { "_type":"session_header", ... }, ... ]
 """
-from typing import List, Dict, Any
-import polars as pl
-import pandas as pd
+
+from __future__ import annotations
+from typing import List, Dict, Any, Optional
 from pathlib import Path
 import json
+import polars as pl
 
-# Load mapping files for bName and eName translation
+# ── 경로 설정 ─────────────────────────────────────────────────────────────────
+PARQUET_PATH = Path("data/02_processed/parquet/weekly_streak_dataset.parquet")
+
+# multilingual pack (영문 매핑 사용)
 BODYPART_MAP_PATH = Path("data/03_core_assets/multilingual-pack/bodypart_name_multi.json")
 EXERCISE_MAP_PATH = Path("data/03_core_assets/multilingual-pack/exercise_list_multi.json")
 
 with BODYPART_MAP_PATH.open("r", encoding="utf-8") as f:
-    bodypart_data = json.load(f)
-bodypart_map = {item["code"]: item["en"] for item in bodypart_data}
+    _bodypart_data = json.load(f)
+BODYPART_MAP = {item["code"]: item["en"] for item in _bodypart_data}
 
 with EXERCISE_MAP_PATH.open("r", encoding="utf-8") as f:
-    exercise_data = json.load(f)
-exercise_map = {item["code"]: item["en"] for item in exercise_data}
+    _exercise_data = json.load(f)
+EXERCISE_MAP = {item["code"]: item["en"] for item in _exercise_data}
 
-def parse_sets_field(x: Any) -> Any:
-    """
-    'sets' 필드가 문자열(JSON)로 들어있을 경우 리스트로 변환합니다.
-    """
+# ── 유틸 ──────────────────────────────────────────────────────────────────────
+def _to_pyobj(x: Any) -> Any:
+    """JSON이 문자열/바이너리여도 파이썬 객체로 변환."""
+    if isinstance(x, (list, dict)) or x is None:
+        return x
+    if isinstance(x, (bytes, bytearray, memoryview)):
+        try:
+            return json.loads(bytes(x).decode("utf-8"))
+        except Exception:
+            return None
     if isinstance(x, str):
-        x = x.strip()
         try:
             return json.loads(x)
+        except Exception:
+            return None
+    return None
+
+def _parse_sets_field(x: Any) -> Any:
+    """세트 필드가 문자열(JSON)인 경우 리스트로 변환."""
+    if isinstance(x, str):
+        s = x.strip()
+        try:
+            return json.loads(s)
         except Exception:
             return x
     return x
 
-def _load_workout_data_from_parquet(cnt: int) -> list[dict]:
-    """Helper function to load and parse workout data from Parquet."""
-    PARQUET_PATH = Path("data/02_processed/parquet/workout_session.parquet")
-    
-    lf = pl.scan_parquet(str(PARQUET_PATH))
-    df_polar = lf.sort("date", descending=True).limit(cnt).collect()
-    df = df_polar.to_pandas()
-
-    workout_days = []
-    for _, row in df.iterrows():
-        try:
-            session_data_str = row.get('session_data', '[]')
-            session_data = json.loads(session_data_str) if isinstance(session_data_str, str) else session_data_str
-            if not isinstance(session_data, list):
-                session_data = []
-            
-            for exercise in session_data:
-                if 'sets' in exercise:
-                    exercise['sets'] = parse_sets_field(exercise['sets'])
-                
-                # Translate names to English
-                if "bTextId" in exercise and exercise["bTextId"] in bodypart_map:
-                    exercise["bName"] = bodypart_map[exercise["bTextId"]]
-                if "eTextId" in exercise:
-                    if exercise["eTextId"] in exercise_map:
-                        exercise["eName"] = exercise_map[exercise["eTextId"]]
-                    elif exercise["eTextId"].startswith("CUSTOM"):
-                        # CUSTOM으로 시작하는 경우 사용자 정의 운동명 생성
-                        custom_id = exercise["eTextId"].replace("CUSTOM_", "").replace("CUSTOM", "")
-                        if custom_id:
-                            exercise["eName"] = f"CUSTOM_WORKOUT_{custom_id}"
-                        else:
-                            exercise["eName"] = "CUSTOM_WORKOUT"
-
-        except (json.JSONDecodeError, TypeError):
-            session_data = []
-            
-        day = {
-            "dId": row.get('id'),
-            "date": row.get('date'),
-            "duration": row.get('duration'),
-            "exercises": session_data
-        }
-        workout_days.append(day)
-    return workout_days
-
-def get_latest_workout_texts(cnt: int) -> list[str]:
-    """
-    Parquet 파일에서 최근 운동 기록을 가져와 기본 정보만 포함하여 텍스트로 요약하여 반환합니다.
-    """
-    workout_days = _load_workout_data_from_parquet(cnt)
-    
-    texts = []
-    for idx, day in enumerate(workout_days, 1):
-        texts.append(text_summary(day, idx))
-        
-    return texts
-
-def get_latest_workout_texts_detail(cnt: int) -> list[str]:
-    """
-    Parquet 파일에서 최근 운동 기록을 가져와 상세 정보를 포함하여 텍스트로 요약하여 반환합니다.
-    """
-    workout_days = _load_workout_data_from_parquet(cnt)
-
-    texts = []
-    for idx, day in enumerate(workout_days, 1):
-        texts.append(_text_summary_detail(day, idx))
-        
-    return texts
-
-def text_summary(day: Dict, order: int) -> str:
-    """
-    하루치 운동 데이터를 받아 기본 텍스트 요약을 생성합니다. (세트 상세 정보 제외)
-    """
-    duration = day.get('duration')
-    duration_str = f" - Duration: {duration}min" if duration else ""
-    header = f"Recent Workout #{order}{duration_str}"
-    lines  = [header]
-    if "exercises" in day and day["exercises"]:
-        for ex in day["exercises"]:
-            b_name = ex.get('bName', 'N/A')
-            num_sets = len(ex.get('sets', []))
-            line = (
-                f"{b_name:<12}- {ex.get('eName', 'N/A')} ({ex.get('eTextId', 'N/A')}) "
-                f"{num_sets}sets"
-            )
-            lines.append(line)
-    return "\n".join(lines)
-
-def _text_summary_detail(day: Dict, order: int) -> str:
-    """
-    하루치 운동 데이터를 받아 세부 세트 정보를 포함한 상세 텍스트 요약을 생성합니다.
-    """
-    duration = day.get('duration')
-    duration_str = f" - Duration: {duration}min" if duration else ""
-    header = f"Recent Workout #{order}{duration_str}"
-    lines  = [header]
-    if "exercises" in day and day["exercises"]:
-        for ex in day["exercises"]:
-            b_name = ex.get('bName', 'N/A')
-            num_sets = len(ex.get('sets', []))
-            sets_data = ex.get('sets', [])
-            
-            compressed_sets_str = compress_sets(sets_data)
-
-            line = (
-                f"{b_name:<12}- {ex.get('eName', 'N/A')} ({ex.get('eTextId', 'N/A')}) "
-                f"{num_sets}sets: "
-                f"{compressed_sets_str}"
-            )
-            lines.append(line)
-    return "\n".join(lines)
-
-def compress_sets(sets: List[Dict]) -> str:
-    """
-    세트 리스트를 '7x20 / 5x60 / 1800s'과 같은 압축된 문자열로 변환합니다.
-    """
-    out = []
+def _compress_sets(sets: List[Dict]) -> str:
+    """세트 리스트를 '7x20 / 5x60 / 1800s' 식으로 압축."""
     if not sets:
         return ""
-        
+    out: List[str] = []
     for s in sets:
         if not isinstance(s, dict):
             continue
         reps   = s.get("reps")
         weight = s.get("weight")
-        time = s.get("time")
+        time   = s.get("time")
 
-        if time and time > 0:
-            out.append(f"{time}s")
+        if time and isinstance(time, (int, float)) and time > 0:
+            out.append(f"{int(time)}s")
             continue
 
-        w_disp = int(weight) if weight is not None and isinstance(weight, (int, float)) and float(weight).is_integer() else weight
-        
-        base = f"{reps}"
-        if w_disp is not None and w_disp != 0:
-            base += f"x{w_disp}"
-        
-        out.append(base)
+        # 정수 무게는 소수점 제거
+        w_disp = None
+        if isinstance(weight, (int, float)):
+            w_disp = int(weight) if float(weight).is_integer() else weight
 
+        base = f"{reps}" if reps is not None else ""
+        if w_disp not in (None, 0, 0.0):
+            base += f"x{w_disp}"
+        out.append(base or "0")
     return " / ".join(out)
 
-# ───────────────────────────────────────────────────────────────
-# 스크립트 직접 실행 시 결과 출력
-# ───────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    # print("--- Simple Summary ---")
-    # workout_texts = get_latest_workout_texts(5)
-    # for text in workout_texts:
-    #     print(text)
-    #     print()
+def _exercise_line(ex: Dict[str, Any]) -> str:
+    """운동 1개를 텍스트 한 줄로."""
+    # 이름 매핑
+    b_name = ex.get("bTextId")[4:]
+    if not b_name and (bid := ex.get("bTextId")):
+        b_name = BODYPART_MAP.get(bid, bid)
 
-    print("\n--- Detailed Summary ---")
-    workout_texts_detail = get_latest_workout_texts_detail(10)
-    for text in workout_texts_detail:
-        print(text)
-        print()
+    e_name = ex.get("eName")
+    etid   = ex.get("eTextId")
+    if not e_name and etid:
+        if etid.startswith("CUSTOM"):
+            custom_id = etid.replace("CUSTOM_", "").replace("CUSTOM", "")
+            e_name = f"CUSTOM_WORKOUT_{custom_id}" if custom_id else "CUSTOM_WORKOUT"
+        else:
+            e_name = EXERCISE_MAP.get(etid, etid)
+
+    # sets 정규화
+    sets_obj = _parse_sets_field(ex.get("sets"))
+    if not isinstance(sets_obj, list):
+        sets_obj = []
+    num_sets = len(sets_obj)
+    comp = _compress_sets(sets_obj)
+
+    return f"{(b_name or 'N/A')},{(etid or 'N/A')},{num_sets}sets: {comp}"
+
+def _summarize_weekly_exercises(weekly_exercises: Any) -> List[str]:
+    """
+    weekly_exercises 배열을 읽어 세션 단위로 텍스트 블록 생성.
+    - session_header 등장 시: 'Session #k - Duration: Xm'
+    - 뒤따르는 exercise 항목을 요약 라인으로
+    """
+    we = _to_pyobj(weekly_exercises)
+    if not isinstance(we, list):
+        return ["(no data)"]
+
+    lines: List[str] = []
+    session_idx = 0
+    for item in we:
+        if isinstance(item, dict) and item.get("_type") == "session_header":
+            session_idx += 1
+            dur = item.get("duration")
+            dur_str = f" - Duration: {int(dur)}min" if isinstance(dur, (int, float)) else ""
+            wkday = item.get("workout_day")
+            wkday_str = f" ({wkday})" if wkday else ""
+            lines.append(f"Day #{session_idx}")
+        elif isinstance(item, dict):
+            lines.append(_exercise_line(item))
+        # 기타 타입은 무시
+    return lines if lines else ["(empty)"]
+
+# ── 메인 API ──────────────────────────────────────────────────────────────────
+def get_prev_weeks_texts(
+    limit_rows: int = 1,
+    user_id: Optional[int] = None,
+    max_prev: int = 4
+) -> List[str]:
+    """
+    weekly_streak_dataset.parquet에서 prev_weeks를 텍스트로 요약.
+    - limit_rows: 상위 몇 행(최신 week_start 기준)까지 출력할지
+    - user_id: 특정 사용자만 필터(없으면 전체 중 최신부터)
+    - max_prev: prev_weeks 중 앞의 몇 개만 사용할지(기본 4)
+    """
+    # 필요한 컬럼만 스캔 → 성능
+    lf = pl.scan_parquet(str(PARQUET_PATH)).select(
+        "user_id", "week_start", "prev_weeks"
+    )
+    if user_id is not None:
+        lf = lf.filter(pl.col("user_id") == user_id)
+
+    # 최신 week_start 우선
+    df = lf.sort("week_start", descending=True).limit(limit_rows).collect()
+
+    texts: List[str] = []
+    for row in df.iter_rows(named=True):
+        uid = row["user_id"]
+        wks = row["week_start"]
+        prev_weeks = _to_pyobj(row.get("prev_weeks"))
+
+        header = f"[user {uid}] Anchor week_start={wks}"
+        lines  = [header]
+
+        if isinstance(prev_weeks, list) and prev_weeks:
+            # prev_weeks는 [{week:1, week_start:..., weekly_exercises:[...]}] 형태
+            # 최신→과거 순으로 최대 max_prev개만
+            for item in prev_weeks[:max_prev]:
+                if not isinstance(item, dict):
+                    continue
+                wk_no = item.get("week") or "?"
+                wk_start = item.get("week_start")
+                lines.append(f"\nPrev Week #{wk_no}")
+                for ln in _summarize_weekly_exercises(item.get("weekly_exercises")):
+                    lines.append(ln)
+        else:
+            lines.append("(no prev_weeks)")
+
+        texts.append("\n".join(lines))
+
+    return texts
+
+# ── 스크립트 실행 예시 ────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    # 최신 3행의 prev_weeks 요약을 출력 (사용자 지정 가능)
+    out = get_prev_weeks_texts(limit_rows=1, user_id=3236, max_prev=4)
+    for t in out:
+        print(t)
+        print("-" * 80)
