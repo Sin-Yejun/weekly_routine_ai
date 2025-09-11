@@ -22,8 +22,10 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 EXERCISE_CATALOG_PATH = os.path.join(DATA_DIR, '02_processed', 'processed_query_result.json')
 
 # --- Model & API Configuration --
-VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
-VLLM_MODEL    = os.getenv("VLLM_MODEL", "google/gemma-3-4b-it")
+# 런팟 vLLM 서버 URL ()
+VLLM_BASE_URL="https://s4ie4ass0pq40x-8000.proxy.runpod.net/v1"
+#VLLM_BASE_URL = "http://127.0.0.1:8000/v1"
+VLLM_MODEL    = "google/gemma-3-4b-it"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL")
 
@@ -65,18 +67,18 @@ def process_inference_request(data, client_creator):
         return jsonify({"error": "Missing request body"}), 400
 
     try:
-        # 1. Create User object from request data
-        user = User(
-            gender=data.get('gender', 'M'),
-            weight=float(data.get('weight', 70)),
-            level=data.get('level', 'Intermediate'),
-            freq=int(data.get('freq', 3)),
-            duration=int(data.get('duration', 60)),
-            intensity=data.get('intensity', 'Normal')
-        )
-
-        # 2. Build the prompt
-        prompt = build_prompt(user, exercise_catalog)
+        # 1. & 2. Build the prompt or get it from the request
+        prompt = data.get('prompt')
+        if not prompt:
+            user = User(
+                gender=data.get('gender', 'M'),
+                weight=float(data.get('weight', 70)),
+                level=data.get('level', 'Intermediate'),
+                freq=int(data.get('freq', 3)),
+                duration=int(data.get('duration', 60)),
+                intensity=data.get('intensity', 'Normal')
+            )
+            prompt = build_prompt(user, exercise_catalog)
         
         # 3. Call the model via the provided client creator
         client, model_name = client_creator()
@@ -94,7 +96,7 @@ def process_inference_request(data, client_creator):
         repaired_json_obj = None
         try:
             # A more robust way to find the JSON object
-            match = re.search(r'{\s*(\"days\"|\\'days\'')\s*:.+}', raw_response_text, re.DOTALL)
+            match = re.search(r'{\s*(\"days\"|\'days\')\s*:.+}', raw_response_text, re.DOTALL)
             if match:
                 json_string = match.group(0)
                 repaired_json_obj = repair_json(json_string, return_objects=True)
@@ -132,6 +134,27 @@ def process_inference_request(data, client_creator):
         app.logger.error(f"An unexpected error occurred in inference processing: {e}", exc_info=True)
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
+
+@app.route('/api/generate-prompt', methods=['POST'])
+def generate_prompt_api():
+    """Generates just the prompt based on user data."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Missing request body"}), 400
+    try:
+        user = User(
+            gender=data.get('gender', 'M'),
+            weight=float(data.get('weight', 70)),
+            level=data.get('level', 'Intermediate'),
+            freq=int(data.get('freq', 3)),
+            duration=int(data.get('duration', 60)),
+            intensity=data.get('intensity', 'Normal')
+        )
+        prompt = build_prompt(user, exercise_catalog)
+        return jsonify({"prompt": prompt})
+    except Exception as e:
+        app.logger.error(f"Error in generate_prompt_api: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/infer', methods=['POST'])
 def infer_vllm_api():

@@ -53,20 +53,19 @@
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button type="submit" id="generate-btn">Generate Routine</button>
-                    <div id="loading-indicator" class="hidden">Generating...</div>
+                    <button type="submit" id="generate-prompt-btn">Generate Prompt</button>
                 </div>
             </form>
         </div>
 
         <div class="output-container">
-            <div class="output-section">
-                <h2>Formatted Routine</h2>
-                <pre id="formatted-output">Your generated routine will appear here.</pre>
-            </div>
-            <div class="output-section">
+            <div id="prompt-output-section" class="output-section hidden">
+                <div class="form-actions prompt-actions">
+                    <button id="generate-vllm-btn">Generate VLLM</button>
+                    <button id="generate-openai-btn">Generate OPENAI</button>
+                </div>
                 <h2>Generated Prompt</h2>
-                <pre id="prompt-output">The prompt sent to the model will appear here.</pre>
+                <textarea id="prompt-display" rows="15"></textarea>
             </div>
             <div class="output-section">
                 <h2>Raw Model Output</h2>
