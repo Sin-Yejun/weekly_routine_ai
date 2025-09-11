@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const response = await fetch('/api/generate-prompt', {
-                const response = await fetch('/api/generate-prompt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     headers: { 'Content-Type': 'application/json' },
