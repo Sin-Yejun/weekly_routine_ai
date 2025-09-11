@@ -53,7 +53,11 @@
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button type="submit" id="generate-btn">Generate Routine</button>
+                    <div class="button-group" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <button type="button" id="generate-prompt-btn">Generate Prompt</button>
+                        <button type="button" id="generate-vllm-btn">Generate with vLLM</button>
+                        <button type="button" id="generate-openai-btn">Generate with OpenAI</button>
+                    </div>
                     <div id="loading-indicator" class="hidden">Generating...</div>
                 </div>
             </form>
@@ -61,16 +65,16 @@
 
         <div class="output-container">
             <div class="output-section">
-                <h2>Formatted Routine</h2>
-                <pre id="formatted-output">Your generated routine will appear here.</pre>
-            </div>
-            <div class="output-section">
                 <h2>Generated Prompt</h2>
-                <pre id="prompt-output">The prompt sent to the model will appear here.</pre>
+                <textarea id="prompt-output">The prompt sent to the model will appear here.</textarea>
             </div>
             <div class="output-section">
                 <h2>Raw Model Output</h2>
                 <pre id="raw-output">The raw JSON from the model will appear here.</pre>
+            </div>
+            <div class="output-section">
+                <h2>Formatted Routine</h2>
+                <pre id="formatted-output">Your generated routine will appear here.</pre>
             </div>
         </div>
     </div>
