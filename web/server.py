@@ -23,8 +23,8 @@ EXERCISE_CATALOG_PATH = os.path.join(DATA_DIR, '02_processed', 'processed_query_
 
 # --- Model & API Configuration --
 # 런팟 vLLM 서버 URL ()
-VLLM_BASE_URL="https://s4ie4ass0pq40x-8000.proxy.runpod.net/v1"
-#VLLM_BASE_URL = "http://127.0.0.1:8000/v1"
+#VLLM_BASE_URL="https://s4ie4ass0pq40x-8000.proxy.runpod.net/v1"
+VLLM_BASE_URL = "http://127.0.0.1:8000/v1"
 VLLM_MODEL    = "google/gemma-3-4b-it"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-nano")
@@ -153,23 +153,7 @@ def process_inference_request(data, client_creator, use_max_completion_tokens=Fa
         app.logger.info(f"Raw model output received (len={len(raw_response_text)}).")
 
         # --- Post-process: JSON repair & formatting (기존 그대로) ---
-        formatted_summary = "Could not parse or format the model output."
-        repaired_json_obj = None
-        try:
-            match = re.search(r'{\s*("days"|'r"'days'"+r')\s*:.+}', raw_response_text, re.DOTALL)
-            if match:
-                json_string = match.group(0)
-                repaired_json_obj = repair_json(json_string, return_objects=True)
-                if isinstance(repaired_json_obj, list) and repaired_json_obj:
-                    repaired_json_obj = repaired_json_obj[0]
-                if isinstance(repaired_json_obj, dict) and "days" in repaired_json_obj:
-                    formatted_summary = format_new_routine(repaired_json_obj, exercise_name_map)
-                else:
-                    app.logger.error(f"Repaired JSON is not a valid routine object: {repaired_json_obj}")
-            else:
-                app.logger.error(f"Could not find a JSON object in the raw output: {raw_response_text}")
-        except Exception as e:
-            app.logger.error(f"Error during response post-processing: {e}", exc_info=True)
+        formatted_summary = raw_response_text
 
         return jsonify({
             "response": raw_response_text,
@@ -186,7 +170,7 @@ def process_inference_request(data, client_creator, use_max_completion_tokens=Fa
             pass
         return jsonify({
             "response": json.dumps(error_details),
-            "formatted_summary": f"Model API returned an error:\\n{json.dumps(error_details, indent=2)}"
+            "formatted_summary": f"Model API returned an error:\n{json.dumps(error_details, indent=2)}"
         }), e.status_code or 502
     except Exception as e:
         app.logger.error(f"An unexpected error occurred in inference processing: {e}", exc_info=True)

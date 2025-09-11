@@ -21,18 +21,16 @@ document.addEventListener('DOMContentLoaded', () => {
         generatePromptBtn.addEventListener('click', async () => {
             showLoading(true);
             promptOutputEl.value = 'Generating prompt...';
-            formattedOutputEl.textContent = 'Your generated routine will appear here.';
-            rawOutputEl.textContent = 'The raw JSON from the model will appear here.';
+            formattedOutputEl.textContent = 'OpenAI 답변이 여기에 표시됩니다.';
+            rawOutputEl.textContent = 'vllm의 답변이 여기에 표시됩니다.';
 
             const formData = new FormData(form);
             const data = {};
-            formData.forEach((value, key) => { data[key] = value; });
             formData.forEach((value, key) => { data[key] = value; });
 
             try {
                 const response = await fetch('/api/generate-prompt', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
                 });
@@ -52,10 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 2. Inference Buttons (vLLM and OpenAI)
-    const handleInference = async (endpoint) => {
+    const handleVllmInference = async () => {
         showLoading(true);
-        formattedOutputEl.textContent = 'Generating...';
-        rawOutputEl.textContent = '';
+        rawOutputEl.textContent = 'Generating...';
 
         const formData = new FormData(form);
         const userConfig = {};
@@ -69,12 +66,55 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const payload = {
-            ...userConfig, // Send user config for temp, max_tokens, etc.
-            prompt: prompt  // Send the (potentially edited) prompt
+            ...userConfig,
+            prompt: prompt
         };
 
         try {
-            const response = await fetch(endpoint, {
+            const response = await fetch('/api/infer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            rawOutputEl.textContent = result.response || 'No raw response returned.';
+
+        } catch (error) {
+            console.error('Error generating vLLM routine:', error);
+            rawOutputEl.textContent = `An error occurred: ${error.message}`;
+        } finally {
+            showLoading(false);
+        }
+    };
+
+    const handleOpenAiInference = async () => {
+        showLoading(true);
+        formattedOutputEl.textContent = 'Generating...';
+
+        const formData = new FormData(form);
+        const userConfig = {};
+        formData.forEach((value, key) => { userConfig[key] = value; });
+        
+        const prompt = promptOutputEl.value;
+        if (!prompt || prompt.startsWith('The prompt sent')) {
+            formattedOutputEl.textContent = 'Please generate a prompt first.';
+            showLoading(false);
+            return;
+        }
+
+        const payload = {
+            ...userConfig,
+            prompt: prompt
+        };
+
+        try {
+            const response = await fetch('/api/generate-openai', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
@@ -87,10 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const result = await response.json();
             formattedOutputEl.textContent = result.formatted_summary || 'No formatted summary returned.';
-            rawOutputEl.textContent = result.response || 'No raw response returned.';
 
         } catch (error) {
-            console.error('Error generating routine:', error);
+            console.error('Error generating OpenAI routine:', error);
             formattedOutputEl.textContent = `An error occurred: ${error.message}`;
         } finally {
             showLoading(false);
@@ -98,10 +137,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (generateVllmBtn) {
-        generateVllmBtn.addEventListener('click', () => handleInference('/api/infer'));
+        generateVllmBtn.addEventListener('click', handleVllmInference);
     }
 
     if (generateOpenAiBtn) {
-        generateOpenAiBtn.addEventListener('click', () => handleInference('/api/generate-openai'));
+        generateOpenAiBtn.addEventListener('click', handleOpenAiInference);
     }
 });
