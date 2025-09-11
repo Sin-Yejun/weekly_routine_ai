@@ -27,10 +27,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData(form);
             const data = {};
             formData.forEach((value, key) => { data[key] = value; });
+            formData.forEach((value, key) => { data[key] = value; });
 
             try {
                 const response = await fetch('/api/generate-prompt', {
+                const response = await fetch('/api/generate-prompt', {
                     method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
                 });

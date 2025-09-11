@@ -22,8 +22,10 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 EXERCISE_CATALOG_PATH = os.path.join(DATA_DIR, '02_processed', 'processed_query_result.json')
 
 # --- Model & API Configuration --
-VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
-VLLM_MODEL    = os.getenv("VLLM_MODEL", "google/gemma-3-4b-it")
+# 런팟 vLLM 서버 URL ()
+VLLM_BASE_URL="https://s4ie4ass0pq40x-8000.proxy.runpod.net/v1"
+#VLLM_BASE_URL = "http://127.0.0.1:8000/v1"
+VLLM_MODEL    = "google/gemma-3-4b-it"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-nano")
 
