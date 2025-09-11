@@ -1,89 +1,202 @@
+# -*- coding: utf-8 -*-
+import json
 import re
-from enum import Enum
+from dataclasses import dataclass
+from typing import Dict, List, Tuple
 
-# _to_number function moved to server.py
+# --- Constants from calculation_prompt.py ---
+L = {
+  "M": {"BP": {"B":0.6, "N":1.0, "I":1.3, "A":1.6, "E":2.0}, "SQ": {"B":0.8, "N":1.2, "I":1.6, "A":2.0, "E":2.5}, "DL": {"B":1.0,"N":1.5, "I":2.0, "A":2.5, "E":3.0}, "OHP":{"B":0.4, "N":0.7, "I":0.9, "A":1.1, "E":1.4}},
+  "F": {"BP": {"B":0.39,"N":0.65,"I":0.845,"A":1.04,"E":1.3}, "SQ": {"B":0.52,"N":0.78,"I":1.04,"A":1.3,"E":1.625}, "DL": {"B":0.65,"N":0.975,"I":1.3,"A":1.625,"E":1.95}, "OHP":{"B":0.26,"N":0.455,"I":0.585,"A":0.715,"E":0.91}}
+}
+LEVEL_CODE = {"Beginner":"B","Novice":"N","Intermediate":"I","Advanced":"A","Elite":"E"}
+INT_BASE_SETS = {"Low":12, "Normal":16, "High":20}
+ANCHOR_PERCENTS = [0.55, 0.60, 0.65, 0.70]
 
-class FormattingStyle(Enum):
-    HISTORY_SUMMARY = 1  # For [Recent Workout History]
-    FORMATTED_ROUTINE = 2 # For Formatted Routine
+PROMPT_TEMPLATE = '''## [Task]
+Return a weekly bodybuilding routine as strict JSON only. Output exactly one JSON object and nothing else.
 
-def _parse_set_triplet(s):
-    """
-    Parses various formats into a (w, r, t) tuple.
-    Handles lists, strings, and nested string/lists.
-    """
-    if isinstance(s, (list, tuple)):
-        if len(s) == 3:
-            return [_to_number(s[0]), _to_number(s[1]), _to_number(s[2])]
-        if len(s) == 1 and isinstance(s[0], str):
-            return _parse_set_triplet(s[0])
-        return None
+## [User Info]
+- Gender: {gender}
+- Weight: {weight}kg
+- Training Level: {level}
+- Weekly Workout Frequency: {freq}
+- Workout Duration: {duration} minutes
+- Workout Intensity: {intensity}
 
-    if isinstance(s, str):
-        stripped = s.strip().strip('[](){}')
-        parts = [p.strip() for p in stripped.split(',')]
-        if len(parts) == 3:
-            return [_to_number(parts[0]), _to_number(parts[1]), _to_number(parts[2])]
-    return None
+## [Split]
+- Name: {split_name}; Days: {split_days}.
 
-def compress_sets(sets: list) -> str:
-    """Compresses a list of set dictionaries into a readable string."""
-    out = []
-    if not sets:
-        return ""
-    for s in sets:
-        if not isinstance(s, dict): continue
-        reps, weight, time = s.get("reps"), s.get("weight"), s.get("time")
-        if time and time > 0:
-            out.append(f"{time}s")
-            continue
-        
-        w_disp = int(weight) if weight is not None and isinstance(weight, (int, float)) and float(weight).is_integer() else weight
-        
-        base = ""
-        if w_disp is not None and w_disp != 0:
-            base = f"{w_disp}x{reps}"
-        else:
-            base = f"{reps}"
-        out.append(base)
-    return " / ".join(out)
+## [Sets/Reps Budget]
+- Target working sets per day: ~{sets_budget} (±2), fit within ~{duration}min.
+- Allocate: anchor 3-4 sets; accessories 2-3 sets; avoid per-muscle weekly sets > 12 for Beginners/Novices.
+- Reps: anchor 6-10, accessory 8-12, isolation 12-15 (≤20).
 
-def summarize_user_history(workout_days: list, exercise_name_map: dict, style: FormattingStyle) -> str:
-    """
-    Formats a routine into a human-readable summary, using a provided exercise map.
-    """
+## [Loads]
+- Training Max (TM): BP={TM_BP}, SQ={TM_SQ}, DL={TM_DL}, OHP={TM_OHP} (kg).
+- Rounding: all loads are integers in 5kg steps; round to nearest 5
+- Anchor % of TM → weight(kg):
+  BP: {BP_loads}
+  SQ: {SQ_loads}
+  DL: {DL_loads}
+  OHP: {OHP_loads}
+- Accessories guide from same-day anchor TM:
+  compound 45-60% → ~{ACC_COMP_MIN}-{ACC_COMP_MAX}kg, isolation/machine 30-50% → ~{ACC_ISO_MIN}-{ACC_ISO_MAX}kg
+
+## [Schema & Rules]
+- JSON only. Minified: no spaces/newlines.
+- Schema: {{"days":[[[bodypart,exercise_id,[[reps,weight,time],...]],...],...]}}
+- bodypart ∈ {{Chest,Back,Shoulder,Leg,Arm,Abs,Cardio,Lifting,etc}}
+- Use only ids from the provided catalog; do not invent new exercises.
+- weight integer in 5kg steps; reps≥1; numbers only.
+
+## [Catalog Type Code Rule]
+- Each catalog item is [group, exercise_id, exercise_name, movement_type, T] where T∈{{1,2,5,6}}. The sets for that exercise must match T:
+  - T=1 (time-only): every set MUST be [0,0,time_sec], with time_sec>0 (e.g., 600–1800). reps=0, weight=0.
+  - T=2 (reps-only): every set MUST be [reps>0, 0, 0]. time=0, weight=0.
+  - T=5 (weighted/timed): every set MUST be [0, weight≥5(step of 5), time_sec>0]. reps=0.
+  - T=6 (weighted): every set MUST be [reps>0, weight≥5(step of 5), 0]. time=0.
+- Do not violate the T pattern for any chosen exercise. Reject/replace exercises if the catalog T conflicts with intended usage.
+
+## [Available Exercise Catalog]
+{catalog_json}
+
+## [Output]
+Return only JSON.
+'''
+
+# --- Helper Functions ---
+
+@dataclass
+class User:
+    gender: str
+    weight: float
+    level: str
+    freq: int
+    duration: int
+    intensity: str
+
+def parse_duration_bucket(bucket: str) -> int:
+    if not isinstance(bucket, str): return 60
+    numbers = re.findall(r'\d+', bucket)
+    return int(numbers[-1]) if numbers else 60
+
+def round_to_step(x: float, step: int = 5) -> int:
+    return int(round(x / step) * step)
+
+def pick_split(freq: int) -> Tuple[str, List[str]]:
+    if freq == 2: return ("Upper-Lower", ["UPPER","LOWER"])
+    if freq == 3: return ("Push-Pull-Legs", ["PUSH","PULL","LEGS"])
+    if freq == 4: return ("ULUL", ["UPPER","LOWER","UPPER","LOWER"])
+    if freq == 5: return ("Bro", ["CHEST","BACK","LEGS","SHOULDERS","ARMS"])
+    return ("Full Body", ["FULL_BODY"] * freq)
+
+def set_budget(freq: int, intensity: str) -> int:
+    base = INT_BASE_SETS.get(intensity, 16)
+    if freq == 2: base += 2
+    if freq == 5: base -= 2
+    return base
+
+def compute_tm(user: User) -> Dict[str, int]:
+    code = LEVEL_CODE.get(user.level)
+    if not code or not user.gender: return {"BP": 0, "SQ": 0, "DL": 0, "OHP": 0}
+    coeffs = L[user.gender]
+    tm = {}
+    for lift in ("BP", "SQ", "DL", "OHP"):
+        tm[lift] = round_to_step(0.9 * (user.weight * coeffs[lift][code]), 5)
+    return tm
+
+def build_load_table(tm: Dict[str, int]) -> Dict[str, Dict[int, int]]:
+    return {lift: {int(p * 100): round_to_step(tm_kg * p, 5) for p in ANCHOR_PERCENTS} for lift, tm_kg in tm.items()}
+
+def accessory_ranges(tm: Dict[str, int]) -> Dict[str, Dict[str, Tuple[int, int]]]:
+    out = {}
+    # Use BP as the anchor for accessory range calculation
+    anchor_lift_tm = tm.get("BP", 0)
+    return {
+        "compound_45_60": (round_to_step(anchor_lift_tm * 0.45, 5), round_to_step(anchor_lift_tm * 0.60, 5)),
+        "isolation_30_50": (round_to_step(anchor_lift_tm * 0.30, 5), round_to_step(anchor_lift_tm * 0.50, 5))
+    }
+
+def build_prompt(user: User, catalog: list) -> str:
+    split_name, split_days = pick_split(user.freq)
+    sets = set_budget(user.freq, user.intensity)
+    tm = compute_tm(user)
+    loads = build_load_table(tm)
+    acc = accessory_ranges(tm)
+    
+    def row_str(lift): return ", ".join(f'{pct}%:{kg}' for pct, kg in loads[lift].items())
+    
+    catalog_str = json.dumps([[item.get(k) for k in ['bName', 'eTextId', 'eName', 'movement_type', 'eInfoType']] for item in catalog], ensure_ascii=False, separators=(',', ':'))
+    
+    return PROMPT_TEMPLATE.format(
+        gender="male" if user.gender == "M" else "female",
+        weight=int(round(user.weight)),
+        level=user.level,
+        freq=user.freq,
+        duration=user.duration,
+        intensity=user.intensity,
+        split_name=split_name,
+        split_days=" / ".join(split_days),
+        sets_budget=sets,
+        TM_BP=tm["BP"], TM_SQ=tm["SQ"], TM_DL=tm["DL"], TM_OHP=tm["OHP"],
+        BP_loads=row_str("BP"), SQ_loads=row_str("SQ"), DL_loads=row_str("DL"), OHP_loads=row_str("OHP"),
+        ACC_COMP_MIN=acc["compound_45_60"][0], ACC_COMP_MAX=acc["compound_45_60"][1],
+        ACC_ISO_MIN=acc["isolation_30_50"][0], ACC_ISO_MAX=acc["isolation_30_50"][1],
+        catalog_json=catalog_str
+    )
+
+def format_new_routine(routine_json: dict, exercise_name_map: dict) -> str:
+    """Formats the new routine JSON into a human-readable summary."""
+    if not isinstance(routine_json, dict) or "days" not in routine_json:
+        return "Invalid routine format."
+
+    days_data = routine_json.get("days", [])
+    if not isinstance(days_data, list):
+        return "Invalid 'days' format in routine."
+
     texts = []
-    for idx, day in enumerate(workout_days, 1):
-        duration = day.get('duration')
-        duration_str = f" (Duration: {duration}min)" if duration else ""
-        header = f"[Workout #{idx}{duration_str}]"
+    for idx, day_exercises in enumerate(days_data, 1):
+        header = f"[Workout Day #{idx}]"
         lines = [header]
         
-        if "session_data" in day and day["session_data"]:
-            for ex in day["session_data"]:
-                e_text_id = (ex.get('eTextId') or ex.get('e_text_id') or
-                             ex.get('eName') or ex.get('e_name') or 'N/A')
+        if not isinstance(day_exercises, list):
+            continue
 
-                display_name = e_text_id # Default to e_text_id
+        for exercise_details in day_exercises:
+            if not isinstance(exercise_details, list) or len(exercise_details) != 3:
+                continue
+            
+            bodypart, e_text_id, sets = exercise_details
+            
+            exercise_info = exercise_name_map.get(e_text_id, {})
+            e_name = exercise_info.get('eName', e_text_id) # Default to e_text_id
+            
+            display_name = f"[{bodypart}] {e_name}"
 
-                if style == FormattingStyle.FORMATTED_ROUTINE:
-                    exercise_info = exercise_name_map.get(e_text_id, {})
-                    b_name = exercise_info.get('bName')
-                    e_name = exercise_info.get('eName')
-                    if b_name and e_name:
-                        display_name = f"[{b_name}] {e_name}"
-                elif style == FormattingStyle.HISTORY_SUMMARY:
-                    # For history summary, we just want the eTextId
-                    display_name = e_text_id
+            if not isinstance(sets, list):
+                continue
 
-                sets_data = ex.get('sets') or []
-                if not sets_data:
+            num_sets = len(sets)
+            sets_str_parts = []
+            for s in sets:
+                if not isinstance(s, list) or len(s) != 3:
                     continue
-                    
-                num_sets = len(sets_data)
-                compressed_sets_str = compress_sets(sets_data)
-                line = f"- {display_name}: {num_sets}sets: {compressed_sets_str}"
-                lines.append(line)
+                reps, weight, time = s
+                if time > 0:
+                    if weight > 0: # Weighted timed exercise (T=5)
+                        sets_str_parts.append(f"{weight}kg for {time}s")
+                    else: # Timed exercise (T=1)
+                        sets_str_parts.append(f"{time}s")
+                elif reps > 0:
+                    if weight > 0: # Weighted reps (T=6)
+                        sets_str_parts.append(f"{weight}kg x {reps}")
+                    else: # Reps only (T=2)
+                        sets_str_parts.append(f"{reps} reps")
+
+            compressed_sets_str = " / ".join(sets_str_parts)
+            line = f"- {display_name}: {num_sets} sets ({compressed_sets_str})"
+            lines.append(line)
                 
         if len(lines) > 1:
             texts.append("\n".join(lines))
