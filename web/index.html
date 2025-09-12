@@ -53,23 +53,28 @@
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button type="submit" id="generate-prompt-btn">Generate Prompt</button>
+                    <div class="button-group" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <button type="button" id="generate-prompt-btn">Generate Prompt</button>
+                        <button type="button" id="generate-vllm-btn">Generate with vLLM</button>
+                        <button type="button" id="generate-openai-btn">Generate with OpenAI</button>
+                    </div>
+                    <div id="loading-indicator" class="hidden">Generating...</div>
                 </div>
             </form>
         </div>
 
         <div class="output-container">
-            <div id="prompt-output-section" class="output-section hidden">
-                <div class="form-actions prompt-actions">
-                    <button id="generate-vllm-btn">Generate VLLM</button>
-                    <button id="generate-openai-btn">Generate OPENAI</button>
-                </div>
+            <div class="output-section">
                 <h2>Generated Prompt</h2>
-                <textarea id="prompt-display" rows="15"></textarea>
+                <textarea id="prompt-output">The prompt sent to the model will appear here.</textarea>
             </div>
             <div class="output-section">
-                <h2>Raw Model Output</h2>
-                <pre id="raw-output">The raw JSON from the model will appear here.</pre>
+                <h2>vllm의 답변</h2>
+                <pre id="raw-output">vllm의 답변이 여기에 표시됩니다.</pre>
+            </div>
+            <div class="output-section">
+                <h2>OpenAI 답변</h2>
+                <pre id="formatted-output">OpenAI 답변이 여기에 표시됩니다.</pre>
             </div>
         </div>
     </div>

@@ -1,24 +1,28 @@
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('routine-form');
     const generatePromptBtn = document.getElementById('generate-prompt-btn');
-    
-    // Sections and Buttons
-    const promptOutputSection = document.getElementById('prompt-output-section');
-    const promptDisplay = document.getElementById('prompt-display');
     const generateVllmBtn = document.getElementById('generate-vllm-btn');
-    const generateOpenaiBtn = document.getElementById('generate-openai-btn');
+    const generateOpenAiBtn = document.getElementById('generate-openai-btn');
+    const loadingIndicator = document.getElementById('loading-indicator');
 
-    // Output elements
+    const promptOutputEl = document.getElementById('prompt-output'); // Now a textarea
     const rawOutputEl = document.getElementById('raw-output');
+    const formattedOutputEl = document.getElementById('formatted-output');
 
-    // Step 1: Generate Prompt
-    if (form) {
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            
-            setLoadingState(true, 'prompt');
-            clearOutputs();
-            promptOutputSection.classList.add('hidden');
+    const showLoading = (isLoading) => {
+        loadingIndicator.classList.toggle('hidden', !isLoading);
+        generatePromptBtn.disabled = isLoading;
+        generateVllmBtn.disabled = isLoading;
+        generateOpenAiBtn.disabled = isLoading;
+    };
+
+    // 1. Generate Prompt Button
+    if (generatePromptBtn) {
+        generatePromptBtn.addEventListener('click', async () => {
+            showLoading(true);
+            promptOutputEl.value = 'Generating prompt...';
+            formattedOutputEl.textContent = 'OpenAI 답변이 여기에 표시됩니다.';
+            rawOutputEl.textContent = 'vllm의 답변이 여기에 표시됩니다.';
 
             const formData = new FormData(form);
             const data = {};
@@ -30,49 +34,47 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
                 });
-
                 if (!response.ok) {
                     const errorData = await response.json();
                     throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
                 }
-
                 const result = await response.json();
-                promptDisplay.value = result.prompt;
-                promptOutputSection.classList.remove('hidden');
-
+                promptOutputEl.value = result.prompt || 'Failed to generate prompt.';
             } catch (error) {
                 console.error('Error generating prompt:', error);
-                rawOutputEl.textContent = `An error occurred: ${error.message}`;
+                promptOutputEl.value = `An error occurred while generating the prompt: ${error.message}`;
             } finally {
-                setLoadingState(false, 'prompt');
+                showLoading(false);
             }
         });
     }
 
-    // Step 2: Generate Routine (VLLM or OpenAI)
-    generateVllmBtn.addEventListener('click', () => handleRoutineGeneration('/api/infer'));
-    generateOpenaiBtn.addEventListener('click', () => handleRoutineGeneration('/api/generate-openai'));
+    // 2. Inference Buttons (vLLM and OpenAI)
+    const handleVllmInference = async () => {
+        showLoading(true);
+        rawOutputEl.textContent = 'Generating...';
 
-    async function handleRoutineGeneration(apiEndpoint) {
-        const prompt = promptDisplay.value;
-        if (!prompt) {
-            alert("Prompt is empty!");
+        const formData = new FormData(form);
+        const userConfig = {};
+        formData.forEach((value, key) => { userConfig[key] = value; });
+        
+        const prompt = promptOutputEl.value;
+        if (!prompt || prompt.startsWith('The prompt sent')) {
+            rawOutputEl.textContent = 'Please generate a prompt first.';
+            showLoading(false);
             return;
         }
 
-        const formData = new FormData(form);
-        const data = {};
-        formData.forEach((value, key) => { data[key] = value; });
-        data.prompt = prompt;
-
-        setLoadingState(true, 'routine');
-        rawOutputEl.textContent = 'Generating...';
+        const payload = {
+            ...userConfig,
+            prompt: prompt
+        };
 
         try {
-            const response = await fetch(apiEndpoint, {
+            const response = await fetch('/api/infer', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -92,25 +94,61 @@ document.addEventListener('DOMContentLoaded', () => {
             rawOutputEl.textContent = output || 'No response returned.';
 
         } catch (error) {
-            console.error('Error generating routine:', error);
+            console.error('Error generating vLLM routine:', error);
             rawOutputEl.textContent = `An error occurred: ${error.message}`;
         } finally {
-            setLoadingState(false, 'routine');
+            showLoading(false);
         }
+    };
+
+    const handleOpenAiInference = async () => {
+        showLoading(true);
+        formattedOutputEl.textContent = 'Generating...';
+
+        const formData = new FormData(form);
+        const userConfig = {};
+        formData.forEach((value, key) => { userConfig[key] = value; });
+        
+        const prompt = promptOutputEl.value;
+        if (!prompt || prompt.startsWith('The prompt sent')) {
+            formattedOutputEl.textContent = 'Please generate a prompt first.';
+            showLoading(false);
+            return;
+        }
+
+        const payload = {
+            ...userConfig,
+            prompt: prompt
+        };
+
+        try {
+            const response = await fetch('/api/generate-openai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            formattedOutputEl.textContent = result.formatted_summary || 'No formatted summary returned.';
+
+        } catch (error) {
+            console.error('Error generating OpenAI routine:', error);
+            formattedOutputEl.textContent = `An error occurred: ${error.message}`;
+        } finally {
+            showLoading(false);
+        }
+    };
+
+    if (generateVllmBtn) {
+        generateVllmBtn.addEventListener('click', handleVllmInference);
     }
 
-    function setLoadingState(isLoading, type) {
-        if (type === 'prompt') {
-            generatePromptBtn.disabled = isLoading;
-            generatePromptBtn.textContent = isLoading ? 'Generating...' : 'Generate Prompt';
-        } else if (type === 'routine') {
-            generateVllmBtn.disabled = isLoading;
-            generateOpenaiBtn.disabled = isLoading;
-        }
-    }
-
-    function clearOutputs() {
-        rawOutputEl.textContent = 'The raw JSON from the model will appear here.';
-        promptDisplay.value = '';
+    if (generateOpenAiBtn) {
+        generateOpenAiBtn.addEventListener('click', handleOpenAiInference);
     }
 });
