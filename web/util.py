@@ -183,7 +183,15 @@ def format_new_routine(routine_json: dict, exercise_name_map: dict) -> str:
                 if not isinstance(s, list) or len(s) != 3:
                     continue
                 reps, weight, time = s
-                if time > 0:
+
+                # Defensively handle ambiguous model output where both reps and time are specified
+                if reps > 0 and time > 0:
+                    set_str = f"{reps} reps for {time}s"
+                    if weight > 0:
+                        set_str = f"{weight}kg x " + set_str
+                    sets_str_parts.append(set_str)
+                # Original logic for clean data
+                elif time > 0:
                     if weight > 0: # Weighted timed exercise (T=5)
                         sets_str_parts.append(f"{weight}kg for {time}s")
                     else: # Timed exercise (T=1)
@@ -193,6 +201,11 @@ def format_new_routine(routine_json: dict, exercise_name_map: dict) -> str:
                         sets_str_parts.append(f"{weight}kg x {reps}")
                     else: # Reps only (T=2)
                         sets_str_parts.append(f"{reps} reps")
+                elif weight > 0: # Handle weight-only case
+                    sets_str_parts.append(f"{weight}kg")
+                else:
+                    # Handles [0,0,0] sets, effectively ignoring them.
+                    pass
 
             compressed_sets_str = " / ".join(sets_str_parts)
             line = f"- {display_name}: {num_sets} sets ({compressed_sets_str})"

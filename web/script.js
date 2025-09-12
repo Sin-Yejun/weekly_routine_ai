@@ -83,11 +83,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
 
             let output = "";
-            if (result.formatted_summary) {
-                output += "--- Formatted Summary ---\n" + result.formatted_summary + "\n\n";
-            }
+            // if (result.formatted_summary) {
+            //     output += "--- Formatted Summary ---\n" + result.formatted_summary + "\n\n";
+            // }
             if (result.response) {
-                output += "--- Raw Model Output ---" + result.response;
+                output += "--- Raw Model Output ---\n" + result.response;
             }
             rawOutputEl.textContent = output || 'No response returned.';
 
