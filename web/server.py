@@ -10,20 +10,241 @@ from json_repair import loads as repair_json
 from dotenv import load_dotenv
 from util import User, build_prompt, format_new_routine
 
-ALLOWED_IDS = {
-    "UPPER": [...],
-    "LOWER": [...],
-    "PUSH": [...],
-    "PULL": [...],
-    "LEGS": [...],
-    "CHEST": [...],
-    "BACK": [...],
-    "SHOULDER": [...],
-    "ARM": [...],
-    "CARDIO":[...],
-    "ABS":[...]
+def get_allowed_ids(freq: int, split_name: str) -> list:
+    try:
+        return ALLOWED_IDS[str(freq)][split_name]
+    except KeyError:
+        return []
 
+def make_anyof_branches_for_ids(allowed_ids_for_day):
+    """해당 DAY에서 허용되는 id만 anyOf 분기에 매핑(T 패턴 유지)."""
+    time_only_all   = {"TREADMIL","CYCLE","ROW_MACH","PLANK","CLIMB_STAIRS","ASSAULT_BIKE","BAT_ROPE","STEPMILL_MAC","ELLIP_MC","WALKING","RUNNING"}   # T=1
+    reps_only_all   = {"PUSH_UP","SIT_UP","LEG_RAISE","BURPEE","AIR_SQT","JUMP_SQT","HINDU_PUSH_UP","V-UP","PULL_UP","DIPS","MOUNT_CLIMB","LUNGE","CHIN_UP","STEP_UP","INVT_ROW","HIP_THRUST","HPET","BACK_ET","CRUNCH","HEEL_TOUCH","HANG_LEG_RAIGE","ABS_ROLL_OUT","ABS_AIR_BIKE","TOES_TO_BAR","BOX_JUMP","JUMPING_JACK","HANG_KNEE_RAISE","HIGH_KNEE_SKIP","DOUBLE_UNDER","INCHWORM","CLAP_PUSH_UP","INC_PUSH_UP","BW_CALF_RAISE","PISTOL_BOX_SQT","GLUTE_BRDG","BENCH_DIPS","BW_LAT_LUNGE","KB_SM_AIR_SQT","PISTOL_SQT","Y_RAISE","DONK_KICK","DEC_SIT_UP","SEAT_KNEE_UP","DEC_PUSH_UP","DONK_CALF_RAISE","KNEE_PU"}  # T=2
+    weighted_timed  = {"FARMER_WALK"}  # T=5
+    # 나머지는 모두 T=6(가중치형)
+
+    allowed = set(allowed_ids_for_day)
+    time_only_ids  = sorted(list(allowed & time_only_all))
+    reps_only_ids  = sorted(list(allowed & reps_only_all))
+    wt_timed_ids   = sorted(list(allowed & weighted_timed))
+    weighted_ids   = sorted(list(allowed - set(time_only_ids) - set(reps_only_ids) - set(wt_timed_ids)))
+
+    branches = []
+    if time_only_ids:
+        branches.append({
+            "type":"array",
+            "prefixItems":[
+                {"type":"string","enum":["Abs","Cardio","etc"]},
+                {"type":"string","enum":time_only_ids},
+                {
+                    "type":"array",
+                    "items":{
+                        "type":"array",
+                        "prefixItems":[{"const":0},{"const":0},{"type":"integer","minimum":300,"maximum":1800}],
+                        "items":False
+                    }
+                }
+            ],
+            "items":False
+        })
+    if wt_timed_ids:
+        branches.append({
+            "type":"array",
+            "prefixItems":[
+                {"type":"string","enum":["Cardio"]},
+                {"type":"string","enum":wt_timed_ids},
+                {
+                    "type":"array",
+                    "items":{
+                        "type":"array",
+                        "prefixItems":[{"const":0},{"type":"integer","minimum":5},{"type":"integer","minimum":1}],
+                        "items":False
+                    }
+                }
+            ],
+            "items":False
+        })
+    if reps_only_ids:
+        branches.append({
+            "type":"array",
+            "prefixItems":[
+                {"type":"string","enum":["Abs","Arm","Back","Cardio","Chest","Leg","Shoulder","etc"]},
+                {"type":"string","enum":reps_only_ids},
+                {
+                    "type":"array",
+                    "items":{
+                        "type":"array",
+                        "prefixItems":[{"type":"integer","minimum":1},{"const":0},{"const":0}],
+                        "items":False
+                    }
+                }
+            ],
+            "items":False
+        })
+    if weighted_ids:
+        branches.append({
+            "type":"array",
+            "prefixItems":[
+                {"type":"string","enum":["Abs","Arm","Back","Cardio","Chest","Leg","Lifting","Shoulder","etc"]},
+                {"type":"string","enum":weighted_ids},
+                {
+                    "type":"array",
+                    "items":{
+                        "type":"array",
+                        "prefixItems":[{"type":"integer","minimum":1},{"type":"integer","minimum":5},{"const":0}],
+                        "items":False
+                    }
+                }
+            ],
+            "items":False
+        })
+    return branches
+
+def make_day_schema_for_ids(allowed_ids_for_day):
+    """해당 DAY 전용 스키마(운동 항목 배열)."""
+    return {
+        "type":"array",              # day = [ [bp,id,sets], ... ]
+        "items":{
+            "anyOf": make_anyof_branches_for_ids(allowed_ids_for_day)
+        }
+        # (xgrammar에서 길이 강제는 약하므로 minItems/maxItems는 생략)
+    }
+
+SPLITS = {
+    2: ["UPPER","LOWER"],
+    3: ["PUSH","PULL","LEGS"],
+    4: ["CHEST","BACK","SHOULDER","LEGS"],
+    5: ["CHEST","BACK","LEGS","SHOULDER","ARM"],
 }
+
+def build_week_schema_once(freq, split_tags, allowed_ids):
+    """
+    주간 한 번 호출용 스키마.
+    days.prefixItems = [DAY1 스키마, DAY2 스키마, ...] 로 '요일별 허용 id'를 스키마 레벨에서 강제.
+    """
+    prefix = []
+    for tag in split_tags:
+        allowed_ids_for_day = []
+        try:
+            allowed_ids_for_day = allowed_ids[str(freq)][tag]
+        except Exception:
+            # 혹시 freq 키 없이 평면 구조로 제공되었으면 폴백
+            allowed_ids_for_day = allowed_ids.get(tag, [])
+        prefix.append(make_day_schema_for_ids(allowed_ids_for_day))
+    return {
+        "type":"object",
+        "properties":{
+            "days":{
+                "type":"array",
+                "prefixItems": prefix,
+                "items": False  # 일부 버전에선 거부/무시될 수 있어 제거해도 됨
+            }
+        },
+        "required":["days"],
+        "additionalProperties": False
+    }
+def _snap5(x):
+    try:
+        return int(round(int(x)/5.0)*5)
+    except Exception:
+        return 0
+
+def post_validate_and_fix_week(obj):
+    """
+    {"days":[ day1, day2, ... ]}
+    - 중복 운동 병합하지 않음(항목은 그대로 유지)
+    - 각 운동 항목의 세트 수: 1~8세트로 제한 (9세트 이상이면 앞 8세트만)
+    - 카디오는 하루 1종 1세트만 반영
+    - T 패턴 정리 + weight 5kg 스냅
+    - 총 세트 과다 컷 로직 제거
+    - bodypart 라벨은 카탈로그(bName)로 강제 교정
+    """
+    if not isinstance(obj, dict) or "days" not in obj:
+        return obj
+
+    time_only_ids = {
+        "TREADMIL","CYCLE","ROW_MACH","PLANK","CLIMB_STAIRS","ASSAULT_BIKE",
+        "BAT_ROPE","STEPMILL_MAC","ELLIP_MC","WALKING","RUNNING"
+    }
+
+    def fix_day(day):
+        if not isinstance(day, list):
+            return []
+
+        fixed = []
+        cardio_seen = False
+
+        for item in day:
+            # item = [bp, ex_id, sets]
+            if not (isinstance(item, list) and len(item) == 3 and isinstance(item[1], str) and isinstance(item[2], list)):
+                continue
+
+            # 원본 값
+            bp, ex_id, sets = item[0], item[1], item[2]
+
+            # --- 세트 정규화(T 패턴 강제) ---
+            new_sets = []
+            for s in sets:
+                if not isinstance(s, list) or len(s) < 3:
+                    continue
+                # 기존 로직 유지하되 normalize
+                r, w, t = s[0], s[1], s[2]
+                if ex_id in time_only_ids:
+                    # T=1: [0,0,time>0]
+                    t = max(300, int(t) if isinstance(t, int) else 600)
+                    new_sets.append([0, 0, t])
+                elif ex_id == "FARMER_WALK":
+                    # T=5: [0, weight>=5(5kg step), time>0]
+                    w = max(5, _snap5(w))
+                    t = max(60, int(t) if isinstance(t, int) else 60)
+                    new_sets.append([0, w, t])
+                elif ex_id in {
+                    "PUSH_UP","SIT_UP","LEG_RAISE","BURPEE","AIR_SQT","JUMP_SQT","HINDU_PUSH_UP","V-UP","PULL_UP",
+                    "DIPS","MOUNT_CLIMB","LUNGE","CHIN_UP","STEP_UP","INVT_ROW","HIP_THRUST","HPET","BACK_ET",
+                    "CRUNCH","HEEL_TOUCH","HANG_LEG_RAIGE","ABS_ROLL_OUT","ABS_AIR_BIKE","TOES_TO_BAR","BOX_JUMP",
+                    "JUMPING_JACK","HANG_KNEE_RAISE","HIGH_KNEE_SKIP","DOUBLE_UNDER","INCHWORM","CLAP_PUSH_UP",
+                    "INC_PUSH_UP","BW_CALF_RAISE","PISTOL_BOX_SQT","GLUTE_BRDG","BENCH_DIPS","BW_LAT_LUNGE",
+                    "KB_SM_AIR_SQT","PISTOL_SQT","Y_RAISE","DONK_KICK","DEC_SIT_UP","SEAT_KNEE_UP","DEC_PUSH_UP","DONK_CALF_RAISE","KNEE_PU"
+                }:
+                    # T=2: [reps>0,0,0]
+                    r = max(1, int(r) if isinstance(r, int) else 10)
+                    new_sets.append([r, 0, 0])
+                else:
+                    # T=6: [reps>0, weight>=5(5kg step), 0]
+                    r = max(1, int(r) if isinstance(r, int) else 6)
+                    w = max(5, _snap5(w))
+                    new_sets.append([r, w, 0])
+
+            # --- 세트 수 제한: 1~8세트 ---
+            if not new_sets:
+                continue
+            if len(new_sets) > 8:
+                new_sets = new_sets[:8]
+
+            # --- 카디오는 하루 1종 1세트만 반영 ---
+            if ex_id in time_only_ids:
+                if cardio_seen:
+                    # 이미 카디오가 있었으면 스킵
+                    continue
+                new_sets = new_sets[:1]
+                cardio_seen = True
+
+            # --- bodypart를 카탈로그(bName) 기준으로 강제 교정 ---
+            try:
+                # 전역에 로드된 exercise_name_map 사용 (processed_query_result.json 기반)
+                cat_bp = exercise_name_map.get(ex_id, {}).get('bName')
+                if cat_bp:
+                    bp = cat_bp
+            except Exception:
+                pass
+
+            fixed.append([bp, ex_id, new_sets])
+
+        return fixed
+
+    days = obj["days"]
+    return {"days": [fix_day(d) for d in days]}
+
 
 # --- Flask App Initialization --
 app = Flask(__name__, static_folder='.', static_url_path='')
@@ -35,178 +256,19 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 EXERCISE_CATALOG_PATH = os.path.join(DATA_DIR, '02_processed', 'processed_query_result.json')
 
+try:
+    with open("web/allowed_ids.json", "r", encoding="utf-8") as f:
+        ALLOWED_IDS = json.load(f)
+except Exception as e:
+    app.logger.error(f"Failed to load ALLOWED_IDS from {e}")
+
 # --- Model & API Configuration --
 # 런팟 vLLM 서버 URL ()
-#VLLM_BASE_URL="https://s4ie4ass0pq40x-8000.proxy.runpod.net/v1"
-VLLM_BASE_URL = "http://127.0.0.1:8000/v1"
 #VLLM_BASE_URL="https://s4ie4ass0pq40x-8000.proxy.runpod.net/v1"
 VLLM_BASE_URL = "http://127.0.0.1:8000/v1"
 VLLM_MODEL    = "google/gemma-3-4b-it"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL")
-
-schema = {
-    "type": "object",
-    "properties": {
-        "days": {
-            "type": "array",
-            "items": {
-                "type": "array",
-                "items": {
-                    "anyOf": [
-                        {
-                            "type": "array",
-                            "prefixItems": [
-                                {"type": "string", "enum": ["Abs", "Cardio", "etc"]},
-                                {"type": "string", "enum": [
-                                    "TREADMIL", "CYCLE", "ROW_MACH", "PLANK", "CLIMB_STAIRS", "ASSAULT_BIKE",
-                                    "BAT_ROPE", "STEPMILL_MAC", "ELLIP_MC", "WALKING", "RUNNING"
-                                ]},
-                                {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "array",
-                                        "prefixItems": [
-                                            {"const": 0},
-                                            {"const": 0},
-                                            {"type": "integer", "minimum": 300, "maximum": 1800}
-                                        ],
-                                        "items": False,
-                                        "minItems": 3,
-                                        "maxItems": 3
-                                    },
-                                    "minItems": 1,
-                                    "maxItems": 1
-                                }
-                            ],
-                            "items": False
-                        },
-                        {
-                            "type": "array",
-                            "prefixItems": [
-                                {"type": "string", "enum": ["Cardio"]},
-                                {"type": "string", "enum": ["FARMER_WALK"]},
-                                {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "array",
-                                        "prefixItems": [
-                                            {"const": 0},
-                                            {"type": "integer", "minimum": 5, "maximum": 500},
-                                            {"type": "integer", "minimum": 1, "maximum": 1800}
-                                        ],
-                                        "items": False,
-                                        "minItems": 3,
-                                        "maxItems": 3
-                                    }
-                                }
-                            ],
-                            "items": False
-                        },
-                        {
-                            "type": "array",
-                            "prefixItems": [
-                                {"type": "string", "enum": [
-                                    "Abs", "Arm", "Back", "Cardio", "Chest", "Leg", "Shoulder", "etc"
-                                ]},
-                                {"type": "string", "enum": [
-                                    "PUSH_UP", "SIT_UP", "LEG_RAISE", "BURPEE", "AIR_SQT", "JUMP_SQT", "HINDU_PUSH_UP",
-                                    "V-UP", "PULL_UP", "DIPS", "MOUNT_CLIMB", "LUNGE", "CHIN_UP", "STEP_UP", "INVT_ROW",
-                                    "HIP_THRUST", "HPET", "BACK_ET", "CRUNCH", "HEEL_TOUCH", "HANG_LEG_RAIGE", "ABS_ROLL_OUT",
-                                    "ABS_AIR_BIKE", "TOES_TO_BAR", "BOX_JUMP", "JUMPING_JACK", "HANG_KNEE_RAISE", "HIGH_KNEE_SKIP",
-                                    "DOUBLE_UNDER", "INCHWORM", "CLAP_PUSH_UP", "INC_PUSH_UP", "BW_CALF_RAISE", "PISTOL_BOX_SQT",
-                                    "GLUTE_BRDG", "BENCH_DIPS", "BW_LAT_LUNGE", "KB_SM_AIR_SQT", "PISTOL_SQT", "Y_RAISE",
-                                    "DONK_KICK", "DEC_SIT_UP", "SEAT_KNEE_UP", "DEC_PUSH_UP", "DONK_CALF_RAISE", "KNEE_PU"
-                                ]},
-                                {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "array",
-                                        "prefixItems": [
-                                            {"type": "integer", "minimum": 1, "maximum": 20},
-                                            {"const": 0},
-                                            {"const": 0}
-                                        ],
-                                        "items": False,
-                                        "minItems": 3,
-                                        "maxItems": 3
-                                    },
-                                    "minItems": 3,
-                                    "maxItems": 10
-                                }
-                            ],
-                            "items": False
-                        },
-                        {
-                            "type": "array",
-                            "prefixItems": [
-                                {"type": "string", "enum": [
-                                    "Abs", "Arm", "Back", "Cardio", "Chest", "Leg", "Lifting", "Shoulder", "etc"
-                                ]},
-                                {"type": "string", "enum": [
-                                    "BB_BSQT", "BB_DL", "BB_FSQ", "LEG_PRESS", "LEG_CURL", "LGE_EXT", "BB_BP", "BB_INC_PRESS",
-                                    "DB_BP", "DB_FLY", "CROSS_OVER", "BB_LOW", "DB_LOW", "LAT_PULL_DOWN", "BB_PRESS",
-                                    "DB_SHD_PRESS", "DB_LAT_RAISE", "DB_F_RAISE", "DB_SHRUG", "BB_BC_CURL", "DB_BC_CURL",
-                                    "DB_TRI_EXT", "DB_KICKBACK", "DB_WRIST_CURL", "THRUSTER", "DB_BO_LAT_RAISE", "WEI_PULL_UP",
-                                    "RUS_TWIST", "PENDLAY_ROW", "MC_LOW", "WEI_DIPS", "SM_BB_DL", "EZB_CURL", "SEATED_CABLE_ROW",
-                                    "CABLE_PUSH_DOWN", "INN_THIGH_MC", "GOOD_MORN", "BB_SPLIT_SQT", "DB_BULSPLIT_SQT",
-                                    "DB_SPLIT_SQT", "GOBLET_SQT", "KB_GOBLET_SQT", "RM_BB_DL", "DB_LUNGE", "WEI_HIP_THRUST",
-                                    "DB_INC_FLY", "DB_INC_BP", "CHEST_PRESS_MC", "PEC_DECK_MC", "INC_BP_MAC", "DB_PULLOVER",
-                                    "WEI_CHIN_UP", "INC_BB_ROW", "INC_DB_ROW", "OA_DB_ROW", "WEI_HPET", "SHD_PRESS_MAC",
-                                    "BB_SHRUG", "FACE_PULL", "CABLE_REV_FLY", "BB_UPRIGHT_ROW", "DB_UPRIGHT_ROW",
-                                    "EZB_UPRIGHT_ROW", "DB_HAM_CURL", "CABLE_CURL", "CG_BB_BP", "BB_WRIST_CURL",
-                                    "EZB_WRIST_CURL", "LYING_TRI_EXT", "DB_SIDE_BEND", "PUSH_PRESS", "KB_SWING", "WB_SHOT",
-                                    "V_SQT", "REV_V_SQT", "T_BAR_ROW_MAC", "DB_PREA_CURL", "BB_PREA_CURL", "EZ_PREA_CURL",
-                                    "REV_PEC_DECK_MC", "HIP_ABD_MC", "KB_SNATCH", "CABLE_CRUNCH", "ARM_CURL_MC", "SM_SQT",
-                                    "HACK_SQT", "CABLE_LAT_RAISE", "ABS_CRUNCH_MC", "PAUSE_SQT", "SM_SPLIT_SQT", "SM_ROW",
-                                    "CABLE_ARM_PULL_DOWN", "PAUSE_BB_ROW", "PAUSE_SM_DL", "SM_DL", "PAUSE_DL", "SM_BP",
-                                    "CABLE_HAM_CURL", "SM_SHRUG", "CABLE_FRONT_RAISE", "DB_SNATCH", "SM_INC_PRESS", "BB_LUNGE",
-                                    "DB_SM_SQT", "ASS_PULLUP_MC", "BB_LAT_LUNGE", "DB_DEC_FLY", "WEI_HANG_KNEE_RAISE",
-                                    "ASS_DIP_MC", "BB_SPLIT_SQT_REAL", "DB_SQT", "BB_BOX_SQT", "DB_BURPEE", "BB_FLOOR_PRESS",
-                                    "BB_STD_CALF_RAISE", "DB_LEG_CURL", "BB_DEC_BP", "DB_THRUSTER", "EZB_FRONT_RAISE",
-                                    "STIFF_DL", "DB_REAR_LAT_RAISE", "BB_FR_LUNGE", "BB_FRONT_RAISE", "BB_HACK_SQT",
-                                    "BB_JUMP_SQT", "SUMO_DEAD_HIGH", "LAT_WIDE_PULL", "HANG_CLEAN", "HANG_SNATCH",
-                                    "DEC_DB_BP", "HIP_THRUST_MAC", "INC_DB_CURL", "DEC_CHEST_MAC", "INC_CABLE_FLY",
-                                    "STD_CABLE_FLY", "KB_DL", "KB_SM_DL", "DB_SM_DL", "DB_LAT_LUNGE", "HZ_LEG_PRESS",
-                                    "NOR_HAM_CURL", "BB_SM_SQT", "KB_SM_SQT", "SEAT_BB_SHD_PRESS", "SEAT_DB_SHD_PRESS",
-                                    "PLATE_SHD_PRESS", "DB_Y_RAISE", "LOW_ROW_MC", "HIGH_ROW_MC", "WEI_DEC_SIT_UP",
-                                    "DEFICIT_DL", "TURKISH_GET_UP", "INC_CHEST_PRESS_MC", "CABLE_PULL_THRU",
-                                    "CABLE_BO_LAT_RAISE", "CABLE_UPRIGHT_ROW", "TORSO_ROT_MC", "RACK_PULL", "KB_SHD_PRESS",
-                                    "INC_DB_SHD_PRESS", "LIN_HACK_SQT_MC", "SM_CALF_RAISE", "DB_STD_CALF_RAISE",
-                                    "MID_ROW_MC", "CONCENT_CURL", "INC_BB_FR_RAISE", "INC_EZ_FRONT_RAISE",
-                                    "INC_DB_FRONT_RAISE", "BB_INC_FRONT_RAISE", "EZ_INC_FRONT_RAISE", "DB_INC_FRONT_RAISE",
-                                    "EZ_REVERSE_CURL", "EZ_TRI_EXT", "SEAT_DB_LAT_RAISE", "SM_BULSPLIT_SQT",
-                                    "INC_DB_PULL_OVER", "DB_LYING_TRI_EXT", "EZ_LYING_TRI_EXT", "SM_HIP_THRUSTER",
-                                    "PAUSED_BP", "DB_SKULL_CRUSH", "SEAT_BB_TRI_EXT", "BICEP_CURL_MC", "CHEST_FLY_MC",
-                                    "DB_FRONT_SQT", "CHEST_SUP_T_ROW"
-                                ]},
-                                {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "array",
-                                        "prefixItems": [
-                                            {"type": "integer", "minimum": 1, "maximum": 20},
-                                            {"type": "integer", "minimum": 5, "maximum": 500},
-                                            {"const": 0}
-                                        ],
-                                        "items": False,
-                                        "minItems": 3,
-                                        "maxItems": 3
-                                    },
-                                    "minItems": 3,
-                                    "maxItems": 10
-                                }
-                            ],
-                            "items": False
-                        }
-                    ]
-                }
-            }
-        }
-    },
-    "required": ["days"],
-    "additionalProperties": False
-}
 
 # --- Load Exercise Catalog and Name Map --
 exercise_catalog = []
@@ -223,7 +285,6 @@ try:
                 }
 except (FileNotFoundError, json.JSONDecodeError) as e:
     app.logger.error(f"Critical: Could not load or parse exercise catalog at {EXERCISE_CATALOG_PATH}: {e}")
-
 
 # --- API Endpoints --
 
@@ -260,60 +321,73 @@ def generate_prompt_api():
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
 
-def process_inference_request(data, client_creator, use_max_completion_tokens=False):
+def process_inference_request(data, client_creator):
     if not data:
         return jsonify({"error": "Missing request body"}), 400
-
     try:
+        # 1) prompt 문맥(네 build_prompt 재사용 가능)
         prompt = data.get('prompt')
+        user = None
         if not prompt:
-            app.logger.info("No prompt provided, generating one from user data.")
             user = User(
                 gender=data.get('gender', 'M'),
                 weight=float(data.get('weight', 70)),
-                level=data.get('level', 'Intermediate'),
-                freq=int(data.get('freq', 3)),
+                level=data.get('level', 'Beginner'),
+                freq=int(data.get('freq', 4)),
                 duration=int(data.get('duration', 60)),
                 intensity=data.get('intensity', 'Normal')
             )
             prompt = build_prompt(user, exercise_catalog)
-        
-        # 3. Call the model via the provided client creator
-        # app.logger.info(f"Sending prompt to model: {prompt}")
+
+        # 2) 주간 횟수/분할 시퀀스
+        freq = int(data.get('freq', 4))
+        if freq not in {2,3,4,5}:
+            return jsonify({"error":"Unsupported weekly frequency. Use 2/3/4/5."}), 400
+        split_tags = SPLITS[freq]
+
+        # 3) 카탈로그 → 분할별 허용 ID 자동 생성
+        if not ALLOWED_IDS:
+            return jsonify({"error":"ALLOWED_IDS not loaded. Please provide data/allowed_ids.json"}), 500
+        week_schema = build_week_schema_once(freq, split_tags, ALLOWED_IDS)
+
+        # 5) 단 한 번 호출 (xgrammar). 정말 길이 강제가 필요하면 아래 extra_body에 outlines 지정 가능
         client, model_name = client_creator()
         resp = client.chat.completions.create(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
-            # extra_body={"guided_json": schema},
+            extra_body={"guided_json": week_schema},  # {"guided_decoding_backend":"outlines"}로 교체 가능
             max_tokens=int(data.get("max_tokens", 4096))
         )
-        raw_response_text = resp.choices[0].message.content
-        # app.logger.info(f"Raw model output received (len={len(raw_response_text)}).")
+        raw = resp.choices[0].message.content
 
-        # --- Post-process: JSON repair & formatting (기존 그대로) ---
-        formatted_summary = raw_response_text
-
-        return jsonify({
-            "response": raw_response_text,
-            "formatted_summary": formatted_summary,
-            "prompt": prompt
-        })
-
-    except openai.APIStatusError as e:
-        app.logger.error(f"Model API returned an error status: {e}")
-        error_details = {"error": str(e)}
+        # 6) 파싱 + 후검증/보정
         try:
-            error_details = e.response.json()
+            if raw.lstrip().startswith("{"):
+                obj = json.loads(raw)
+            else:
+                m = re.search(r'\{\s*"days"\s*:\s*\[.*?\]\s*\}', raw, re.DOTALL)
+                obj = json.loads(m.group(0)) if m else {"days":[]}
         except Exception:
-            pass
-        return jsonify({
-            "response": json.dumps(error_details),
-            "formatted_summary": f"Model API returned an error:\n{json.dumps(error_details, indent=2)}"
-        }), e.status_code or 502
+            # 최후의 보정
+            repaired = repair_json(raw, return_objects=True)
+            obj = repaired[0] if isinstance(repaired, list) and repaired else repaired
+            if not isinstance(obj, dict):
+                return jsonify({"error":"Failed to parse model JSON.", "response": raw}), 502
+
+        if "days" not in obj:
+            return jsonify({"error":"Parsed object missing 'days'.", "response": raw}), 502
+
+        # 7) 후처리(중복병합/라벨교정/T패턴강제)
+        obj = post_validate_and_fix_week(obj)
+
+        formatted_summary = format_new_routine(obj, exercise_name_map)
+        return jsonify({"response": raw, "result": obj, "formatted_summary": formatted_summary})
+
     except Exception as e:
-        app.logger.error(f"An unexpected error occurred in inference processing: {e}", exc_info=True)
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+        app.logger.error(f"Error in process_inference_request: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 
 
 
@@ -337,7 +411,7 @@ def infer_openai_api():
         model_name = OPENAI_MODEL
         return client, model_name
 
-    return process_inference_request(request.get_json(), openai_client_creator, use_max_completion_tokens=False)
+    return process_inference_request(request.get_json(), openai_client_creator)
 
 
 if __name__ == '__main__':
