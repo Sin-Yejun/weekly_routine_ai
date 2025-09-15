@@ -136,7 +136,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const result = await response.json();
-            formattedOutputEl.textContent = result.formatted_summary || 'No formatted summary returned.';
+            let outputContent = 'No response returned.'; // Default value
+
+            if (result.formatted_summary) {
+                outputContent = "--- Formatted Output ---\n" + result.formatted_summary;
+                if (result.response) {
+                    outputContent += "\n\n--- Raw Model Output ---\n" + result.response;
+                }
+            } else if (result.response) {
+                outputContent = "--- Raw Model Output ---\n" + result.response;
+            }
+            
+            formattedOutputEl.textContent = outputContent;
 
         } catch (error) {
             console.error('Error generating OpenAI routine:', error);

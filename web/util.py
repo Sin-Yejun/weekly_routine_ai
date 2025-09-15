@@ -112,6 +112,16 @@ def build_prompt(user: User, catalog: list) -> str:
     )
 
 def format_new_routine(plan_json: dict, exercise_name_map: dict) -> str:
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logging.info("--- DIAGNOSTIC LOG IN format_new_routine ---")
+    if exercise_name_map and 'BB_BP' in exercise_name_map:
+        # Check a known key ('BB_BP') to see if the value is Korean or English
+        logging.info(f"MAP CHECK: BB_BP -> {exercise_name_map.get('BB_BP')}")
+    else:
+        logging.info("MAP CHECK: exercise_name_map is empty or doesn't contain BB_BP!")
+    logging.info("--- END DIAGNOSTIC LOG ---")
+
     # --- Load Korean names for formatting ---
     korean_map = {}
     try:
