@@ -6,108 +6,44 @@ import logging
 import requests
 import openai
 from openai import OpenAI
-from json_repair import loads as repair_json
+from json_repair import repair_json as json_repair_str
 from dotenv import load_dotenv
 from util import User, build_prompt, format_new_routine
 
-def get_allowed_ids(freq: int, split_name: str) -> list:
-    try:
-        return ALLOWED_IDS[str(freq)][split_name]
-    except KeyError:
-        return []
 
-def make_anyof_branches_for_ids(allowed_ids_for_day):
-    """해당 DAY에서 허용되는 id만 anyOf 분기에 매핑(T 패턴 유지)."""
-    time_only_all   = {"TREADMIL","CYCLE","ROW_MACH","PLANK","CLIMB_STAIRS","ASSAULT_BIKE","BAT_ROPE","STEPMILL_MAC","ELLIP_MC","WALKING","RUNNING"}   # T=1
-    reps_only_all   = {"PUSH_UP","SIT_UP","LEG_RAISE","BURPEE","AIR_SQT","JUMP_SQT","HINDU_PUSH_UP","V-UP","PULL_UP","DIPS","MOUNT_CLIMB","LUNGE","CHIN_UP","STEP_UP","INVT_ROW","HIP_THRUST","HPET","BACK_ET","CRUNCH","HEEL_TOUCH","HANG_LEG_RAIGE","ABS_ROLL_OUT","ABS_AIR_BIKE","TOES_TO_BAR","BOX_JUMP","JUMPING_JACK","HANG_KNEE_RAISE","HIGH_KNEE_SKIP","DOUBLE_UNDER","INCHWORM","CLAP_PUSH_UP","INC_PUSH_UP","BW_CALF_RAISE","PISTOL_BOX_SQT","GLUTE_BRDG","BENCH_DIPS","BW_LAT_LUNGE","KB_SM_AIR_SQT","PISTOL_SQT","Y_RAISE","DONK_KICK","DEC_SIT_UP","SEAT_KNEE_UP","DEC_PUSH_UP","DONK_CALF_RAISE","KNEE_PU"}  # T=2
-    weighted_timed  = {"FARMER_WALK"}  # T=5
-    # 나머지는 모두 T=6(가중치형)
+BODY_PART_ENUM = ["Abs","Arm","Back","Cardio","Chest","Leg","Lifting","Shoulder","etc"]
 
-    allowed = set(allowed_ids_for_day)
-    time_only_ids  = sorted(list(allowed & time_only_all))
-    reps_only_ids  = sorted(list(allowed & reps_only_all))
-    wt_timed_ids   = sorted(list(allowed & weighted_timed))
-    weighted_ids   = sorted(list(allowed - set(time_only_ids) - set(reps_only_ids) - set(wt_timed_ids)))
+def make_day_schema_pairs(allowed_ids_for_day):
+    # allowed_ids_for_day: 그 DAY에 허용되는 exercise_id 리스트 (비어있으면 안 됨)
+    pair_enum = []
+    seen = set()
+    for ex_id in allowed_ids_for_day:
+        bp = exercise_name_map.get(ex_id, {}).get('bName')
+        if not bp:
+            continue
+        key = (bp, ex_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        pair_enum.append([bp, ex_id])
 
-    branches = []
-    if time_only_ids:
-        branches.append({
-            "type":"array",
-            "prefixItems":[
-                {"type":"string","enum":["Abs","Cardio","etc"]},
-                {"type":"string","enum":time_only_ids},
-                {
-                    "type":"array",
-                    "items":{
-                        "type":"array",
-                        "prefixItems":[{"const":0},{"const":0},{"type":"integer","minimum":300,"maximum":1800}],
-                        "items":False
-                    }
-                }
-            ],
-            "items":False
-        })
-    if wt_timed_ids:
-        branches.append({
-            "type":"array",
-            "prefixItems":[
-                {"type":"string","enum":["Cardio"]},
-                {"type":"string","enum":wt_timed_ids},
-                {
-                    "type":"array",
-                    "items":{
-                        "type":"array",
-                        "prefixItems":[{"const":0},{"type":"integer","minimum":5},{"type":"integer","minimum":1}],
-                        "items":False
-                    }
-                }
-            ],
-            "items":False
-        })
-    if reps_only_ids:
-        branches.append({
-            "type":"array",
-            "prefixItems":[
-                {"type":"string","enum":["Abs","Arm","Back","Cardio","Chest","Leg","Shoulder","etc"]},
-                {"type":"string","enum":reps_only_ids},
-                {
-                    "type":"array",
-                    "items":{
-                        "type":"array",
-                        "prefixItems":[{"type":"integer","minimum":1},{"const":0},{"const":0}],
-                        "items":False
-                    }
-                }
-            ],
-            "items":False
-        })
-    if weighted_ids:
-        branches.append({
-            "type":"array",
-            "prefixItems":[
-                {"type":"string","enum":["Abs","Arm","Back","Cardio","Chest","Leg","Lifting","Shoulder","etc"]},
-                {"type":"string","enum":weighted_ids},
-                {
-                    "type":"array",
-                    "items":{
-                        "type":"array",
-                        "prefixItems":[{"type":"integer","minimum":1},{"type":"integer","minimum":5},{"const":0}],
-                        "items":False
-                    }
-                }
-            ],
-            "items":False
-        })
-    return branches
+    # 안전: 비어있으면 grammar 변환이 깨집니다 → 최소 한 개는 보장되도록 fallback
+    if not pair_enum:
+        # freq 전체/카탈로그 전체 등으로 완화해 비지 않게 만드세요.
+        # 여기서는 카탈로그 전체를 fallback 예시로.
+        for ex_id, v in exercise_name_map.items():
+            bp = v.get('bName')
+            if bp:
+                pair_enum.append([bp, ex_id])
 
-def make_day_schema_for_ids(allowed_ids_for_day):
-    """해당 DAY 전용 스키마(운동 항목 배열)."""
     return {
-        "type":"array",              # day = [ [bp,id,sets], ... ]
-        "items":{
-            "anyOf": make_anyof_branches_for_ids(allowed_ids_for_day)
+        "type": "array",               # day = [ [bp,id], ... ]
+        # "minItems": 3,            # 하루 3~8개
+        # "maxItems": 8,
+        "items": {
+            # 튜플 스키마 대신 "쌍 자체"를 enum으로 박아 교차제약 해결
+            "enum": pair_enum
         }
-        # (xgrammar에서 길이 강제는 약하므로 minItems/maxItems는 생략)
     }
 
 SPLITS = {
@@ -118,132 +54,90 @@ SPLITS = {
 }
 
 def build_week_schema_once(freq, split_tags, allowed_ids):
-    """
-    주간 한 번 호출용 스키마.
-    days.prefixItems = [DAY1 스키마, DAY2 스키마, ...] 로 '요일별 허용 id'를 스키마 레벨에서 강제.
-    """
     prefix = []
     for tag in split_tags:
-        allowed_ids_for_day = []
         try:
-            allowed_ids_for_day = allowed_ids[str(freq)][tag]
+            allowed_for_day = allowed_ids[str(freq)][tag]
         except Exception:
-            # 혹시 freq 키 없이 평면 구조로 제공되었으면 폴백
-            allowed_ids_for_day = allowed_ids.get(tag, [])
-        prefix.append(make_day_schema_for_ids(allowed_ids_for_day))
-    return {
-        "type":"object",
-        "properties":{
-            "days":{
-                "type":"array",
-                "prefixItems": prefix,
-                "items": False  # 일부 버전에선 거부/무시될 수 있어 제거해도 됨
-            }
-        },
-        "required":["days"],
-        "additionalProperties": False
-    }
-def _snap5(x):
-    try:
-        return int(round(int(x)/5.0)*5)
-    except Exception:
-        return 0
+            allowed_for_day = allowed_ids.get(tag, [])
 
-def post_validate_and_fix_week(obj):
-    """
-    {"days":[ day1, day2, ... ]}
-    - 중복 운동 병합하지 않음(항목은 그대로 유지)
-    - 각 운동 항목의 세트 수: 1~8세트로 제한 (9세트 이상이면 앞 8세트만)
-    - 카디오는 하루 1종 1세트만 반영
-    - T 패턴 정리 + weight 5kg 스냅
-    - 총 세트 과다 컷 로직 제거
-    - bodypart 라벨은 카탈로그(bName)로 강제 교정
-    """
+        # 빈 enum 방지용 fallback (중요!)
+        if not allowed_for_day:
+            # 예: freq 전체 묶어서라도 한두 개는 채워 넣기
+            if str(freq) in allowed_ids:
+                all_ids = []
+                for v in allowed_ids[str(freq)].values():
+                    all_ids.extend(v)
+                allowed_for_day = list(dict.fromkeys(all_ids))
+            else:
+                allowed_for_day = list(exercise_name_map.keys())
+
+        prefix.append(make_day_schema_pairs(allowed_for_day))
+
+    return {
+        "type": "object",
+        "required": ["days"],
+        "additionalProperties": False,
+        "properties": {
+            "days": {
+                "type": "array",
+                "minItems": len(prefix),
+                "maxItems": len(prefix),
+                "prefixItems": prefix,
+                "items": False
+            }
+        }
+    }
+
+# 1) allowed 풀에서 보충하는 헬퍼
+def _allowed_pairs_for_day(freq, tag, allowed_ids):
+    try:
+        ids = list(dict.fromkeys(allowed_ids[str(freq)][tag]))
+    except Exception:
+        ids = list(dict.fromkeys(allowed_ids.get(tag, [])))
+    pairs = []
+    for ex_id in ids:
+        bp = exercise_name_map.get(ex_id, {}).get('bName')
+        if bp:
+            pairs.append([bp, ex_id])
+    return pairs
+
+# 2) 후처리: 중복 제거 + 부족분 보충 + 8개 컷
+def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_ids=None, min_ex=3, max_ex=8):
     if not isinstance(obj, dict) or "days" not in obj:
         return obj
-
-    time_only_ids = {
-        "TREADMIL","CYCLE","ROW_MACH","PLANK","CLIMB_STAIRS","ASSAULT_BIKE",
-        "BAT_ROPE","STEPMILL_MAC","ELLIP_MC","WALKING","RUNNING"
-    }
-
-    def fix_day(day):
+    def fix_day(day, day_idx):
         if not isinstance(day, list):
-            return []
-
-        fixed = []
-        cardio_seen = False
-
-        for item in day:
-            # item = [bp, ex_id, sets]
-            if not (isinstance(item, list) and len(item) == 3 and isinstance(item[1], str) and isinstance(item[2], list)):
+            day = []
+        fixed, used = [], set()
+        for pair in day:
+            if not (isinstance(pair, list) and len(pair) == 2 and all(isinstance(x, str) for x in pair)):
                 continue
-
-            # 원본 값
-            bp, ex_id, sets = item[0], item[1], item[2]
-
-            # --- 세트 정규화(T 패턴 강제) ---
-            new_sets = []
-            for s in sets:
-                if not isinstance(s, list) or len(s) < 3:
-                    continue
-                # 기존 로직 유지하되 normalize
-                r, w, t = s[0], s[1], s[2]
-                if ex_id in time_only_ids:
-                    # T=1: [0,0,time>0]
-                    t = max(300, int(t) if isinstance(t, int) else 600)
-                    new_sets.append([0, 0, t])
-                elif ex_id == "FARMER_WALK":
-                    # T=5: [0, weight>=5(5kg step), time>0]
-                    w = max(5, _snap5(w))
-                    t = max(60, int(t) if isinstance(t, int) else 60)
-                    new_sets.append([0, w, t])
-                elif ex_id in {
-                    "PUSH_UP","SIT_UP","LEG_RAISE","BURPEE","AIR_SQT","JUMP_SQT","HINDU_PUSH_UP","V-UP","PULL_UP",
-                    "DIPS","MOUNT_CLIMB","LUNGE","CHIN_UP","STEP_UP","INVT_ROW","HIP_THRUST","HPET","BACK_ET",
-                    "CRUNCH","HEEL_TOUCH","HANG_LEG_RAIGE","ABS_ROLL_OUT","ABS_AIR_BIKE","TOES_TO_BAR","BOX_JUMP",
-                    "JUMPING_JACK","HANG_KNEE_RAISE","HIGH_KNEE_SKIP","DOUBLE_UNDER","INCHWORM","CLAP_PUSH_UP",
-                    "INC_PUSH_UP","BW_CALF_RAISE","PISTOL_BOX_SQT","GLUTE_BRDG","BENCH_DIPS","BW_LAT_LUNGE",
-                    "KB_SM_AIR_SQT","PISTOL_SQT","Y_RAISE","DONK_KICK","DEC_SIT_UP","SEAT_KNEE_UP","DEC_PUSH_UP","DONK_CALF_RAISE","KNEE_PU"
-                }:
-                    # T=2: [reps>0,0,0]
-                    r = max(1, int(r) if isinstance(r, int) else 10)
-                    new_sets.append([r, 0, 0])
-                else:
-                    # T=6: [reps>0, weight>=5(5kg step), 0]
-                    r = max(1, int(r) if isinstance(r, int) else 6)
-                    w = max(5, _snap5(w))
-                    new_sets.append([r, w, 0])
-
-            # --- 세트 수 제한: 1~8세트 ---
-            if not new_sets:
+            bp, ex_id = pair
+            cat_bp = exercise_name_map.get(ex_id, {}).get('bName') or bp
+            key = (cat_bp, ex_id)
+            if key in used:
                 continue
-            if len(new_sets) > 8:
-                new_sets = new_sets[:8]
-
-            # --- 카디오는 하루 1종 1세트만 반영 ---
-            if ex_id in time_only_ids:
-                if cardio_seen:
-                    # 이미 카디오가 있었으면 스킵
+            used.add(key)
+            fixed.append([cat_bp, ex_id])
+            if len(fixed) >= max_ex:
+                break
+        # 부족분 보충
+        if freq and split_tags and allowed_ids and len(fixed) < min_ex:
+            tag = split_tags[day_idx % len(split_tags)]
+            pool = _allowed_pairs_for_day(freq, tag, allowed_ids)
+            for cand_bp, cand_id in pool:
+                key = (cand_bp, cand_id)
+                if key in used:
                     continue
-                new_sets = new_sets[:1]
-                cardio_seen = True
+                fixed.append([cand_bp, cand_id])
+                used.add(key)
+                if len(fixed) >= min_ex:
+                    break
+        return fixed[:max_ex]
+    return {"days": [fix_day(d, i) for i, d in enumerate(obj["days"]) if isinstance(d, list)]}
 
-            # --- bodypart를 카탈로그(bName) 기준으로 강제 교정 ---
-            try:
-                # 전역에 로드된 exercise_name_map 사용 (processed_query_result.json 기반)
-                cat_bp = exercise_name_map.get(ex_id, {}).get('bName')
-                if cat_bp:
-                    bp = cat_bp
-            except Exception:
-                pass
 
-            fixed.append([bp, ex_id, new_sets])
-
-        return fixed
-
-    days = obj["days"]
-    return {"days": [fix_day(d) for d in days]}
 
 
 # --- Flask App Initialization --
@@ -286,6 +180,23 @@ try:
 except (FileNotFoundError, json.JSONDecodeError) as e:
     app.logger.error(f"Critical: Could not load or parse exercise catalog at {EXERCISE_CATALOG_PATH}: {e}")
 
+# --- Load Korean Name Map for Formatting --
+korean_name_map = {}
+KOREAN_CATALOG_PATH = os.path.join(DATA_DIR, '02_processed', 'query_result.json')
+try:
+    with open(KOREAN_CATALOG_PATH, 'r', encoding='utf-8') as f:
+        korean_exercise_catalog = json.load(f)
+        for exercise in korean_exercise_catalog:
+            e_text_id = exercise.get('eTextId')
+            if e_text_id:
+                korean_name_map[e_text_id] = {
+                    'bName': exercise.get('bName'),
+                    'eName': exercise.get('eName')
+                }
+except Exception as e:
+    app.logger.error(f"FATAL: Could not load Korean exercise catalog from {KOREAN_CATALOG_PATH}. The application cannot continue. Error: {e}")
+    raise
+
 # --- API Endpoints --
 
 @app.route('/')
@@ -301,7 +212,6 @@ def get_exercises():
 
 @app.route('/api/generate-prompt', methods=['POST'])
 def generate_prompt_api():
-    """Generates and returns just the prompt."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "Missing request body"}), 400
@@ -325,7 +235,7 @@ def process_inference_request(data, client_creator):
     if not data:
         return jsonify({"error": "Missing request body"}), 400
     try:
-        # 1) prompt 문맥(네 build_prompt 재사용 가능)
+        # 1) prompt
         prompt = data.get('prompt')
         user = None
         if not prompt:
@@ -339,29 +249,29 @@ def process_inference_request(data, client_creator):
             )
             prompt = build_prompt(user, exercise_catalog)
 
-        # 2) 주간 횟수/분할 시퀀스
+        # 2) 주간 분할
         freq = int(data.get('freq', 4))
         if freq not in {2,3,4,5}:
             return jsonify({"error":"Unsupported weekly frequency. Use 2/3/4/5."}), 400
         split_tags = SPLITS[freq]
 
-        # 3) 카탈로그 → 분할별 허용 ID 자동 생성
+        # 3) 요일별 허용 ID 스키마
         if not ALLOWED_IDS:
             return jsonify({"error":"ALLOWED_IDS not loaded. Please provide data/allowed_ids.json"}), 500
         week_schema = build_week_schema_once(freq, split_tags, ALLOWED_IDS)
 
-        # 5) 단 한 번 호출 (xgrammar). 정말 길이 강제가 필요하면 아래 extra_body에 outlines 지정 가능
+        # 4) 모델 호출
         client, model_name = client_creator()
         resp = client.chat.completions.create(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-            extra_body={"guided_json": week_schema},  # {"guided_decoding_backend":"outlines"}로 교체 가능
+            temperature=1.0,
+            extra_body={"guided_json": week_schema, "repetition_penalty": 1.15},
             max_tokens=int(data.get("max_tokens", 4096))
         )
         raw = resp.choices[0].message.content
 
-        # 6) 파싱 + 후검증/보정
+        # 5) 파싱
         try:
             if raw.lstrip().startswith("{"):
                 obj = json.loads(raw)
@@ -369,17 +279,16 @@ def process_inference_request(data, client_creator):
                 m = re.search(r'\{\s*"days"\s*:\s*\[.*?\]\s*\}', raw, re.DOTALL)
                 obj = json.loads(m.group(0)) if m else {"days":[]}
         except Exception:
-            # 최후의 보정
-            repaired = repair_json(raw, return_objects=True)
-            obj = repaired[0] if isinstance(repaired, list) and repaired else repaired
+            repaired_str = json_repair_str(raw)        # ← 문자열(JSON) 반환
+            obj = json.loads(repaired_str)             # ← 여기서 표준 json으로 파싱
             if not isinstance(obj, dict):
                 return jsonify({"error":"Failed to parse model JSON.", "response": raw}), 502
 
         if "days" not in obj:
             return jsonify({"error":"Parsed object missing 'days'.", "response": raw}), 502
 
-        # 7) 후처리(중복병합/라벨교정/T패턴강제)
-        obj = post_validate_and_fix_week(obj)
+        # 6) 후처리(라벨 보정/중복 제거 등)
+        obj = post_validate_and_fix_week(obj, freq=freq, split_tags=split_tags, allowed_ids=ALLOWED_IDS, min_ex=3, max_ex=8)
 
         formatted_summary = format_new_routine(obj, exercise_name_map)
         return jsonify({"response": raw, "result": obj, "formatted_summary": formatted_summary})
@@ -387,9 +296,6 @@ def process_inference_request(data, client_creator):
     except Exception as e:
         app.logger.error(f"Error in process_inference_request: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
-
-
-
 
 @app.route('/api/infer', methods=['POST'])
 def infer_vllm_api():

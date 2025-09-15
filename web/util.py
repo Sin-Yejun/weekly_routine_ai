@@ -5,16 +5,12 @@ from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 # --- Constants from calculation_prompt.py ---
-L = {
-  "M": {"BP": {"B":0.6, "N":1.0, "I":1.3, "A":1.6, "E":2.0}, "SQ": {"B":0.8, "N":1.2, "I":1.6, "A":2.0, "E":2.5}, "DL": {"B":1.0,"N":1.5, "I":2.0, "A":2.5, "E":3.0}, "OHP":{"B":0.4, "N":0.7, "I":0.9, "A":1.1, "E":1.4}},
-  "F": {"BP": {"B":0.39,"N":0.65,"I":0.845,"A":1.04,"E":1.3}, "SQ": {"B":0.52,"N":0.78,"I":1.04,"A":1.3,"E":1.625}, "DL": {"B":0.65,"N":0.975,"I":1.3,"A":1.625,"E":1.95}, "OHP":{"B":0.26,"N":0.455,"I":0.585,"A":0.715,"E":0.91}}
-}
+
 LEVEL_CODE = {"Beginner":"B","Novice":"N","Intermediate":"I","Advanced":"A","Elite":"E"}
 INT_BASE_SETS = {"Low":12, "Normal":16, "High":20}
-ANCHOR_PERCENTS = [0.55, 0.60, 0.65, 0.70]
 
-PROMPT_TEMPLATE = '''## [Task]
-Return a weekly bodybuilding routine as strict JSON only. Output exactly one JSON object and nothing else.
+PROMPT_TEMPLATE_EXERCISES = '''## [Task]
+Return a weekly bodybuilding plan as strict JSON only.
 
 ## [User Info]
 - Gender: {gender}
@@ -24,46 +20,23 @@ Return a weekly bodybuilding routine as strict JSON only. Output exactly one JSO
 - Workout Duration: {duration} minutes
 - Workout Intensity: {intensity}
 
-## [Split]
+## Split
 - Name: {split_name}; Days: {split_days}.
 
-## [Sets/Reps Budget]
-- Target working sets per day: ~{sets_budget} (±2), fit within ~{duration}min.
-- Allocate: anchor 3-4 sets; accessories 2-3 sets; avoid per-muscle weekly sets > 12 for Beginners/Novices.
-- Reps: anchor 6-10, accessory 8-12, isolation 12-15 (≤20).
-
-## [Loads]
-- Training Max (TM): BP={TM_BP}, SQ={TM_SQ}, DL={TM_DL}, OHP={TM_OHP} (kg).
-- Rounding: all loads are integers in 5kg steps; round to nearest 5
-- Anchor % of TM → weight(kg):
-  BP: {BP_loads}
-  SQ: {SQ_loads}
-  DL: {DL_loads}
-  OHP: {OHP_loads}
-- Accessories guide from same-day anchor TM:
-  compound 45-60% → ~{ACC_COMP_MIN}-{ACC_COMP_MAX}kg, isolation/machine 30-50% → ~{ACC_ISO_MIN}-{ACC_ISO_MAX}kg
-
-## [Schema & Rules]
-- JSON only. Minified: no spaces/newlines.
-- Schema: {{"days":[[[bodypart,exercise_id,[[reps,weight,time],...]],...],...]}}
-- bodypart ∈ {{Chest,Back,Shoulder,Leg,Arm,Abs,Cardio,Lifting,etc}}
+## Content rules
+- Schema : {{"days":[[[bodypart,exercise_id],...],...]}}
+- Reflect each day's split focus and cover major groups across the week.
+- Pick 3–8 exercises per day.
+- **Crucially, all exercises within a single day's list MUST be unique. Do not repeat any exercise_id within the same day.**
 - Use only ids from the provided catalog; do not invent new exercises.
-- weight integer in 5kg steps; reps≥1; numbers only.
 
-## [Catalog Type Code Rule]
-- Each catalog item is [group, exercise_id, exercise_name, movement_type, T] where T∈{{1,2,5,6}}. The sets for that exercise must match T:
-  - T=1 (time-only): every set MUST be [0,0,time_sec], with time_sec>0 (e.g., 600–1800). reps=0, weight=0.
-  - T=2 (reps-only): every set MUST be [reps>0, 0, 0]. time=0, weight=0.
-  - T=5 (weighted/timed): every set MUST be [0, weight≥5(step of 5), time_sec>0]. reps=0.
-  - T=6 (weighted): every set MUST be [reps>0, weight≥5(step of 5), 0]. time=0.
-- Do not violate the T pattern for any chosen exercise. Reject/replace exercises if the catalog T conflicts with intended usage.
-
-## [Available Exercise Catalog]
+## Catalog
 {catalog_json}
 
-## [Output]
-Return only JSON.
+## Output
+Return exactly one JSON object only.
 '''
+
 
 # --- Helper Functions ---
 
@@ -97,39 +70,35 @@ def set_budget(freq: int, intensity: str) -> int:
     if freq == 5: base -= 2
     return base
 
-def compute_tm(user: User) -> Dict[str, int]:
-    code = LEVEL_CODE.get(user.level)
-    if not code or not user.gender: return {"BP": 0, "SQ": 0, "DL": 0, "OHP": 0}
-    coeffs = L[user.gender]
-    tm = {}
-    for lift in ("BP", "SQ", "DL", "OHP"):
-        tm[lift] = round_to_step(0.9 * (user.weight * coeffs[lift][code]), 5)
-    return tm
-
-def build_load_table(tm: Dict[str, int]) -> Dict[str, Dict[int, int]]:
-    return {lift: {int(p * 100): round_to_step(tm_kg * p, 5) for p in ANCHOR_PERCENTS} for lift, tm_kg in tm.items()}
-
-def accessory_ranges(tm: Dict[str, int]) -> Dict[str, Dict[str, Tuple[int, int]]]:
-    out = {}
-    # Use BP as the anchor for accessory range calculation
-    anchor_lift_tm = tm.get("BP", 0)
-    return {
-        "compound_45_60": (round_to_step(anchor_lift_tm * 0.45, 5), round_to_step(anchor_lift_tm * 0.60, 5)),
-        "isolation_30_50": (round_to_step(anchor_lift_tm * 0.30, 5), round_to_step(anchor_lift_tm * 0.50, 5))
-    }
-
 def build_prompt(user: User, catalog: list) -> str:
     split_name, split_days = pick_split(user.freq)
     sets = set_budget(user.freq, user.intensity)
-    tm = compute_tm(user)
-    loads = build_load_table(tm)
-    acc = accessory_ranges(tm)
-    
-    def row_str(lift): return ", ".join(f'{pct}%:{kg}' for pct, kg in loads[lift].items())
-    
-    catalog_str = json.dumps([[item.get(k) for k in ['bName', 'eTextId', 'eName', 'movement_type', 'eInfoType']] for item in catalog], ensure_ascii=False, separators=(',', ':'))
-    
-    return PROMPT_TEMPLATE.format(
+    # 대략 세트 예산을 종목 수로 환산: 한 종목당 평균 3~4세트 가정
+    ex_per_day = max(3, min(8, round(sets / 3)))
+
+    processed_catalog = []
+    for item in catalog:
+        bName = item.get('bName')
+        eTextId = item.get('eTextId')
+        eName = item.get('eName')
+        movement_type = item.get('movement_type')
+        body_region = item.get('body_region')
+
+        processed_catalog.append([
+            bName.upper() if isinstance(bName, str) else bName,
+            eTextId,
+            eName,
+            movement_type.upper() if isinstance(movement_type, str) else movement_type,
+            body_region.upper() if isinstance(body_region, str) else body_region,
+        ])
+
+    catalog_str = json.dumps(
+        processed_catalog,
+        ensure_ascii=False,
+        separators=(',', ':')
+    )
+
+    return PROMPT_TEMPLATE_EXERCISES.format(
         gender="male" if user.gender == "M" else "female",
         weight=int(round(user.weight)),
         level=user.level,
@@ -138,67 +107,51 @@ def build_prompt(user: User, catalog: list) -> str:
         intensity=user.intensity,
         split_name=split_name,
         split_days=" / ".join(split_days),
-        sets_budget=sets,
-        TM_BP=tm["BP"], TM_SQ=tm["SQ"], TM_DL=tm["DL"], TM_OHP=tm["OHP"],
-        BP_loads=row_str("BP"), SQ_loads=row_str("SQ"), DL_loads=row_str("DL"), OHP_loads=row_str("OHP"),
-        ACC_COMP_MIN=acc["compound_45_60"][0], ACC_COMP_MAX=acc["compound_45_60"][1],
-        ACC_ISO_MIN=acc["isolation_30_50"][0], ACC_ISO_MAX=acc["isolation_30_50"][1],
+        ex_per_day=ex_per_day,
         catalog_json=catalog_str
     )
 
-def format_new_routine(routine_json: dict, exercise_name_map: dict) -> str:
-    """Formats the new routine JSON into a human-readable summary."""
-    if not isinstance(routine_json, dict) or "days" not in routine_json:
-        return "Invalid routine format."
+def format_new_routine(plan_json: dict, exercise_name_map: dict) -> str:
+    # --- Load Korean names for formatting ---
+    korean_map = {}
+    try:
+        import os
+        import json
+        # Build absolute path to the data file relative to this util.py file
+        # __file__ is the path to the current script (util.py)
+        # os.path.dirname(__file__) is the directory of the current script (web/)
+        # os.path.dirname(os.path.dirname(__file__)) is the project root
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        korean_catalog_path = os.path.join(project_root, 'data', '02_processed', 'query_result.json')
+        with open(korean_catalog_path, 'r', encoding='utf-8') as f:
+            korean_catalog = json.load(f)
+            for exercise in korean_catalog:
+                e_text_id = exercise.get('eTextId')
+                if e_text_id:
+                    korean_map[e_text_id] = {
+                        'bName': exercise.get('bName'),
+                        'eName': exercise.get('eName')
+                    }
+    except Exception:
+        # If loading the Korean map fails, fall back to the map that was passed in
+        korean_map = exercise_name_map
+    # --- End of loading ---
 
-    days_data = routine_json.get("days", [])
-    if not isinstance(days_data, list):
-        return "Invalid 'days' format in routine."
-
-    texts = []
-    for idx, day_exercises in enumerate(days_data, 1):
-        header = f"[Workout Day #{idx}]"
-        lines = [header]
-        
-        if not isinstance(day_exercises, list):
+    if not isinstance(plan_json, dict) or "days" not in plan_json:
+        return "Invalid plan format."
+    out = []
+    for i, day in enumerate(plan_json["days"], 1):
+        if not isinstance(day, list):
             continue
-
-        for exercise_details in day_exercises:
-            if not isinstance(exercise_details, list) or len(exercise_details) != 3:
+        lines = [f"## Day{i} (운동개수: {len(day)})"]
+        for entry in day:
+            if not isinstance(entry, list) or len(entry) != 2:
                 continue
-            
-            bodypart, e_text_id, sets = exercise_details
-            
-            exercise_info = exercise_name_map.get(e_text_id, {})
-            e_name = exercise_info.get('eName', e_text_id) # Default to e_text_id
-            
-            display_name = f"[{bodypart}] {e_name}"
-
-            if not isinstance(sets, list):
-                continue
-
-            num_sets = len(sets)
-            sets_str_parts = []
-            for s in sets:
-                if not isinstance(s, list) or len(s) != 3:
-                    continue
-                reps, weight, time = s
-                if time > 0:
-                    if weight > 0: # Weighted timed exercise (T=5)
-                        sets_str_parts.append(f"{weight}kg for {time}s")
-                    else: # Timed exercise (T=1)
-                        sets_str_parts.append(f"{time}s")
-                elif reps > 0:
-                    if weight > 0: # Weighted reps (T=6)
-                        sets_str_parts.append(f"{weight}kg x {reps}")
-                    else: # Reps only (T=2)
-                        sets_str_parts.append(f"{reps} reps")
-
-            compressed_sets_str = " / ".join(sets_str_parts)
-            line = f"- {display_name}: {num_sets} sets ({compressed_sets_str})"
-            lines.append(line)
-                
+            bodypart, e_text_id = entry
+            exercise_info = korean_map.get(e_text_id, {}) # Use the new korean_map
+            e_name = exercise_info.get("eName", e_text_id)
+            b_name = exercise_info.get("bName", bodypart)
+            lines.append(f"{b_name} - {e_name}")
         if len(lines) > 1:
-            texts.append("\n".join(lines))
-            
-    return "\n\n".join(texts)
+            out.append("\n".join(lines))
+    return "\n\n".join(out)

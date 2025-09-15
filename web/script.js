@@ -83,15 +83,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const result = await response.json();
+            let outputContent = 'No response returned.'; // Default value
 
-            let output = "";
-            // if (result.formatted_summary) {
-            //     output += "--- Formatted Summary ---\n" + result.formatted_summary + "\n\n";
-            // }
-            if (result.response) {
-                output += "--- Raw Model Output ---\n" + result.response;
+            if (result.formatted_summary) {
+                outputContent = "--- Formatted Output ---\n" + result.formatted_summary;
+                if (result.response) {
+                    outputContent += "\n\n--- Raw Model Output ---\n" + result.response;
+                }
+            } else if (result.response) {
+                outputContent = "--- Raw Model Output ---\n" + result.response;
             }
-            rawOutputEl.textContent = output || 'No response returned.';
+            rawOutputEl.textContent = outputContent;
 
         } catch (error) {
             console.error('Error generating vLLM routine:', error);
