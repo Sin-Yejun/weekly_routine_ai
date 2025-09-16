@@ -1,64 +1,64 @@
-
 import csv
 import json
+from pathlib import Path
 
 def convert_csv_to_json(csv_path, json_path):
-    exercise_list = []
-    with open(csv_path, 'r', encoding='utf-8') as csv_file:
-        csv_reader = csv.reader(csv_file)
-        header = next(csv_reader)
+    csv_path = Path(csv_path)
+    json_path = Path(json_path)
 
-        # Map header names to indices for clarity
-        header_map = {name.strip().replace('\n', ''): i for i, name in enumerate(header)}
+    exercises = []
+    with csv_path.open('r', encoding='utf-8-sig', newline='') as f:
+        reader = csv.reader(f)
+        header = next(reader)
 
-        code_idx = header_map.get('Code')
-        ko_idx = header_map.get('Name(ko)')
-        en_idx = header_map.get('Name(en)')
-        ja_idx = header_map.get('Name(ja)')
-        zh_hans_idx = header_map.get('Name(zh-Hans)')
-        zh_hant_idx = header_map.get('Name(zh-Hant)')
-        id_idx = header_map.get('Name(id)')
-        de_idx = header_map.get('Name(de)')
-        nl_idx = header_map.get('Name(nl)')
-        es_idx = header_map.get('Name(es)')
-        pt_idx = header_map.get('Name(pt)')
-        it_idx = header_map.get('Name(it)')
-        fr_idx = header_map.get('Name(fr)')
-        # Category,Info Type,Tool
-        bodypart_idx = header_map.get('Category')
-        info_type_idx = header_map.get('Info Type')
-        tool_idx = header_map.get('Tool')
+        # 헤더 정리: 줄바꿈/양끝 공백 제거
+        header = [h.strip().replace('\n', '') for h in header]
+        h = {name: i for i, name in enumerate(header)}
 
-        for row in csv_reader:
-            # Skip empty rows
+        # CSV에 실제 존재하는 컬럼만 안전하게 인덱스 가져오기
+        code_idx        = h.get('Code')
+        kname_idx       = h.get('kName')
+        ename_idx       = h.get('eName')
+        bname_ko_idx    = h.get('bName(Ko)')
+        bname_idx       = h.get('bName')
+        tool_idx        = h.get('tool')
+        tool_ko_idx     = h.get('tool(ko)')
+        mg_idx          = h.get('MG')
+        mg_ko_idx       = h.get('MG(ko)')
+        einfo_idx       = h.get('eInfoType')  # 있으면 넣고, 없으면 빈 문자열
+
+        for row in reader:
             if not any(row):
                 continue
 
-            exercise_data = {
-                'code': row[code_idx] if code_idx is not None and len(row) > code_idx else '',
-                'ko': row[ko_idx] if ko_idx is not None and len(row) > ko_idx else '',
-                'en': row[en_idx] if en_idx is not None and len(row) > en_idx else '',
-                'ja': row[ja_idx] if ja_idx is not None and len(row) > ja_idx else '',
-                'zh-Hans': row[zh_hans_idx] if zh_hans_idx is not None and len(row) > zh_hans_idx else '',
-                'zh-Hant': row[zh_hant_idx] if zh_hant_idx is not None and len(row) > zh_hant_idx else '',
-                'id': row[id_idx] if id_idx is not None and len(row) > id_idx else '',
-                'de': row[de_idx] if de_idx is not None and len(row) > de_idx else '',
-                'nl': row[nl_idx] if nl_idx is not None and len(row) > nl_idx else '',
-                'es': row[es_idx] if es_idx is not None and len(row) > es_idx else '',
-                'pt': row[pt_idx] if pt_idx is not None and len(row) > pt_idx else '',
-                'it': row[it_idx] if it_idx is not None and len(row) > it_idx else '',
-                'fr': row[fr_idx] if fr_idx is not None and len(row) > fr_idx else '',
-                'bodypart': int(row[bodypart_idx] if bodypart_idx is not None and len(row) > bodypart_idx else 0),
-                'info_type': list(map(int, row[info_type_idx].split(','))) if info_type_idx is not None and len(row) > info_type_idx else [],
-                'tool': int(row[tool_idx] if tool_idx is not None and len(row) > tool_idx else 0),
-            }
-            exercise_list.append(exercise_data)
+            def get(idx):
+                return row[idx].strip() if (idx is not None and idx < len(row)) else ''
 
-    with open(json_path, 'w', encoding='utf-8') as json_file:
-        json.dump(exercise_list, json_file, ensure_ascii=False, indent=4)
+            # JSON 스키마: 실제 있는 정보 위주로
+            data = {
+                'code':     get(code_idx),
+                'kName':    get(kname_idx),      # 한국어 운동명
+                'eName':    get(ename_idx),      # 영어 운동명
+                'bName_ko': get(bname_ko_idx),   # 한국어 바디파트
+                'bName':    get(bname_idx),      # 영어 바디파트
+                'tool':     int(get(tool_idx)),       # 장비(영문)
+                'tool_ko':  get(tool_ko_idx),    # 장비(한글)
+                'MG':       get(mg_idx),         # 주 타겟 근육(영문)
+                'MG_ko':    get(mg_ko_idx),      # 주 타겟 근육(한글)
+                'eInfoType': int(get(einfo_idx)),     # 있으면 값, 없으면 ''
+            }
+
+            # 완전 빈 객체는 제외 (code나 kName/eName 중 하나라도 있으면 유지)
+            if any([data['code'], data['kName'], data['eName']]):
+                exercises.append(data)
+
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    with json_path.open('w', encoding='utf-8') as jf:
+        json.dump(exercises, jf, ensure_ascii=False, indent=4)
 
 if __name__ == '__main__':
-    # Note: This script assumes it is run from the root directory of the project.
-    # Adjust paths if necessary.
-    convert_csv_to_json('data/csv/ai_exercise_list.csv', 'data/multilingual-pack/ai_exercise_list.json')
+    convert_csv_to_json(
+        'data/02_processed/all_exercises_detail.csv',
+        'data/02_processed/all_exercises_detail.json'
+    )
     print("Conversion complete. JSON file created.")

@@ -20,9 +20,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 EXERCISE_CATALOG_PATH = os.path.join(DATA_DIR, '02_processed', 'processed_query_result.json')
 
-# --- Load Exercise Catalog and Name Map (English) --
+# --- Load Exercise Catalog and Name Maps --
 exercise_catalog = []
 exercise_name_map = {}
+korean_name_map = {}
 try:
     with open(EXERCISE_CATALOG_PATH, 'r', encoding='utf-8') as f:
         exercise_catalog = json.load(f)
@@ -33,19 +34,12 @@ try:
                     'bName': exercise.get('bName'),
                     'eName': exercise.get('eName')
                 }
+                korean_name_map[e_text_id] = {
+                    'bName': exercise.get('bName'),
+                    'eName': exercise.get('kName')
+                }
 except (FileNotFoundError, json.JSONDecodeError) as e:
-    app.logger.error(f"CRITICAL: Could not load English exercise catalog at {EXERCISE_CATALOG_PATH}: {e}")
-
-# --- Load Korean Name Map for Formatting --
-korean_name_map = {}
-KOREAN_CATALOG_PATH = os.path.join(DATA_DIR, '02_processed', 'query_result.json')
-try:
-    with open(KOREAN_CATALOG_PATH, 'r', encoding='utf-8') as f:
-        korean_name_map = {ex.get('eTextId'): ex for ex in json.load(f) if ex.get('eTextId')}
-    app.logger.info("Korean name map loaded successfully.")
-except Exception as e:
-    app.logger.warning(f"WARNING: Could not load Korean name map, formatting will use English. Error: {e}")
-    korean_name_map = exercise_name_map # Fallback to English map
+    app.logger.error(f"CRITICAL: Could not load exercise catalog at {EXERCISE_CATALOG_PATH}: {e}")
 
 # --- Global Variables & Helper Functions ---
 BODY_PART_ENUM = ["Abs","Arm","Back","Cardio","Chest","Leg","Lifting","Shoulder","etc"]

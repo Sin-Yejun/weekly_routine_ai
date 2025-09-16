@@ -83,6 +83,7 @@ def build_prompt(user: User, catalog: list) -> str:
         eName = item.get('eName')
         movement_type = item.get('movement_type')
         body_region = item.get('body_region')
+        muscle_group = item.get('MG')
 
         processed_catalog.append([
             bName.upper() if isinstance(bName, str) else bName,
@@ -90,6 +91,7 @@ def build_prompt(user: User, catalog: list) -> str:
             eName,
             movement_type.upper() if isinstance(movement_type, str) else movement_type,
             body_region.upper() if isinstance(body_region, str) else body_region,
+            muscle_group,
         ])
 
     catalog_str = json.dumps(
@@ -122,31 +124,6 @@ def format_new_routine(plan_json: dict, exercise_name_map: dict) -> str:
         logging.info("MAP CHECK: exercise_name_map is empty or doesn't contain BB_BP!")
     logging.info("--- END DIAGNOSTIC LOG ---")
 
-    # --- Load Korean names for formatting ---
-    korean_map = {}
-    try:
-        import os
-        import json
-        # Build absolute path to the data file relative to this util.py file
-        # __file__ is the path to the current script (util.py)
-        # os.path.dirname(__file__) is the directory of the current script (web/)
-        # os.path.dirname(os.path.dirname(__file__)) is the project root
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        korean_catalog_path = os.path.join(project_root, 'data', '02_processed', 'query_result.json')
-        with open(korean_catalog_path, 'r', encoding='utf-8') as f:
-            korean_catalog = json.load(f)
-            for exercise in korean_catalog:
-                e_text_id = exercise.get('eTextId')
-                if e_text_id:
-                    korean_map[e_text_id] = {
-                        'bName': exercise.get('bName'),
-                        'eName': exercise.get('eName')
-                    }
-    except Exception:
-        # If loading the Korean map fails, fall back to the map that was passed in
-        korean_map = exercise_name_map
-    # --- End of loading ---
-
     if not isinstance(plan_json, dict) or "days" not in plan_json:
         return "Invalid plan format."
     out = []
@@ -158,8 +135,8 @@ def format_new_routine(plan_json: dict, exercise_name_map: dict) -> str:
             if not isinstance(entry, list) or len(entry) != 2:
                 continue
             bodypart, e_text_id = entry
-            exercise_info = korean_map.get(e_text_id, {}) # Use the new korean_map
-            e_name = exercise_info.get("eName", e_text_id)
+            exercise_info = exercise_name_map.get(e_text_id, {}) # Use the passed map
+            e_name = exercise_info.get("eName", e_text_id) # This should now be the Korean name
             b_name = exercise_info.get("bName", bodypart)
             lines.append(f"{b_name} - {e_name}")
         if len(lines) > 1:

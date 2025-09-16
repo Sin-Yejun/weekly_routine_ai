@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / 'data'
 INPUT_PARQUET_PATH = DATA_DIR / '02_processed' / 'parquet' / 'weekly_streak_dataset.parquet'
 EXERCISE_CATALOG_PATH = DATA_DIR / '02_processed' / 'processed_query_result.json'
-OUTPUT_PATH = DATA_DIR / 'finetuning_data_v3.jsonl'
+OUTPUT_PATH = DATA_DIR / 'finetuning_data_v4.jsonl'
 
 # --- Logic from calculation_prompt.py (Constants and Prompt Template) ---
 PROMPT_TEMPLATE = """
@@ -53,7 +53,26 @@ def parse_duration_bucket(bucket: str) -> int:
     return int(numbers[-1]) if numbers else 60
 
 def build_prompt(user: User, catalog: list) -> str:
-    catalog_str = json.dumps([[item.get(k) for k in ['bName', 'eTextId', 'eName']] for item in catalog], ensure_ascii=False, separators=(',', ':'))
+    catalog_structured = []
+    for item in catalog:
+        micro_raw = item.get("MG", "")
+        micro_tags = []
+        if isinstance(micro_raw, str) and micro_raw.strip():
+            # "/"로 나눠 태그화, 공백 제거 + 대문자 + "_" 붙여서 enum 스타일로
+            parts = [p.strip().upper() for p in micro_raw.split('/')]
+            for p in parts:
+                tag = p.replace(" ", "_")
+                # 소근육 태그 앞에 대부위 접두사 붙여도 됨 (예: LEG_QUADS)
+                # 여기서는 bName 기준으로 prefix
+                prefix = item.get("bName", "").upper()
+                micro_tags.append(f"{prefix}_{tag}")
+        catalog_structured.append({
+            "id": item.get("eTextId"),
+            "bp": item.get("bName"),
+            "name": item.get("eName"),
+            "micro": micro_tags
+        })
+    catalog_str = json.dumps(catalog_structured, ensure_ascii=False, separators=(',', ':'))
     return PROMPT_TEMPLATE.format(
         gender="male" if user.gender == "M" else "female",
         weight=int(round(user.weight)),
@@ -63,6 +82,7 @@ def build_prompt(user: User, catalog: list) -> str:
         intensity=user.intensity,
         catalog_json=catalog_str
     )
+
 
 def transform_output_schema(weekly_exercises_str: str, id_to_bname_map: dict) -> dict:
     try:
@@ -80,7 +100,7 @@ def transform_output_schema(weekly_exercises_str: str, id_to_bname_map: dict) ->
         else:
             try:
                 e_text_id = item.get("eTextId", "")
-                b_name = id_to_bname_map.get(e_text_id, "etc")
+                b_name = id_to_bname_map.get(e_text_id, "Etc")
 
                 sets_str = item.get("sets", "[]")
                 sets_list = ast.literal_eval(sets_str)
