@@ -51,6 +51,6 @@ def process_exercise_data(input_path, output_path):
 
 if __name__ == '__main__':
     process_exercise_data(
-        'C:/Users/yejun/Desktop/Project/weekly_routine_ai/data/02_processed/processed_query_result.json',
-        'C:/Users/yejun/Desktop/Project/weekly_routine_ai/data/02_processed/eTextIds_by_eInfoType.txt'
+        'data/02_processed/processed_query_result.json',
+        'data/02_processed/eTextIds_by_eInfoType.txt'
     )

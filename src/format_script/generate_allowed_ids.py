@@ -39,8 +39,8 @@ def main():
     """
     Main function to generate allowed_ids.json.
     """
-    input_file = 'C:/Users/yejun/Desktop/Project/weekly_routine_ai/data/02_processed/eTextIds_by_eInfoType.txt'
-    output_file = 'C:/Users/yejun/Desktop/Project/weekly_routine_ai/web/allowed_ids_new.json'
+    input_file = 'data/02_processed/eTextIds_by_eInfoType.txt'
+    output_file = 'web/allowed_ids.json'
 
     # 1. Parse the source file
     grouped_data = parse_custom_format(input_file)

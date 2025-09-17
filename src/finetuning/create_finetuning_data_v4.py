@@ -8,6 +8,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 from tqdm import tqdm
+from collections import Counter
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -56,22 +57,16 @@ def build_prompt(user: User, catalog: list) -> str:
     catalog_structured = []
     for item in catalog:
         micro_raw = item.get("MG", "")
-        micro_tags = []
+        parts = []
         if isinstance(micro_raw, str) and micro_raw.strip():
             # "/"로 나눠 태그화, 공백 제거 + 대문자 + "_" 붙여서 enum 스타일로
             parts = [p.strip().upper() for p in micro_raw.split('/')]
-            for p in parts:
-                tag = p.replace(" ", "_")
-                # 소근육 태그 앞에 대부위 접두사 붙여도 됨 (예: LEG_QUADS)
-                # 여기서는 bName 기준으로 prefix
-                prefix = item.get("bName", "").upper()
-                micro_tags.append(f"{prefix}_{tag}")
-        catalog_structured.append({
-            "id": item.get("eTextId"),
-            "bp": item.get("bName"),
-            "name": item.get("eName"),
-            "micro": micro_tags
-        })
+        catalog_structured.append([
+            item.get("eTextId"),
+            item.get("bName"),
+            item.get("eName"),
+            {"micro": parts}
+        ])
     catalog_str = json.dumps(catalog_structured, ensure_ascii=False, separators=(',', ':'))
     return PROMPT_TEMPLATE.format(
         gender="male" if user.gender == "M" else "female",
@@ -129,10 +124,12 @@ def main():
     logging.info("Starting finetuning data generation...")
     try:
         df = pd.read_parquet(INPUT_PARQUET_PATH)
-        with open(EXERCISE_CATALOG_PATH, "r", encoding="utf-8") as f: 
+        with open(EXERCISE_CATALOG_PATH, "r", encoding="utf-8") as f:
             exercise_catalog = json.load(f)
         id_to_bname_map = {item['eTextId']: item['bName'] for item in exercise_catalog}
-    except FileNotFoundError as e: 
+        # Create a set of all valid eTextIds for quick lookups
+        catalog_id_set = set(id_to_bname_map.keys())
+    except FileNotFoundError as e:
         logging.error(f"Failed to load data: {e}")
         return
 
@@ -141,9 +138,36 @@ def main():
 
     processed_count = 0
     error_count = 0
+    missing_id_counter = Counter() # Initialize counter
+
     with open(OUTPUT_PATH, 'w', encoding='utf-8') as out_file:
         for _, row in tqdm(valid_rows.iterrows(), total=valid_rows.shape[0], desc="Generating Finetuning Data"):
             try:
+                # 1. Pre-process the output to find used & valid IDs
+                try:
+                    weekly_ex_list = ast.literal_eval(row.get('weekly_exercises'))
+                except (ValueError, SyntaxError):
+                    error_count += 1
+                    continue  # Skip if the exercise string is malformed
+
+                used_ids = {item.get("eTextId") for item in weekly_ex_list if item.get("eTextId")}
+
+                # 2. Validate IDs against the catalog
+                if not used_ids.issubset(catalog_id_set):
+                    missing_ids = used_ids - catalog_id_set
+                    missing_id_counter.update(missing_ids)
+                    error_count += 1
+                    continue  # Skip if any used ID is not in the main catalog
+
+                # 3. Create a filtered catalog
+                filtered_catalog = [item for item in exercise_catalog if item['eTextId'] in used_ids]
+                
+                # If for some reason the filtered catalog is empty, skip
+                if not filtered_catalog:
+                    error_count += 1
+                    continue
+
+                # 4. Build the prompt with the filtered catalog
                 user_for_prompt = User(
                     gender='M' if row.get('gender') == 'male' else 'F',
                     weight=float(row.get('weight', 70)),
@@ -152,8 +176,15 @@ def main():
                     duration=parse_duration_bucket(row.get('duration_bucket')),
                     intensity="Normal"
                 )
-                final_prompt = build_prompt(user_for_prompt, exercise_catalog)
+                final_prompt = build_prompt(user_for_prompt, filtered_catalog)
+                
+                # 5. Transform the output schema
                 output_data = transform_output_schema(row.get('weekly_exercises'), id_to_bname_map)
+
+                # If the final output is empty, skip
+                if not output_data["days"]:
+                    error_count += 1
+                    continue
 
                 output_json_string = json.dumps(output_data, ensure_ascii=False, separators=(',', ':'))
 
@@ -168,6 +199,16 @@ def main():
     logging.info(f"Successfully processed: {processed_count} records.")
     logging.info(f"Skipped due to errors: {error_count} records.")
     logging.info(f"Output saved to: {OUTPUT_PATH}")
+
+    # --- PRINTING THE REPORT ---
+    logging.info("--- Missing ID Report ---")
+    if not missing_id_counter:
+        logging.info("No records were skipped due to missing IDs.")
+    else:
+        logging.info(f"Found {len(missing_id_counter)} unique missing IDs that caused records to be skipped:")
+        for mid, count in missing_id_counter.most_common():
+            logging.info(f"  - ID: {mid} (skipped {count} records)")
+
 
 if __name__ == "__main__":
     main()

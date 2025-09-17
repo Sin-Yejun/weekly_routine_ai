@@ -58,7 +58,7 @@ def convert_csv_to_json(csv_path, json_path):
 
 if __name__ == '__main__':
     convert_csv_to_json(
-        'data/02_processed/all_exercises_detail.csv',
-        'data/02_processed/all_exercises_detail.json'
+        'data/02_processed/exercise_output.csv',
+        'data/02_processed/exercise_output.json'
     )
     print("Conversion complete. JSON file created.")
