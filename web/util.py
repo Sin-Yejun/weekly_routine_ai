@@ -62,7 +62,6 @@ def pick_split(freq: int) -> Tuple[str, List[str]]:
     if freq == 3: return ("Push-Pull-Legs", ["PUSH","PULL","LEGS"])
     if freq == 4: return ("CBSL", ["CHEST","BACK","SHOULDERS","LEGS"])
     if freq == 5: return ("Bro", ["CHEST","BACK","LEGS","SHOULDERS","ARMS"])
-    return ("Full Body", ["FULL_BODY"] * freq)
 
 def set_budget(freq: int, intensity: str) -> int:
     base = INT_BASE_SETS.get(intensity, 16)
@@ -76,21 +75,54 @@ def build_prompt(user: User, catalog: list) -> str:
     # 대략 세트 예산을 종목 수로 환산: 한 종목당 평균 3~4세트 가정
     ex_per_day = max(3, min(8, round(sets / 3)))
 
+    # Filter catalog based on the user's weekly frequency and split type
+    filtered_catalog = []
+    split_days_upper = [s.upper() for s in split_days]
+
+    if user.freq == 2:
+        # Upper/Lower split: filter by body_region
+        filtered_catalog = [
+            item for item in catalog
+            if item.get('body_region', '').upper() in split_days_upper
+        ]
+    elif user.freq == 3:
+        # Push/Pull/Legs split: filter by movement_type
+        filtered_catalog = [
+            item for item in catalog
+            if item.get('movement_type', '').upper() in split_days_upper
+        ]
+    elif user.freq in [4, 5]:
+        # 4 and 5-day splits: filter by bName (body part)
+        filtered_catalog = [
+            item for item in catalog
+            if item.get('bName', '').upper() in split_days_upper
+        ]
+    else:
+        # Fallback to the full catalog if frequency is not 2-5
+        filtered_catalog = catalog
+
     processed_catalog = []
-    for item in catalog:
+    for item in filtered_catalog: # Use the filtered catalog
         bName = item.get('bName')
         eTextId = item.get('eTextId')
         eName = item.get('eName')
         movement_type = item.get('movement_type')
         body_region = item.get('body_region')
-        muscle_group = item.get('MG')
+        
+        micro_raw = item.get('MG', "")
+        parts = []
+        if isinstance(micro_raw, str) and micro_raw.strip():
+            parts = [p.strip().upper() for p in micro_raw.split('/')]
+        elif isinstance(micro_raw, list):
+            parts = [str(p).strip().upper() for p in micro_raw]
+        muscle_group = {"micro": parts}
 
         processed_catalog.append([
-            bName.upper() if isinstance(bName, str) else bName,
+            # bName.upper() if isinstance(bName, str) else bName,
             eTextId,
-            eName,
-            movement_type.upper() if isinstance(movement_type, str) else movement_type,
-            body_region.upper() if isinstance(body_region, str) else body_region,
+            # eName,
+            # movement_type.upper() if isinstance(movement_type, str) else movement_type,
+            # body_region.upper() if isinstance(body_region, str) else body_region,
             muscle_group,
         ])
 
