@@ -6,7 +6,7 @@ import numpy as np
 
 # --- Configuration ---
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-INPUT_FILE_PATH = BASE_DIR / 'data' / 'finetuning_data_v4.jsonl'
+INPUT_FILE_PATH = BASE_DIR / 'data' / 'finetuning_data_v5.jsonl'
 
 def analyze_lengths_full_spectrum():
     """

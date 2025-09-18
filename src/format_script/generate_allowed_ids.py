@@ -39,8 +39,8 @@ def main():
     """
     Main function to generate allowed_ids.json.
     """
-    input_file = 'data/02_processed/eTextIds_by_eInfoType.txt'
-    output_file = 'web/allowed_ids.json'
+    input_file = 'data/02_processed/eTextIds_by_eInfoType_old.txt'
+    output_file = 'web/allowed_ids_filtered.json'
 
     # 1. Parse the source file
     grouped_data = parse_custom_format(input_file)
@@ -61,6 +61,7 @@ def main():
     body_region_group = grouped_data.get('body_region', {})
     movement_type_group = grouped_data.get('movement_type', {})
     bname_group = grouped_data.get('bName', {})
+    tool_en_group = grouped_data.get('tool_en', {})
 
     # --- 2-day split ---
     upper = get_case_insensitive(body_region_group, 'upper')
@@ -122,6 +123,9 @@ def main():
         allowed_ids['CARDIO'] = cardio_exercises
     if etc_bname:
         allowed_ids['ETC'] = etc_bname
+    
+    if tool_en_group:
+        allowed_ids['TOOL'] = tool_en_group
 
     # 3. Write the output file with custom formatting
     output_lines = []

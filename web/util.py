@@ -26,9 +26,8 @@ Return a weekly bodybuilding plan as strict JSON only.
 ## Content rules
 - Schema : {{"days":[[[bodypart,exercise_id],...],...]}}
 - Reflect each day's split focus and cover major groups across the week.
-- Pick 3–8 exercises per day.
-- **Crucially, all exercises within a single day's list MUST be unique. Do not repeat any exercise_id within the same day.**
-- Use only ids from the provided catalog; do not invent new exercises.
+- Choose 4–8 different exercises for every day, adjusting the count naturally based on Workout Duration (shorter sessions = fewer exercises, longer sessions = more exercises).
+- All exercises in the same day must be different. Do not repeat any exercise_id inside the same day.
 
 ## Catalog
 {catalog_json}
@@ -36,7 +35,6 @@ Return a weekly bodybuilding plan as strict JSON only.
 ## Output
 Return exactly one JSON object only.
 '''
-
 
 # --- Helper Functions ---
 
@@ -69,7 +67,7 @@ def set_budget(freq: int, intensity: str) -> int:
     if freq == 5: base -= 2
     return base
 
-def build_prompt(user: User, catalog: list) -> str:
+def build_prompt(user: User, catalog: list, duration_str: str) -> str:
     split_name, split_days = pick_split(user.freq)
     sets = set_budget(user.freq, user.intensity)
     # 대략 세트 예산을 종목 수로 환산: 한 종목당 평균 3~4세트 가정
@@ -118,11 +116,11 @@ def build_prompt(user: User, catalog: list) -> str:
         muscle_group = {"micro": parts}
 
         processed_catalog.append([
-            # bName.upper() if isinstance(bName, str) else bName,
+            bName.upper() if isinstance(bName, str) else bName,
             eTextId,
-            # eName,
-            # movement_type.upper() if isinstance(movement_type, str) else movement_type,
-            # body_region.upper() if isinstance(body_region, str) else body_region,
+            eName,
+            movement_type.upper() if isinstance(movement_type, str) else movement_type,
+            body_region.upper() if isinstance(body_region, str) else body_region,
             muscle_group,
         ])
 
@@ -137,7 +135,7 @@ def build_prompt(user: User, catalog: list) -> str:
         weight=int(round(user.weight)),
         level=user.level,
         freq=user.freq,
-        duration=user.duration,
+        duration=duration_str,
         intensity=user.intensity,
         split_name=split_name,
         split_days=" / ".join(split_days),

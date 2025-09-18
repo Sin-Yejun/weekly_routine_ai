@@ -18,7 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / 'data'
 INPUT_PARQUET_PATH = DATA_DIR / '02_processed' / 'parquet' / 'weekly_streak_dataset.parquet'
 EXERCISE_CATALOG_PATH = DATA_DIR / '02_processed' / 'processed_query_result.json'
-OUTPUT_PATH = DATA_DIR / 'finetuning_data_v4.jsonl'
+OUTPUT_PATH = DATA_DIR / 'finetuning_data_v5.jsonl'
 
 # --- Logic from calculation_prompt.py (Constants and Prompt Template) ---
 PROMPT_TEMPLATE = """
@@ -26,7 +26,7 @@ PROMPT_TEMPLATE = """
 Return a weekly bodybuilding routine as JSON.
 
 ## Schema
-{{"days":[[[bodypart,exercise_id,[[reps,weight,time],...]],...],...]}}
+{{"days":[[[bodypart,exercise_name,[[reps,weight,time],...]],...],...]}}
 
 ## User Info
 - Gender: {gender}
@@ -59,10 +59,8 @@ def build_prompt(user: User, catalog: list) -> str:
         micro_raw = item.get("MG", "")
         parts = []
         if isinstance(micro_raw, str) and micro_raw.strip():
-            # "/"로 나눠 태그화, 공백 제거 + 대문자 + "_" 붙여서 enum 스타일로
             parts = [p.strip().upper() for p in micro_raw.split('/')]
         catalog_structured.append([
-            item.get("eTextId"),
             item.get("bName"),
             item.get("eName"),
             {"micro": parts}
@@ -79,7 +77,7 @@ def build_prompt(user: User, catalog: list) -> str:
     )
 
 
-def transform_output_schema(weekly_exercises_str: str, id_to_bname_map: dict) -> dict:
+def transform_output_schema(weekly_exercises_str: str, id_to_bname_map: dict, id_to_ename_map: dict) -> dict:
     try:
         source_list = ast.literal_eval(weekly_exercises_str)
     except (ValueError, SyntaxError):
@@ -95,7 +93,14 @@ def transform_output_schema(weekly_exercises_str: str, id_to_bname_map: dict) ->
         else:
             try:
                 e_text_id = item.get("eTextId", "")
+                if not e_text_id:
+                    continue
+                
+                e_name = id_to_ename_map.get(e_text_id)
                 b_name = id_to_bname_map.get(e_text_id, "Etc")
+
+                if not e_name: # If the id doesn't map to a name, skip it
+                    continue
 
                 sets_str = item.get("sets", "[]")
                 sets_list = ast.literal_eval(sets_str)
@@ -107,7 +112,7 @@ def transform_output_schema(weekly_exercises_str: str, id_to_bname_map: dict) ->
                         weight = int(weight)
                     transformed_sets.append([s.get('reps', 0), weight, s.get('time', 0)])
                 
-                transformed_exercise = [b_name, e_text_id, transformed_sets]
+                transformed_exercise = [b_name, e_name, transformed_sets]
                 current_day_exercises.append(transformed_exercise)
             except (ValueError, SyntaxError):
                 continue
@@ -127,7 +132,7 @@ def main():
         with open(EXERCISE_CATALOG_PATH, "r", encoding="utf-8") as f:
             exercise_catalog = json.load(f)
         id_to_bname_map = {item['eTextId']: item['bName'] for item in exercise_catalog}
-        # Create a set of all valid eTextIds for quick lookups
+        id_to_ename_map = {item['eTextId']: item['eName'] for item in exercise_catalog} # New map
         catalog_id_set = set(id_to_bname_map.keys())
     except FileNotFoundError as e:
         logging.error(f"Failed to load data: {e}")
@@ -138,36 +143,31 @@ def main():
 
     processed_count = 0
     error_count = 0
-    missing_id_counter = Counter() # Initialize counter
+    missing_id_counter = Counter()
 
     with open(OUTPUT_PATH, 'w', encoding='utf-8') as out_file:
         for _, row in tqdm(valid_rows.iterrows(), total=valid_rows.shape[0], desc="Generating Finetuning Data"):
             try:
-                # 1. Pre-process the output to find used & valid IDs
                 try:
                     weekly_ex_list = ast.literal_eval(row.get('weekly_exercises'))
                 except (ValueError, SyntaxError):
                     error_count += 1
-                    continue  # Skip if the exercise string is malformed
+                    continue
 
                 used_ids = {item.get("eTextId") for item in weekly_ex_list if item.get("eTextId")}
 
-                # 2. Validate IDs against the catalog
                 if not used_ids.issubset(catalog_id_set):
                     missing_ids = used_ids - catalog_id_set
                     missing_id_counter.update(missing_ids)
                     error_count += 1
-                    continue  # Skip if any used ID is not in the main catalog
+                    continue
 
-                # 3. Create a filtered catalog
                 filtered_catalog = [item for item in exercise_catalog if item['eTextId'] in used_ids]
                 
-                # If for some reason the filtered catalog is empty, skip
                 if not filtered_catalog:
                     error_count += 1
                     continue
 
-                # 4. Build the prompt with the filtered catalog
                 user_for_prompt = User(
                     gender='M' if row.get('gender') == 'male' else 'F',
                     weight=float(row.get('weight', 70)),
@@ -178,10 +178,8 @@ def main():
                 )
                 final_prompt = build_prompt(user_for_prompt, filtered_catalog)
                 
-                # 5. Transform the output schema
-                output_data = transform_output_schema(row.get('weekly_exercises'), id_to_bname_map)
+                output_data = transform_output_schema(row.get('weekly_exercises'), id_to_bname_map, id_to_ename_map) # Pass new map
 
-                # If the final output is empty, skip
                 if not output_data["days"]:
                     error_count += 1
                     continue
@@ -200,7 +198,6 @@ def main():
     logging.info(f"Skipped due to errors: {error_count} records.")
     logging.info(f"Output saved to: {OUTPUT_PATH}")
 
-    # --- PRINTING THE REPORT ---
     logging.info("--- Missing ID Report ---")
     if not missing_id_counter:
         logging.info("No records were skipped due to missing IDs.")

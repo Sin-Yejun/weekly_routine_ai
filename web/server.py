@@ -97,7 +97,7 @@ def _allowed_pairs_for_day(freq, tag, allowed_ids):
         if bp: pairs.append([bp, ex_id])
     return pairs
 
-def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_ids=None, min_ex=3, max_ex=8):
+def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_ids=None, min_ex=4, max_ex=8):
     if not isinstance(obj, dict) or "days" not in obj: return obj
     def fix_day(day, day_idx):
         if not isinstance(day, list): day = []
@@ -138,8 +138,10 @@ def generate_prompt_api():
     data = request.get_json()
     if not data: return jsonify({"error": "Missing request body"}), 400
     try:
-        user = User(gender=data.get('gender', 'M'), weight=float(data.get('weight', 70)), level=data.get('level', 'Intermediate'), freq=int(data.get('freq', 3)), duration=int(data.get('duration', 60)), intensity=data.get('intensity', 'Normal'))
-        prompt = build_prompt(user, exercise_catalog)
+        duration_str = str(data.get('duration', '60'))
+        numeric_duration = int(re.sub(r'[^0-9]', '', duration_str) or '60')
+        user = User(gender=data.get('gender', 'M'), weight=float(data.get('weight', 70)), level=data.get('level', 'Intermediate'), freq=int(data.get('freq', 3)), duration=numeric_duration, intensity=data.get('intensity', 'Normal'))
+        prompt = build_prompt(user, exercise_catalog, duration_str)
         return jsonify({"prompt": prompt})
     except Exception as e:
         app.logger.error(f"Error in generate_prompt_api: {e}", exc_info=True)
@@ -150,14 +152,16 @@ def process_inference_request(data, client_creator):
     try:
         prompt = data.get('prompt')
         if not prompt:
-            user = User(gender=data.get('gender', 'M'), weight=float(data.get('weight', 70)), level=data.get('level', 'Beginner'), freq=int(data.get('freq', 4)), duration=int(data.get('duration', 60)), intensity=data.get('intensity', 'Normal'))
-            prompt = build_prompt(user, exercise_catalog)
+            duration_str = str(data.get('duration', '60'))
+            numeric_duration = int(re.sub(r'[^0-9]', '', duration_str) or '60')
+            user = User(gender=data.get('gender', 'M'), weight=float(data.get('weight', 70)), level=data.get('level', 'Beginner'), freq=int(data.get('freq', 4)), duration=numeric_duration, intensity=data.get('intensity', 'Normal'))
+            prompt = build_prompt(user, exercise_catalog, duration_str)
         
         freq = int(data.get('freq', 4))
         if freq not in SPLITS: return jsonify({"error": f"Unsupported weekly frequency: {freq}. Use 2, 3, 4, or 5."}), 400
         split_tags = SPLITS[freq]
         
-        with open("web/allowed_ids.json", "r", encoding="utf-8") as f:
+        with open("web/allowed_ids_filtered.json", "r", encoding="utf-8") as f:
             ALLOWED_IDS = json.load(f)
 
         week_schema = build_week_schema_once(freq, split_tags, ALLOWED_IDS)
@@ -188,7 +192,7 @@ def infer_vllm_api():
                 temperature=temperature, 
                 max_tokens=max_tokens, 
                 extra_body={"guided_json": 
-                            week_schema, "repetition_penalty": 1.15
+                            week_schema, "repetition_penalty": 1.2
                             })
         return client, VLLM_MODEL, completer
     return process_inference_request(request.get_json(), vllm_client_creator)

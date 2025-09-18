@@ -4,8 +4,8 @@ from pathlib import Path
 
 # --- Configuration ---
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-INPUT_FILE_PATH = BASE_DIR / 'data' / 'finetuning_data_v4.jsonl'
-OUTPUT_FILE_PATH = BASE_DIR / 'data' / 'finetuning_data_v4_filtered.jsonl'
+INPUT_FILE_PATH = BASE_DIR / 'data' / 'finetuning_data_v5.jsonl'
+OUTPUT_FILE_PATH = BASE_DIR / 'data' / 'finetuning_data_v5_filtered.jsonl'
 LOWER_PERCENTILE = 0.05
 HIGHER_PERCENTILE = 0.95
 
