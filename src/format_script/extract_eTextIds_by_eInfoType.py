@@ -6,7 +6,7 @@ def process_exercise_data(input_path, output_path):
         data = json.load(f)
 
     # Create maps for all groupings
-    einfo_map = defaultdict(lambda: {'eTextIds': [], 'bNames': set()})
+    einfo_map = defaultdict(lambda: {'eNames': [], 'bNames': set()})
     bname_map = defaultdict(list)
     movement_type_map = defaultdict(list)
     body_region_map = defaultdict(list)
@@ -15,21 +15,21 @@ def process_exercise_data(input_path, output_path):
     high_sum_list = []
 
     for item in data:
-        einfo_map[item['eInfoType']]['eTextIds'].append(f'"{item["eTextId"]}"')
+        einfo_map[item['eInfoType']]['eNames'].append(f'"{item["eName"]}"')
         einfo_map[item['eInfoType']]['bNames'].add(item['bName'])
-        bname_map[item['bName']].append(f'"{item["eTextId"]}"')
-        movement_type_map[item['movement_type']].append(f'"{item["eTextId"]}"')
-        body_region_map[item['body_region']].append(f'"{item["eTextId"]}"')
+        bname_map[item['bName']].append(f'"{item["eName"]}"')
+        movement_type_map[item['movement_type']].append(f'"{item["eName"]}"')
+        body_region_map[item['body_region']].append(f'"{item["eName"]}"')
         if 'tool_en' in item:
-            tool_en_map[item['tool_en']].append(f'"{item["eTextId"]}"')
+            tool_en_map[item['tool_en']].append(f'"{item["eName"]}"')
 
         # Check for cm_ex condition
         if item.get('MG_num', 0) >= 3 and item.get('up_4', 0) >= 3:
-            cm_ex_list.append(f'"{item["eTextId"]}"')
+            cm_ex_list.append(f'"{item["eName"]}"')
 
         # Add new condition for musle_point_sum
         if item.get('musle_point_sum', 0) >= 15:
-            high_sum_list.append(f'"{item["eTextId"]}"')
+            high_sum_list.append(f'"{item["eName"]}"')
 
     with open(output_path, 'w', encoding='utf-8') as f:
         # --- Write eInfoType groups ---
@@ -38,7 +38,7 @@ def process_exercise_data(input_path, output_path):
             f.write(f'"eInfoType": {i}\n')
             bnames = sorted(list(einfo_map[i]['bNames']))
             f.write(','.join([f'"{bname}"' for bname in bnames]) + '\n')
-            f.write(','.join(einfo_map[i]['eTextIds']) + '\n\n')
+            f.write(','.join(einfo_map[i]['eNames']) + '\n\n')
 
         # --- Write bName groups ---
         f.write("\n--- Groups by bName ---\n\n")
@@ -76,6 +76,6 @@ def process_exercise_data(input_path, output_path):
 
 if __name__ == '__main__':
     process_exercise_data(
-        'data/02_processed/processed_query_result.json',
-        'data/02_processed/eTextIds_by_eInfoType.txt'
+        'data/02_processed/processed_query_result_filtered.json',
+        'data/02_processed/eNames_by_eInfoType_filtered.txt'
     )

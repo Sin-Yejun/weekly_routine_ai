@@ -39,8 +39,8 @@ def main():
     """
     Main function to generate allowed_ids.json.
     """
-    input_file = 'data/02_processed/eTextIds_by_eInfoType_old.txt'
-    output_file = 'web/allowed_ids_filtered.json'
+    input_file = 'data/02_processed/eNames_by_eInfoType_filtered.txt'
+    output_file = 'web/allowed_name_filtered2.json'
 
     # 1. Parse the source file
     grouped_data = parse_custom_format(input_file)
@@ -126,7 +126,7 @@ def main():
     
     if tool_en_group:
         allowed_ids['TOOL'] = tool_en_group
-
+    allowed_ids['LEG_MAIN'] = ["Paused Deadlift","Belt Squat Machine","Trap Bar Deadlift","Barbell Sumo Squat","Safety Bar Squat","Barbell Jump Squat","Reverse V Squat","Trap Bar Squat","Romanian Deadlift","Leverage Squat Machine","Conventional Deadlift","Barbell Lunge","Dumbbell Lateral Lunge","Back Squat","V Squat","Sumo Deadlift","Dumbbell Sumo Squat","Kettlebell Deadlift","Deficit Deadlift","Kettlebell Sumo Deadlift","Kettlebell Lateral Lunge","Dumbbell Sumo Deadlift"]
     # 3. Write the output file with custom formatting
     output_lines = []
     output_lines.append("{")

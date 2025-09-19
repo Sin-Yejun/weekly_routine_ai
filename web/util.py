@@ -7,7 +7,6 @@ from typing import Dict, List, Tuple
 # --- Constants from calculation_prompt.py ---
 
 LEVEL_CODE = {"Beginner":"B","Novice":"N","Intermediate":"I","Advanced":"A","Elite":"E"}
-INT_BASE_SETS = {"Low":12, "Normal":16, "High":20}
 
 PROMPT_TEMPLATE_EXERCISES = '''## [Task]
 Return a weekly bodybuilding plan as strict JSON only.
@@ -24,18 +23,20 @@ Return a weekly bodybuilding plan as strict JSON only.
 - Name: {split_name}; Days: {split_days}.
 
 ## Content rules
-- Schema : {{"days":[[[bodypart,exercise_id],...],...]}}
+- HARD RULE — Uniqueness per day: Each day’s exercises must be unique. The same exercise_name MUST NOT appear twice in the same day.
+- Output must be a single minified JSON object: no line breaks and no extra spaces (use only commas and colons).
+- Schema : {{"days":[[[bodypart,exercise_name],...],...]}}
 - Reflect each day's split focus and cover major groups across the week.
-- Choose 4–8 different exercises for every day, adjusting the count naturally based on Workout Duration (shorter sessions = fewer exercises, longer sessions = more exercises).
-- All exercises in the same day must be different. Do not repeat any exercise_id inside the same day.
-
-## Catalog
-{catalog_json}
+- Choose between {min_ex} and {max_ex} different exercises for every day.
+- Arrange each day in an effective order (compound → accessories) appropriate to the user’s level.
+- FINAL CHECK: For every day, verify all exercise_name values are distinct before returning JSON.
 
 ## Output
 Return exactly one JSON object only.
 '''
 
+## Catalog
+# {catalog_json}
 # --- Helper Functions ---
 
 @dataclass
@@ -61,18 +62,10 @@ def pick_split(freq: int) -> Tuple[str, List[str]]:
     if freq == 4: return ("CBSL", ["CHEST","BACK","SHOULDERS","LEGS"])
     if freq == 5: return ("Bro", ["CHEST","BACK","LEGS","SHOULDERS","ARMS"])
 
-def set_budget(freq: int, intensity: str) -> int:
-    base = INT_BASE_SETS.get(intensity, 16)
-    if freq == 2: base += 2
-    if freq == 5: base -= 2
-    return base
 
-def build_prompt(user: User, catalog: list, duration_str: str) -> str:
+def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_ex: int) -> str:
     split_name, split_days = pick_split(user.freq)
-    sets = set_budget(user.freq, user.intensity)
-    # 대략 세트 예산을 종목 수로 환산: 한 종목당 평균 3~4세트 가정
-    ex_per_day = max(3, min(8, round(sets / 3)))
-
+    
     # Filter catalog based on the user's weekly frequency and split type
     filtered_catalog = []
     split_days_upper = [s.upper() for s in split_days]
@@ -102,10 +95,7 @@ def build_prompt(user: User, catalog: list, duration_str: str) -> str:
     processed_catalog = []
     for item in filtered_catalog: # Use the filtered catalog
         bName = item.get('bName')
-        eTextId = item.get('eTextId')
         eName = item.get('eName')
-        movement_type = item.get('movement_type')
-        body_region = item.get('body_region')
         
         micro_raw = item.get('MG', "")
         parts = []
@@ -117,10 +107,7 @@ def build_prompt(user: User, catalog: list, duration_str: str) -> str:
 
         processed_catalog.append([
             bName.upper() if isinstance(bName, str) else bName,
-            eTextId,
             eName,
-            movement_type.upper() if isinstance(movement_type, str) else movement_type,
-            body_region.upper() if isinstance(body_region, str) else body_region,
             muscle_group,
         ])
 
@@ -139,20 +126,20 @@ def build_prompt(user: User, catalog: list, duration_str: str) -> str:
         intensity=user.intensity,
         split_name=split_name,
         split_days=" / ".join(split_days),
-        ex_per_day=ex_per_day,
+        min_ex=min_ex,
+        max_ex=max_ex,
         catalog_json=catalog_str
     )
 
-def format_new_routine(plan_json: dict, exercise_name_map: dict) -> str:
+def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = False) -> str:
     import logging
     logging.basicConfig(level=logging.INFO)
-    logging.info("--- DIAGNOSTIC LOG IN format_new_routine ---")
-    if exercise_name_map and 'BB_BP' in exercise_name_map:
-        # Check a known key ('BB_BP') to see if the value is Korean or English
-        logging.info(f"MAP CHECK: BB_BP -> {exercise_name_map.get('BB_BP')}")
-    else:
-        logging.info("MAP CHECK: exercise_name_map is empty or doesn't contain BB_BP!")
-    logging.info("--- END DIAGNOSTIC LOG ---")
+    # logging.info("--- DIAGNOSTIC LOG IN format_new_routine ---")
+    # if name_map and 'Back Squat' in name_map:
+    #     logging.info(f"MAP CHECK: Back Squat -> {name_map.get('Back Squat')}")
+    # else:
+    #     logging.info("MAP CHECK: name_map is empty or doesn't contain Back Squat!")
+    # logging.info("--- END DIAGNOSTIC LOG ---")
 
     if not isinstance(plan_json, dict) or "days" not in plan_json:
         return "Invalid plan format."
@@ -160,15 +147,39 @@ def format_new_routine(plan_json: dict, exercise_name_map: dict) -> str:
     for i, day in enumerate(plan_json["days"], 1):
         if not isinstance(day, list):
             continue
+
+        if enable_sorting:
+            def sort_key(entry):
+                exercise_name = entry[1]
+                exercise_info = name_map.get(exercise_name, {})
+                mg_num = exercise_info.get('MG_num', 0)
+                muscle_point_sum = exercise_info.get('musle_point_sum', 0)
+                b_name = exercise_info.get('bName', '')
+                try:
+                    mg_num = int(mg_num)
+                except (ValueError, TypeError):
+                    mg_num = 0
+                try:
+                    muscle_point_sum = int(muscle_point_sum)
+                except (ValueError, TypeError):
+                    muscle_point_sum = 0
+                return (mg_num, muscle_point_sum, b_name)
+            day.sort(key=sort_key, reverse=True)
+
         lines = [f"## Day{i} (운동개수: {len(day)})"]
         for entry in day:
             if not isinstance(entry, list) or len(entry) != 2:
                 continue
-            bodypart, e_text_id = entry
-            exercise_info = exercise_name_map.get(e_text_id, {}) # Use the passed map
-            e_name = exercise_info.get("eName", e_text_id) # This should now be the Korean name
-            b_name = exercise_info.get("bName", bodypart)
-            lines.append(f"{b_name} - {e_name}")
+            bodypart, exercise_name = entry
+            
+            # name_map is now name_to_exercise_map, which contains full exercise objects
+            exercise_full_info = name_map.get(exercise_name, {}) 
+            
+            korean_name = exercise_full_info.get("kName", exercise_name) # Get kName from full info
+            b_name = exercise_full_info.get("bName", bodypart)
+            mg_num = exercise_full_info.get("MG_num", "N/A") # Get MG_num from full info
+            musle_point_sum = exercise_full_info.get("musle_point_sum", "N/A") # Get MG_num from full info
+            lines.append(f"{b_name:<10} {korean_name:<15} ({mg_num}, {musle_point_sum})") # Add MG_num to the string
         if len(lines) > 1:
             out.append("\n".join(lines))
     return "\n\n".join(out)
