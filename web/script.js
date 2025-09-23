@@ -1,5 +1,32 @@
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('routine-form');
+    const levelSelect = document.getElementById('level');
+    const toolCheckboxes = document.querySelectorAll('#tools-filter input[name="tools"]');
+
+    const updateToolSelection = (level) => {
+        toolCheckboxes.forEach(checkbox => {
+            if (level === 'Beginner') {
+                checkbox.checked = checkbox.value !== 'Barbell';
+            } else if (level === 'Novice') {
+                checkbox.checked = true;
+            } else { // Intermediate, Advanced, Elite
+                checkbox.checked = checkbox.value !== 'Bodyweight';
+            }
+        });
+    };
+
+    // Add event listener for level changes
+    if (levelSelect) {
+        levelSelect.addEventListener('change', (event) => {
+            updateToolSelection(event.target.value);
+        });
+    }
+
+    // Set initial state on page load
+    if (levelSelect) {
+        updateToolSelection(levelSelect.value);
+    }
+
     const generatePromptBtn = document.getElementById('generate-prompt-btn');
     const generateVllmBtn = document.getElementById('generate-vllm-btn');
     const generateOpenAiBtn = document.getElementById('generate-openai-btn');
@@ -44,7 +71,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const formData = new FormData(form);
             const data = {};
-            formData.forEach((value, key) => { data[key] = value; });
+            formData.forEach((value, key) => {
+                if (key === 'tools') {
+                    if (!data[key]) {
+                        data[key] = [];
+                    }
+                    data[key].push(value);
+                } else {
+                    data[key] = value;
+                }
+            });
 
             try {
                 const response = await fetch('/api/generate-prompt', {
@@ -74,7 +110,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const formData = new FormData(form);
         const userConfig = {};
-        formData.forEach((value, key) => { userConfig[key] = value; });
+        formData.forEach((value, key) => {
+            if (key === 'tools') {
+                if (!userConfig[key]) {
+                    userConfig[key] = [];
+                }
+                userConfig[key].push(value);
+            } else {
+                userConfig[key] = value;
+            }
+        });
         
         const prompt = promptOutputEl.value;
         if (!prompt || prompt.startsWith('The prompt sent')) {

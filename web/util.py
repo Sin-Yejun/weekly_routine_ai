@@ -63,6 +63,7 @@ class User:
     freq: int
     duration: int
     intensity: str
+    tools: List[str]
 
 def parse_duration_bucket(bucket: str) -> int:
     if not isinstance(bucket, str): return 60
@@ -91,6 +92,11 @@ def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_
         prompt_template = Frequency_5
     else:
         prompt_template = DEFAULT_PROMPT_TEMPLATE # Fallback
+
+    # Filter catalog by selected tools first
+    if hasattr(user, 'tools') and user.tools:
+        allowed_tools_set = set(user.tools)
+        catalog = [item for item in catalog if item.get('tool_en') in allowed_tools_set]
 
     # First, filter by beginner status if applicable
     if user.level == 'Beginner' and allowed_names:
@@ -130,7 +136,7 @@ def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_
             eName = item.get('eName')
             mg_num = item.get('MG_num', 1)
             micro_raw = item.get('MG', "")
-            tool = item.get('tName', 'Etc')
+            tool = item.get('tool_en', 'Etc')
             parts = []
             if isinstance(micro_raw, str) and micro_raw.strip():
                 parts = [p.strip().upper() for p in micro_raw.split('/')]

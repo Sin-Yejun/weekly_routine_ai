@@ -18,10 +18,11 @@ Return a weekly bodybuilding plan as strict JSON only.
     Press group = all chest/shoulder presses
     Row group = all horizontal pulling movements
     Pull Up group = all vertical pulling movements
-    Squat group = all squat variations
+    SQUAT group = Split / Back / Sumo / Front variations
     Lunge group = all lunge/split-squat/step-up variations
+    Raise group = all raise variations
     Deadlift group = all deadlift variations
-    Push Ups group = all push-up variations
+    Push Ups group = all push ups variations
     If one exercise from a group is chosen, do not add another from the same group that day.
 - Micro coverage rule: Each day must include ≥2 distinct micro regions for that split. Avoid overconcentrating on a single area.
 - Micro novelty rule: Include 1–2 safe, less-common micro targets per day (e.g., LOWER CHEST, POSTERIOR DELTOID, ADDUCTORS, CALVES, FOREARMS) appropriate for {level}.
@@ -86,10 +87,11 @@ Return a weekly bodybuilding plan as strict JSON only.
     Press group = all chest or shoulder presses
     Row group = all horizontal pulling movements (rows)
     Pull Up group = all vertical pulling movements (pull ups/chin ups/pulldowns)
-    Squat group = all squat variations
+    SQUAT group = Split / Back / Sumo / Front variations
     Lunge group = all lunge/split-squat/step-up variations
+    Raise group = all raise variations
     Deadlift group = all deadlift variations
-    Push Ups group = all push-up variations
+    Push Ups group = Decline / Incline / Hindu / Knee push-up variations
     Dips group = all dips variations
     If one exercise from a group is chosen, do not add another from the same group that day.
 - Micro coverage rule: Each day must include ≥2 distinct micro regions for that split (e.g., Chest day not only MIDDLE CHEST; Legs not only QUADS).
@@ -165,8 +167,9 @@ Return a weekly bodybuilding plan as strict JSON only.
     Press group = all chest or shoulder presses
     Row group = all horizontal pulling movements
     Pull Up group = all vertical pulling movements (pull ups/chin ups/pulldowns)
-    Squat group = all squat variations
+    SQUAT group = Split / Back / Sumo / Front variations
     Lunge group = all lunge/split-squat/step-up variations
+    Raise group = all raise variations
     Deadlift group = all deadlift variations
     Push Ups group = all push-up variations
     If one exercise from a group is chosen, do not add another from the same group that day.
@@ -229,8 +232,9 @@ Return a weekly bodybuilding plan as strict JSON only.
     Press group = all chest/shoulder presses
     Row group = all horizontal pulling movements
     Pull Up group = all vertical pulling movements (pull ups/chin ups/pulldowns)
-    Squat group = all squat variations
+    SQUAT group = Split / Back / Sumo / Front variations
     Lunge group = all lunge/split-squat/step-up variations
+    Raise group = all raise variations
     Deadlift group = all deadlift variations
     Push Ups group = all push-up variations
     If one exercise from a group is chosen, do not add another from the same group that day.

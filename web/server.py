@@ -297,7 +297,15 @@ def generate_prompt_api():
     try:
         duration_str = str(data.get('duration', '60'))
         numeric_duration = int(re.sub(r'[^0-9]', '', duration_str) or '60')
-        user = User(gender=data.get('gender', 'M'), weight=float(data.get('weight', 70)), level=data.get('level', 'Intermediate'), freq=int(data.get('freq', 3)), duration=numeric_duration, intensity=data.get('intensity', 'Normal'))
+        user = User(
+            gender=data.get('gender', 'M'), 
+            weight=float(data.get('weight', 70)), 
+            level=data.get('level', 'Intermediate'), 
+            freq=int(data.get('freq', 3)), 
+            duration=numeric_duration, 
+            intensity=data.get('intensity', 'Normal'),
+            tools=data.get('tools', [])
+        )
         
         level_schema = EXERCISE_COUNT_SCHEMA.get(user.level, EXERCISE_COUNT_SCHEMA['Intermediate'])
         duration_key = min(level_schema.keys(), key=lambda k: abs(k - user.duration) if k <= user.duration else float('inf'))
@@ -306,7 +314,14 @@ def generate_prompt_api():
         with open("web/allowed_name_229.json", "r", encoding="utf-8") as f:
             ALLOWED_NAMES = json.load(f)
 
-        prompt = build_prompt(user, exercise_catalog, duration_str, min_ex, max_ex, allowed_names=ALLOWED_NAMES)
+        # Filter catalog by tools before passing to build_prompt
+        if user.tools:
+            allowed_tools_set = set(user.tools)
+            filtered_catalog = [item for item in exercise_catalog if item.get('tool_en') in allowed_tools_set]
+        else:
+            filtered_catalog = exercise_catalog
+
+        prompt = build_prompt(user, filtered_catalog, duration_str, min_ex, max_ex, allowed_names=ALLOWED_NAMES)
         return jsonify({"prompt": prompt})
     except Exception as e:
         app.logger.error(f"Error in generate_prompt_api: {e}", exc_info=True)
@@ -326,7 +341,8 @@ def process_inference_request(data, client_creator):
             level=data.get('level', 'Intermediate'), 
             freq=int(data.get('freq', 3)), 
             duration=numeric_duration, 
-            intensity=data.get('intensity', 'Normal')
+            intensity=data.get('intensity', 'Normal'),
+            tools=data.get('tools', [])
         )
 
         level_schema = EXERCISE_COUNT_SCHEMA.get(user.level, EXERCISE_COUNT_SCHEMA['Intermediate'])
@@ -343,6 +359,29 @@ def process_inference_request(data, client_creator):
 
         with open("web/allowed_name_229.json", "r", encoding="utf-8") as f:
             ALLOWED_NAMES = json.load(f)
+
+        # Filter ALLOWED_NAMES by selected tools for schema generation
+        if user.tools:
+            selected_tools_set = {t.lower() for t in user.tools}
+            unfiltered_allowed_names = json.loads(json.dumps(ALLOWED_NAMES))
+            filtered_allowed_names = {}
+            for key, value in unfiltered_allowed_names.items():
+                if isinstance(value, list):
+                    filtered_list = [name for name in value if name_to_exercise_map.get(name, {}).get('tool_en', '').lower() in selected_tools_set]
+                    filtered_allowed_names[key] = filtered_list
+                elif isinstance(value, dict):
+                    filtered_dict = {}
+                    for sub_key, sub_list in value.items():
+                        filtered_sub_list = [name for name in sub_list if name_to_exercise_map.get(name, {}).get('tool_en', '').lower() in selected_tools_set]
+                        # Fallback if the list becomes empty, but don't warn for expected empty lists like ETC
+                        if not filtered_sub_list and sub_key not in ['ETC']:
+                            app.logger.warning(f"Empty exercise list for freq {key}, day {sub_key} after tool filtering. Falling back to unfiltered list.")
+                            filtered_sub_list = unfiltered_allowed_names.get(key, {}).get(sub_key, [])
+                        filtered_dict[sub_key] = filtered_sub_list
+                    filtered_allowed_names[key] = filtered_dict
+                else:
+                    filtered_allowed_names[key] = value
+            ALLOWED_NAMES = filtered_allowed_names
 
         if user.level == 'Beginner':
             # For Beginners, filter allowed exercises based on gender-specific lists (MBeginner/FBeginner).
