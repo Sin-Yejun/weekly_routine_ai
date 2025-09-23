@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from prompts import Frequency_2, Frequency_3, Frequency_4, Frequency_5
+import random
 import json
 import re
 from dataclasses import dataclass
@@ -8,7 +10,7 @@ from typing import Dict, List, Tuple
 
 LEVEL_CODE = {"Beginner":"B","Novice":"N","Intermediate":"I","Advanced":"A","Elite":"E"}
 
-PROMPT_TEMPLATE_EXERCISES = '''## [Task]
+DEFAULT_PROMPT_TEMPLATE = '''## [Task]
 Return a weekly bodybuilding plan as strict JSON only.
 
 ## [User Info]
@@ -23,20 +25,34 @@ Return a weekly bodybuilding plan as strict JSON only.
 - Name: {split_name}; Days: {split_days}.
 
 ## Content rules
-- HARD RULE — Uniqueness per day: Each day’s exercises must be unique. The same exercise_name MUST NOT appear twice in the same day.
-- Output must be a single minified JSON object: no line breaks and no extra spaces (use only commas and colons).
-- Schema : {{"days":[[[bodypart,exercise_name],...],...]}}
-- Reflect each day's split focus and cover major groups across the week.
-- Choose between {min_ex} and {max_ex} different exercises for every day.
-- Arrange each day in an effective order (compound → accessories) appropriate to the user’s level.
-- FINAL CHECK: For every day, verify all exercise_name values are distinct before returning JSON.
-
-## Output
-Return exactly one JSON object only.
-'''
+- Ignore catalog ordering: treat every catalog item as equally likely. Never default to the first seen option. When multiple candidates satisfy constraints, prefer the one that is less common yet appropriate for the user's level.
+- Pattern family uniqueness: Within a single day, do not include more than one variant from the same base pattern family (e.g., bench presses, rows, squats, lunges, deadlifts). Choose only one per family, then diversify with different movement types, planes, and tools.
+- Micro coverage rule: Ensure that across each day, the chosen exercises collectively cover a broad range of micro muscles for that split focus. Avoid overconcentrating on only one micro region (e.g., only MIDDLE CHEST on Chest day, or only QUADS on Leg day). Include at least two distinct micro regions each day.
+- Micro novelty rule: At least 1–2 exercises per day must highlight less-common micro regions (e.g., LOWER CHEST, POSTERIOR DELTOID, ADDUCTORS, CALVES) that are still safe and appropriate for a {level}.
+- Weekly micro distribution: Over the whole cycle, ensure that every large muscle group (Chest/Back/Shoulders/Legs) has both primary and secondary micro regions trained. Examples:
+    - Chest week: not only presses for MIDDLE/UPPER, but also one isolation for LOWER or fly movement.
+    - Back week: at least one vertical pull (LATS emphasis) and one horizontal row (UPPER BACK emphasis); optional erector/LOWER BACK accessory.
+    - Shoulders week: include at least one POSTERIOR DELTOID, one LATERAL DELTOID, and one ANTERIOR DELTOID, not only presses.
+    - Legs week: ensure QUADS, GLUTES, HAMSTRINGS are all trained, with optional ADDUCTORS or CALVES isolation as novelty.
+- Indirect diversity rule: For any major compound pattern (press, deadlift, row, squat, lunge), if one variation is already included, prefer adding a different movement plane, different angle, or different implement rather than another variant of the same archetype.
+- Anti-top-bias rule: Build an internal candidate list for each slot, then randomly shuffle the candidate list BEFORE scoring by 1) MG_num, 2) large→small muscle groups, 3) weekly non-repetition, 4) novelty quota. Select from the TOP-MID of the scored list, not always the top-1.
+- Final diversity check before emit:
+    1) Per day: strictly unique exercise_name values.
+    2) Per day: no more than one close-variant of a base archetype (bench, lunge, row, squat, etc.).
+    3) Per day: exercises cover at least two distinct micro regions.
+    4) Per week: global spread of micro coverage across all major splits.
+    5) Exercises must be appropriate for {level} difficulty.
 
 ## Catalog
-# {catalog_json}
+# Each item = [bName, eName, MG_num, {{"micro":[...]}}]
+{catalog_json}
+
+## Output
+Return exactly one minified JSON object only, matching:
+{{"days":[[[bodypart,exercise_name],...],...]}}
+'''
+
+
 # --- Helper Functions ---
 
 @dataclass
@@ -63,61 +79,123 @@ def pick_split(freq: int) -> Tuple[str, List[str]]:
     if freq == 5: return ("Bro", ["CHEST","BACK","LEGS","SHOULDERS","ARMS"])
 
 
-def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_ex: int) -> str:
+def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_ex: int, allowed_names: dict = None) -> str:
+    # Select the correct prompt template based on frequency
+    if user.freq == 2:
+        prompt_template = Frequency_2
+    elif user.freq == 3:
+        prompt_template = Frequency_3
+    elif user.freq == 4:
+        prompt_template = Frequency_4
+    elif user.freq == 5:
+        prompt_template = Frequency_5
+    else:
+        prompt_template = DEFAULT_PROMPT_TEMPLATE # Fallback
+
+    # First, filter by beginner status if applicable
+    if user.level == 'Beginner' and allowed_names:
+        beginner_key = 'MBeginner' if user.gender == 'M' else 'FBeginner'
+        beginner_exercise_set = set(allowed_names.get(beginner_key, []))
+        
+        catalog = [
+            item for item in catalog 
+            if item.get('eName') in beginner_exercise_set
+        ]
+
     split_name, split_days = pick_split(user.freq)
-    
-    # Filter catalog based on the user's weekly frequency and split type
-    filtered_catalog = []
     split_days_upper = [s.upper() for s in split_days]
 
-    if user.freq == 2:
-        # Upper/Lower split: filter by body_region
-        filtered_catalog = [
-            item for item in catalog
-            if item.get('body_region', '').upper() in split_days_upper
-        ]
-    elif user.freq == 3:
-        # Push/Pull/Legs split: filter by movement_type
-        filtered_catalog = [
-            item for item in catalog
-            if item.get('movement_type', '').upper() in split_days_upper
-        ]
-    elif user.freq in [4, 5]:
-        # 4 and 5-day splits: filter by bName (body part)
-        filtered_catalog = [
-            item for item in catalog
-            if item.get('bName', '').upper() in split_days_upper
-        ]
-    else:
-        # Fallback to the full catalog if frequency is not 2-5
-        filtered_catalog = catalog
+    grouped_catalog = {day: [] for day in split_days_upper}
 
-    processed_catalog = []
-    for item in filtered_catalog: # Use the filtered catalog
-        bName = item.get('bName')
-        eName = item.get('eName')
+    for item in catalog:
+        group_key = None
+        raw_key = ''
+        if user.freq == 2:
+            raw_key = item.get('body_region', '').upper()
+        elif user.freq == 3:
+            raw_key = item.get('movement_type', '').upper()
+        elif user.freq in [4, 5]:
+            raw_key = item.get('bName', '').upper()
+            if raw_key == 'SHOULDER':
+                raw_key = 'SHOULDERS'
+            elif raw_key == 'ARM':
+                raw_key = 'ARMS'
+            elif raw_key == 'LEG':
+                raw_key = 'LEGS'
+
+        group_key = raw_key
         
-        micro_raw = item.get('MG', "")
-        parts = []
-        if isinstance(micro_raw, str) and micro_raw.strip():
-            parts = [p.strip().upper() for p in micro_raw.split('/')]
-        elif isinstance(micro_raw, list):
-            parts = [str(p).strip().upper() for p in micro_raw]
-        muscle_group = {"micro": parts}
+        if group_key and group_key in grouped_catalog:
+            bName = item.get('bName')
+            eName = item.get('eName')
+            mg_num = item.get('MG_num', 1)
+            micro_raw = item.get('MG', "")
+            tool = item.get('tName', 'Etc')
+            parts = []
+            if isinstance(micro_raw, str) and micro_raw.strip():
+                parts = [p.strip().upper() for p in micro_raw.split('/')]
+            elif isinstance(micro_raw, list):
+                parts = [str(p).strip().upper() for p in micro_raw]
+            muscle_group = {"micro": parts}
 
-        processed_catalog.append([
-            bName.upper() if isinstance(bName, str) else bName,
-            eName,
-            muscle_group,
-        ])
+            processed_item = [
+                bName.upper() if isinstance(bName, str) else bName,
+                eName,
+                mg_num,
+                muscle_group,
+                # tool.upper() if isinstance(tool, str) else tool,
+            ]
+            grouped_catalog[group_key].append(processed_item)
 
-    catalog_str = json.dumps(
-        processed_catalog,
-        ensure_ascii=False,
-        separators=(',', ':')
-    )
+    # First, shuffle all exercises within their groups
+    for group_list in grouped_catalog.values():
+        random.shuffle(group_list)
 
-    return PROMPT_TEMPLATE_EXERCISES.format(
+    # Helper function to create a final ordered list based on sub-groups
+    def get_ordered_list(exercises, order):
+        sub_groups = {key: [] for key in order}
+        sub_groups['ETC'] = []  # Catch-all for other body parts
+
+        for exercise_item in exercises:
+            bName = exercise_item[0]
+            if bName in sub_groups:
+                sub_groups[bName].append(exercise_item)
+            else:
+                sub_groups['ETC'].append(exercise_item)
+        
+        final_list = []
+        for key in order:
+            final_list.extend(sub_groups[key])
+        final_list.extend(sub_groups['ETC'])
+        return final_list
+
+    # Apply special ordering for compound days (2 and 3-day splits)
+    if user.freq == 2 and 'UPPER' in grouped_catalog:
+        chest_back_order = ['CHEST', 'BACK'] if random.random() < 0.5 else ['BACK', 'CHEST']
+        upper_order = chest_back_order + ['SHOULDER', 'ARM']
+        grouped_catalog['UPPER'] = get_ordered_list(grouped_catalog['UPPER'], upper_order)
+
+    if user.freq == 3:
+        if 'PUSH' in grouped_catalog:
+            push_order = ['CHEST', 'SHOULDER', 'ARM']
+            grouped_catalog['PUSH'] = get_ordered_list(grouped_catalog['PUSH'], push_order)
+        if 'PULL' in grouped_catalog:
+            pull_order = ['BACK', 'ARM']
+            grouped_catalog['PULL'] = get_ordered_list(grouped_catalog['PULL'], pull_order)
+
+    catalog_lines = []
+    for day in split_days_upper:
+        catalog_lines.append(day)
+        exercises_for_day = grouped_catalog.get(day, [])
+        if exercises_for_day:
+            for i, exercise in enumerate(exercises_for_day):
+                line_end = "," if i < len(exercises_for_day) - 1 else ""
+                catalog_lines.append(json.dumps(exercise, ensure_ascii=False) + line_end)
+        catalog_lines.append("")
+
+    catalog_str = "\n".join(catalog_lines)
+
+    return prompt_template.format(
         gender="male" if user.gender == "M" else "female",
         weight=int(round(user.weight)),
         level=user.level,
@@ -134,12 +212,6 @@ def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_
 def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = False) -> str:
     import logging
     logging.basicConfig(level=logging.INFO)
-    # logging.info("--- DIAGNOSTIC LOG IN format_new_routine ---")
-    # if name_map and 'Back Squat' in name_map:
-    #     logging.info(f"MAP CHECK: Back Squat -> {name_map.get('Back Squat')}")
-    # else:
-    #     logging.info("MAP CHECK: name_map is empty or doesn't contain Back Squat!")
-    # logging.info("--- END DIAGNOSTIC LOG ---")
 
     if not isinstance(plan_json, dict) or "days" not in plan_json:
         return "Invalid plan format."

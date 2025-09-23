@@ -3,6 +3,7 @@ from flask import Flask, jsonify, request, send_from_directory
 import json
 import os
 import logging
+import random
 
 import openai
 from openai import OpenAI
@@ -71,25 +72,71 @@ EXERCISE_COUNT_SCHEMA = {
     }
 }
 
+def _leg_main_cap(level: str) -> int:
+    return 2 if level in ('Advanced', 'Elite') else 1
+
+
+def _leg_pair_enums_for_day(freq, tag, allowed_names):
+    # LEG_MAIN
+    leg_main_names = list(dict.fromkeys(allowed_names.get('LEG_MAIN', [])))
+    main_pairs = []
+    for n in leg_main_names:
+        ex = name_to_exercise_map.get(n)
+        if ex and ex.get('bName'):
+            main_pairs.append([ex['bName'], n])
+
+    # 해당 요일 풀(LEGS/LOWER)에서 OTHER = (요일풀 - LEG_MAIN)
+    day_pairs_all = _allowed_pairs_for_day_by_name(freq, tag, allowed_names)
+    other_pairs = [p for p in day_pairs_all if p[1] not in leg_main_names]
+
+    # ALL = MAIN ∪ OTHER
+    all_pairs = main_pairs + [p for p in other_pairs if p not in main_pairs]
+    return main_pairs, other_pairs, all_pairs
+
+def make_legs_day_schema_by_name(freq, tag, allowed_names, min_ex, max_ex, level):
+    main_pairs, other_pairs, all_pairs = _leg_pair_enums_for_day(freq, tag, allowed_names)
+    cap = _leg_main_cap(level)  # K
+
+    # 핵심: 앞의 cap칸은 ALL 허용(=MAIN도 가능), 이후는 OTHER만
+    prefix_items = [{"enum": all_pairs} for _ in range(cap)]
+
+    return {
+        "type": "array",
+        "description": (
+            "At most {} LEG_MAIN exercises allowed; remaining slots must be non-LEG_MAIN. "
+            "All items must be distinct; order compound → accessories."
+        ).format(cap),
+        "minItems": min_ex,
+        "maxItems": max_ex,
+        "prefixItems": prefix_items,
+        "items": {"enum": other_pairs}  # cap 이후 칸은 MAIN 금지
+    }
+
+
 def make_day_schema_pairs_by_name(allowed_names_for_day, min_ex, max_ex):
     pair_enum = []
     seen = set()
+    random.shuffle(allowed_names_for_day)
+
     for ex_name in allowed_names_for_day:
         exercise = name_to_exercise_map.get(ex_name)
-        if not exercise: continue
+        if not exercise:
+            continue
         bp = exercise.get('bName')
-        if not bp: continue
-        
+        if not bp:
+            continue
         key = (bp, ex_name)
-        if key in seen: continue
+        if key in seen:
+            continue
         seen.add(key)
         pair_enum.append([bp, ex_name])
-        
+
     if not pair_enum:
         for ex_name, exercise in name_to_exercise_map.items():
             bp = exercise.get('bName')
-            if bp: pair_enum.append([bp, ex_name])
-            
+            if bp:
+                pair_enum.append([bp, ex_name])
+
     return {
         "type": "array",
         "description": "All items must be distinct: each exercise_name appears only once per day. Arrange them in an effective order (compound → accessories) appropriate to the user’s level.",
@@ -98,23 +145,46 @@ def make_day_schema_pairs_by_name(allowed_names_for_day, min_ex, max_ex):
         "items": {"enum": pair_enum},
     }
 
-def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex):
+
+def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, level='Intermediate'):
     prefix = []
     for tag in split_tags:
         try:
             allowed_for_day = allowed_names[str(freq)][tag]
         except Exception:
             allowed_for_day = allowed_names.get(tag, [])
-        
+
         if not allowed_for_day:
             if str(freq) in allowed_names:
                 all_names = [v for v_list in allowed_names[str(freq)].values() for v in v_list]
                 allowed_for_day = list(dict.fromkeys(all_names))
             else:
                 allowed_for_day = list(name_to_exercise_map.keys())
-        
-        prefix.append(make_day_schema_pairs_by_name(allowed_for_day, min_ex, max_ex))
-    return {"type": "object", "required": ["days"], "properties": {"days": {"type": "array", "minItems": len(prefix), "maxItems": len(prefix), "prefixItems": prefix, "items": False}}}
+
+        if tag in ("LEGS", "LOWER"):
+            day_schema = make_legs_day_schema_by_name(
+                freq=freq, tag=tag, allowed_names=allowed_names,
+                min_ex=min_ex, max_ex=max_ex, level=level
+            )
+        else:
+            day_schema = make_day_schema_pairs_by_name(allowed_for_day, min_ex, max_ex)
+
+        prefix.append(day_schema)
+
+    return {
+        "type": "object",
+        "required": ["days"],
+        "properties": {
+            "days": {
+                "type": "array",
+                "minItems": len(prefix),
+                "maxItems": len(prefix),
+                "prefixItems": prefix,
+                "items": False
+            }
+        }
+    }
+
 
 def _allowed_pairs_for_day_by_name(freq, tag, allowed_names):
     try:
@@ -136,7 +206,7 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
     duration_key = min(level_schema.keys(), key=lambda k: abs(k - duration) if k <= duration else float('inf'))
     min_ex, max_ex = level_schema[duration_key]
 
-    legs_main_names = set(allowed_names.get('LEGS_MAIN', []))
+    legs_main_names = set(allowed_names.get('LEG_MAIN', []))
 
     modified_allowed_names = json.loads(json.dumps(allowed_names)) # Deep copy
     for freq_key in ['2', '3', '4', '5']:
@@ -198,6 +268,7 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
 
         elif freq and split_tags and allowed_names and len(fixed) < min_ex:
             pool = _allowed_pairs_for_day_by_name(freq, tag, allowed_names)
+            random.shuffle(pool)
             for cand_bp, cand_name in pool:
                 if (cand_bp, cand_name) in used: continue
                 fixed.append([cand_bp, cand_name])
@@ -232,7 +303,10 @@ def generate_prompt_api():
         duration_key = min(level_schema.keys(), key=lambda k: abs(k - user.duration) if k <= user.duration else float('inf'))
         min_ex, max_ex = level_schema[duration_key]
 
-        prompt = build_prompt(user, exercise_catalog, duration_str, min_ex, max_ex)
+        with open("web/allowed_name_229.json", "r", encoding="utf-8") as f:
+            ALLOWED_NAMES = json.load(f)
+
+        prompt = build_prompt(user, exercise_catalog, duration_str, min_ex, max_ex, allowed_names=ALLOWED_NAMES)
         return jsonify({"prompt": prompt})
     except Exception as e:
         app.logger.error(f"Error in generate_prompt_api: {e}", exc_info=True)
@@ -255,21 +329,54 @@ def process_inference_request(data, client_creator):
             intensity=data.get('intensity', 'Normal')
         )
 
-        if not prompt:
-            prompt = build_prompt(user, exercise_catalog, duration_str)
-        
-        if user.freq not in SPLITS: return jsonify({"error": f"Unsupported weekly frequency: {user.freq}. Use 2, 3, 4, or 5."}), 400
-        split_tags = SPLITS[user.freq]
-        
-        # Calculate min/max exercises based on user level and duration for the schema
         level_schema = EXERCISE_COUNT_SCHEMA.get(user.level, EXERCISE_COUNT_SCHEMA['Intermediate'])
         duration_key = min(level_schema.keys(), key=lambda k: abs(k - user.duration) if k <= user.duration else float('inf'))
         min_ex, max_ex = level_schema[duration_key]
 
+        if not prompt:
+            with open("web/allowed_name_229.json", "r", encoding="utf-8") as f:
+                ALLOWED_NAMES_FOR_PROMPT = json.load(f)
+            prompt = build_prompt(user, exercise_catalog, duration_str, min_ex, max_ex, allowed_names=ALLOWED_NAMES_FOR_PROMPT)
+        
+        if user.freq not in SPLITS: return jsonify({"error": f"Unsupported weekly frequency: {user.freq}. Use 2, 3, 4, or 5."}), 400
+        split_tags = SPLITS[user.freq]
+
         with open("web/allowed_name_229.json", "r", encoding="utf-8") as f:
             ALLOWED_NAMES = json.load(f)
 
-        week_schema = build_week_schema_by_name(user.freq, split_tags, ALLOWED_NAMES, min_ex, max_ex)
+        if user.level == 'Beginner':
+            # For Beginners, filter allowed exercises based on gender-specific lists (MBeginner/FBeginner).
+            beginner_key = 'MBeginner' if user.gender == 'M' else 'FBeginner'
+            beginner_exercise_set = set(ALLOWED_NAMES.get(beginner_key, []))
+
+            # Create a deep copy to modify, preserving the original for other users.
+            MODIFIED_ALLOWED_NAMES = json.loads(json.dumps(ALLOWED_NAMES))
+
+            if str(user.freq) in MODIFIED_ALLOWED_NAMES:
+                for tag in MODIFIED_ALLOWED_NAMES[str(user.freq)]:
+                    original_exercises = MODIFIED_ALLOWED_NAMES[str(user.freq)][tag]
+                    intersected_exercises = list(beginner_exercise_set.intersection(original_exercises))
+                    if not intersected_exercises:
+                        # 안전한 Fallback: 같은 freq의 모든 태그 합집합과 Beginner 풀의 교집합
+                        freq_union = []
+                        for _t, _lst in MODIFIED_ALLOWED_NAMES[str(user.freq)].items():
+                            if _t != tag:
+                                freq_union.extend(_lst)
+                        freq_union = list(dict.fromkeys(freq_union))
+                        safe = list(beginner_exercise_set.intersection(freq_union))
+                        # 그래도 비면 최후의 수단: Beginner 풀 자체
+                        intersected_exercises = safe if safe else list(beginner_exercise_set)
+                    MODIFIED_ALLOWED_NAMES[str(user.freq)][tag] = intersected_exercises
+
+            
+            # Build the schema using the filtered list.
+            week_schema = build_week_schema_by_name(user.freq, split_tags, MODIFIED_ALLOWED_NAMES, min_ex, max_ex, level=user.level)
+            effective_allowed_names = MODIFIED_ALLOWED_NAMES
+        else:
+            # For non-Beginners, use the original, unfiltered logic.
+            week_schema = build_week_schema_by_name(user.freq, split_tags, ALLOWED_NAMES, min_ex, max_ex, level=user.level)
+            effective_allowed_names = ALLOWED_NAMES
+    
         client, model_name, completer = client_creator()
         
         resp = completer(prompt=prompt, week_schema=week_schema, max_tokens=int(data.get("max_tokens", 4096)), temperature=float(data.get("temperature", 1.0)))
@@ -278,7 +385,7 @@ def process_inference_request(data, client_creator):
         obj = json.loads(json_repair_str(raw))
         if "days" not in obj: return jsonify({"error": "Parsed object missing 'days'."}), 502
         
-        obj = post_validate_and_fix_week(obj, freq=user.freq, split_tags=split_tags, allowed_names=ALLOWED_NAMES, level=user.level, duration=user.duration)
+        obj = post_validate_and_fix_week(obj, freq=user.freq, split_tags=split_tags, allowed_names=effective_allowed_names, level=user.level, duration=user.duration)
         
         summary_unsorted = format_new_routine(obj, name_to_korean_map, enable_sorting=False)
         summary_sorted = format_new_routine(obj, name_to_korean_map, enable_sorting=True)
@@ -301,12 +408,15 @@ def infer_vllm_api():
             return client.chat.completions.create(
                 model=VLLM_MODEL, 
                 messages=[{"role": "user", "content": prompt}], 
-                temperature=0.1, 
+                temperature=1.0,
+                presence_penalty=0.2,
+                frequency_penalty=0.2,
                 max_tokens=max_tokens, 
                 extra_body={"guided_json": 
-                            week_schema, "repetition_penalty": 1.3,
-                            "presence_penalty": 0.3,
-                            "frequency_penalty": 0.4 
+                            week_schema, 
+                            "repetition_penalty": 1.1,
+                                    "top_p": 0.9,
+                            #         "top_k": 50
                             })
         return client, VLLM_MODEL, completer
     return process_inference_request(request.get_json(), vllm_client_creator)
