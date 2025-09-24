@@ -1,0 +1,8 @@
+runtime: python311
+entrypoint: gunicorn --chdir web -b :$PORT server:app
+
+env_variables:
+  # These are placeholder values. 
+  # You should set your actual secrets in the GCP console or using the gcloud CLI.
+  OPENAI_API_KEY: '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'
+  VLLM_BASE_URL: 'YOUR_VLLM_SERVER_URL'

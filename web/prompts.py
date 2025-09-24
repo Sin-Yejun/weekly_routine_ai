@@ -162,6 +162,7 @@ Return a weekly bodybuilding plan as strict JSON only.
 - Name: {split_name}; Days: {split_days}.
 
 ## Content rules
+- NO DUPLICATE EXERCISES.
 - Ignore catalog ordering: treat every catalog item as equally likely. Never default to the first seen option. Prefer less-common but level-appropriate options when multiple candidates fit.
 - Movement group rule (max 1 per day). Definitions:
     Press group = all chest or shoulder presses
@@ -175,16 +176,23 @@ Return a weekly bodybuilding plan as strict JSON only.
     If one exercise from a group is chosen, do not add another from the same group that day.
 - Micro coverage rule: Each day must include ≥2 distinct micro regions. Avoid overconcentrating on one area.
 - Micro novelty rule: Include 1–2 safe, less-common micro targets per day (e.g., LOWER CHEST, POSTERIOR DELTOID, ADDUCTORS, CALVES) appropriate for {level}.
+- Equipment priority rule (by training level):
+  • Beginner: Majority exercises must be BodyWeight; add 1–2 Machine supports if needed. Avoid Free Weight except very simple options.
+  • Novice: Majority exercises should be Machine; add 1–2 Free Weight as accessory. Keep BodyWeight for warm-up or easy variations.
+  • Intermediate and above: Majority exercises must be Free Weight; add 1–2 Machine supports for accessory/isolation. BodyWeight only if purposeful.
+- Each day must respect this priority mix when selecting exercises.
 - Weekly micro distribution:
     • PUSH: Chest must include MIDDLE/UPPER press + ≥1 isolation/fly; Shoulders must include ANTERIOR + LATERAL; add at least one triceps-focused movement if available.
-    • PULL: Back must include ≥1 vertical pull (LATS) + ≥1 horizontal row (UPPER BACK), optional LOWER BACK accessory; include at least one biceps movement if available.
+    • PULL: ≥1 vertical pull + ≥1 horizontal row; optional ≤1 hinge/deadlift (Leg-tagged) for posterior chain; include ≥1 biceps isolation if available.
     • LEGS: Must include one squat pattern (MG>=4) AND one hinge/deadlift pattern (MG>=4/5). Also cover QUADS + GLUTES + HAMSTRINGS; optional ADDUCTORS or CALVES isolation.
 - Indirect diversity rule: If one variation of a major pattern (press/row/squat/lunge/deadlift) is included, prefer a different plane/angle/implement next—do not add another close variant.
 - Anti-top-bias rule: Build a candidate list for each slot; shuffle BEFORE scoring by (1) MG_num, (2) large→small muscle groups, (3) weekly non-repetition, (4) novelty quota. Select from the top-mid, not always the top-1.
 
 ## Procedure (follow EXACTLY)
 1) Candidate build (per day): filter Catalog by split mapping above, then enforce movement group rule.
-2) Primary selection: choose compounds first (MG_num high), then accessories (MG=3), then isolations (MG<=2).
+2) Primary selection:
+   - PULL: pick 1 vertical pull + 1 horizontal row first; you MAY add ≤1 Deadlift group (Leg-tagged hinge) as accessory; then biceps/isolation.
+2a) Equipment distribution: enforce level-appropriate equipment priority when building daily selection.
 3) Micro coverage check: each day must cover ≥2 micro regions; adjust if needed.
 4) Strict ordering by MG_num:
     - Sort exercises MG_num descending.

@@ -4,3 +4,4 @@ requests
 openai
 json_repair
 python-dotenv
+gunicorn

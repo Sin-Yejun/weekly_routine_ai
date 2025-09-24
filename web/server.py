@@ -49,7 +49,7 @@ SPLITS = {
     4: ["CHEST","BACK","SHOULDER","LEGS"],
     5: ["CHEST","BACK","LEGS","SHOULDER","ARM"],
 }
-VLLM_BASE_URL = "http://127.0.0.1:8000/v1"
+VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
 VLLM_MODEL    = "google/gemma-3-4b-it"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL")
@@ -103,8 +103,8 @@ def make_legs_day_schema_by_name(freq, tag, allowed_names, min_ex, max_ex, level
     return {
         "type": "array",
         "description": (
+            "NO DUPLICATE EXERCISES."
             "At most {} LEG_MAIN exercises allowed; remaining slots must be non-LEG_MAIN. "
-            "All items must be distinct; order compound → accessories."
         ).format(cap),
         "minItems": min_ex,
         "maxItems": max_ex,
@@ -314,6 +314,32 @@ def generate_prompt_api():
         with open("web/allowed_name_229.json", "r", encoding="utf-8") as f:
             ALLOWED_NAMES = json.load(f)
 
+        # === Level-based filtering for prompt generation ===
+        if user.level == 'Beginner':
+            level_key = 'MBeginner' if user.gender == 'M' else 'FBeginner'
+            level_specific_set = set(ALLOWED_NAMES.get(level_key, []))
+        elif user.level == 'Novice':
+            level_key = 'MNovice' if user.gender == 'M' else 'FNovice'
+            level_specific_set = set(ALLOWED_NAMES.get(level_key, []))
+        else:
+            level_specific_set = None
+
+        if level_specific_set is not None:
+            MODIFIED_ALLOWED_NAMES = json.loads(json.dumps(ALLOWED_NAMES))
+            if str(user.freq) in MODIFIED_ALLOWED_NAMES:
+                for tag in MODIFIED_ALLOWED_NAMES[str(user.freq)]:
+                    original_exercises = MODIFIED_ALLOWED_NAMES[str(user.freq)][tag]
+                    intersected_exercises = list(level_specific_set.intersection(original_exercises))
+                    if not intersected_exercises:
+                        freq_union = [ex for t, ex_list in MODIFIED_ALLOWED_NAMES[str(user.freq)].items() if t != tag for ex in ex_list]
+                        safe_intersection = list(level_specific_set.intersection(freq_union))
+                        intersected_exercises = safe_intersection if safe_intersection else list(level_specific_set)
+                    MODIFIED_ALLOWED_NAMES[str(user.freq)][tag] = intersected_exercises
+            effective_allowed_names = MODIFIED_ALLOWED_NAMES
+        else:
+            effective_allowed_names = ALLOWED_NAMES
+        # =================================================
+
         # Filter catalog by tools before passing to build_prompt
         if user.tools:
             allowed_tools_set = set(user.tools)
@@ -321,7 +347,7 @@ def generate_prompt_api():
         else:
             filtered_catalog = exercise_catalog
 
-        prompt = build_prompt(user, filtered_catalog, duration_str, min_ex, max_ex, allowed_names=ALLOWED_NAMES)
+        prompt = build_prompt(user, filtered_catalog, duration_str, min_ex, max_ex, allowed_names=effective_allowed_names)
         return jsonify({"prompt": prompt})
     except Exception as e:
         app.logger.error(f"Error in generate_prompt_api: {e}", exc_info=True)
@@ -411,6 +437,30 @@ def process_inference_request(data, client_creator):
             # Build the schema using the filtered list.
             week_schema = build_week_schema_by_name(user.freq, split_tags, MODIFIED_ALLOWED_NAMES, min_ex, max_ex, level=user.level)
             effective_allowed_names = MODIFIED_ALLOWED_NAMES
+        elif user.level == 'Novice':
+            # For Novices, filter allowed exercises based on gender-specific lists (MNovice/FNovice).
+            novice_key = 'MNovice' if user.gender == 'M' else 'FNovice'
+            novice_exercise_set = set(ALLOWED_NAMES.get(novice_key, []))
+
+            # Create a deep copy to modify, preserving the original for other users.
+            MODIFIED_ALLOWED_NAMES = json.loads(json.dumps(ALLOWED_NAMES))
+
+            if str(user.freq) in MODIFIED_ALLOWED_NAMES:
+                for tag in MODIFIED_ALLOWED_NAMES[str(user.freq)]:
+                    original_exercises = MODIFIED_ALLOWED_NAMES[str(user.freq)][tag]
+                    intersected_exercises = list(novice_exercise_set.intersection(original_exercises))
+                    if not intersected_exercises:
+                        freq_union = []
+                        for _t, _lst in MODIFIED_ALLOWED_NAMES[str(user.freq)].items():
+                            if _t != tag:
+                                freq_union.extend(_lst)
+                        freq_union = list(dict.fromkeys(freq_union))
+                        safe = list(novice_exercise_set.intersection(freq_union))
+                        intersected_exercises = safe if safe else list(novice_exercise_set)
+                    MODIFIED_ALLOWED_NAMES[str(user.freq)][tag] = intersected_exercises
+            
+            week_schema = build_week_schema_by_name(user.freq, split_tags, MODIFIED_ALLOWED_NAMES, min_ex, max_ex, level=user.level)
+            effective_allowed_names = MODIFIED_ALLOWED_NAMES
         else:
             # For non-Beginners, use the original, unfiltered logic.
             week_schema = build_week_schema_by_name(user.freq, split_tags, ALLOWED_NAMES, min_ex, max_ex, level=user.level)
@@ -447,15 +497,15 @@ def infer_vllm_api():
             return client.chat.completions.create(
                 model=VLLM_MODEL, 
                 messages=[{"role": "user", "content": prompt}], 
-                temperature=1.0,
+                temperature=0.5,
                 presence_penalty=0.2,
                 frequency_penalty=0.2,
                 max_tokens=max_tokens, 
                 extra_body={"guided_json": 
                             week_schema, 
-                            "repetition_penalty": 1.1,
+                            "repetition_penalty": 1.2,
                                     "top_p": 0.9,
-                            #         "top_k": 50
+                                    # "top_k": 50
                             })
         return client, VLLM_MODEL, completer
     return process_inference_request(request.get_json(), vllm_client_creator)

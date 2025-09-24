@@ -21,14 +21,14 @@ try:
 
     # Create the desired dictionary structure
     data = {
-        "MBeginner": exercises
+        "FBeginner": exercises
     }
 
     # Write the dictionary to the output JSON file
-    with open(output_file_abs_path, 'w', encoding='utf-8') as f:
+    with open(output_file_abs_path, 'a', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False)
 
-    print(f"Successfully created {output_file_abs_path}")
+    print(f"✅ Successfully converted {len(exercises)} exercises and saved to {output_file_abs_path}")
 
 except FileNotFoundError:
     print(f"Error: Input file not found at {input_file_abs_path}")

@@ -24,34 +24,78 @@ Return a weekly bodybuilding plan as strict JSON only.
 ## Split
 - Name: {split_name}; Days: {split_days}.
 
-## Content rules
-- Ignore catalog ordering: treat every catalog item as equally likely. Never default to the first seen option. When multiple candidates satisfy constraints, prefer the one that is less common yet appropriate for the user's level.
-- Pattern family uniqueness: Within a single day, do not include more than one variant from the same base pattern family (e.g., bench presses, rows, squats, lunges, deadlifts). Choose only one per family, then diversify with different movement types, planes, and tools.
-- Micro coverage rule: Ensure that across each day, the chosen exercises collectively cover a broad range of micro muscles for that split focus. Avoid overconcentrating on only one micro region (e.g., only MIDDLE CHEST on Chest day, or only QUADS on Leg day). Include at least two distinct micro regions each day.
-- Micro novelty rule: At least 1–2 exercises per day must highlight less-common micro regions (e.g., LOWER CHEST, POSTERIOR DELTOID, ADDUCTORS, CALVES) that are still safe and appropriate for a {level}.
-- Weekly micro distribution: Over the whole cycle, ensure that every large muscle group (Chest/Back/Shoulders/Legs) has both primary and secondary micro regions trained. Examples:
-    - Chest week: not only presses for MIDDLE/UPPER, but also one isolation for LOWER or fly movement.
-    - Back week: at least one vertical pull (LATS emphasis) and one horizontal row (UPPER BACK emphasis); optional erector/LOWER BACK accessory.
-    - Shoulders week: include at least one POSTERIOR DELTOID, one LATERAL DELTOID, and one ANTERIOR DELTOID, not only presses.
-    - Legs week: ensure QUADS, GLUTES, HAMSTRINGS are all trained, with optional ADDUCTORS or CALVES isolation as novelty.
-- Indirect diversity rule: For any major compound pattern (press, deadlift, row, squat, lunge), if one variation is already included, prefer adding a different movement plane, different angle, or different implement rather than another variant of the same archetype.
-- Anti-top-bias rule: Build an internal candidate list for each slot, then randomly shuffle the candidate list BEFORE scoring by 1) MG_num, 2) large→small muscle groups, 3) weekly non-repetition, 4) novelty quota. Select from the TOP-MID of the scored list, not always the top-1.
-- Final diversity check before emit:
-    1) Per day: strictly unique exercise_name values.
-    2) Per day: no more than one close-variant of a base archetype (bench, lunge, row, squat, etc.).
-    3) Per day: exercises cover at least two distinct micro regions.
-    4) Per week: global spread of micro coverage across all major splits.
-    5) Exercises must be appropriate for {level} difficulty.
+## MOVEMENT GROUPS (cap: at most one per group per day)
+Groups: Press, Row, PullUp, SQUAT, Lunge, Raise, Deadlift, PushUps.
+- Press = all chest or shoulder presses
+- Row = horizontal pulling movements
+- PullUp = vertical pulling movements such as pull up, chin up, pulldown
+- SQUAT = back, front, box, smith, hack, V, reverse V, leg press type squats
+- Lunge = lunge, split squat, step up
+- Raise = all raise variations
+- Deadlift = all hinge and deadlift variations
+- PushUps = push up variations
+Notes:
+- Split squat and step up belong to Lunge, not SQUAT.
+- Pullover is not Press, Row, or PullUp. Treat it as an accessory for chest or lats. It does not block Press, Row, or PullUp.
+
+## MICRO COVERAGE
+- For each day, cover at least two distinct micro regions. Avoid concentrating on a single region.
+- For each day, include one or two safe and less common targets that match the user level. Examples: lower chest, posterior deltoid, adductors, calves.
+
+## WEEKLY MINIMUMS BY SPLIT INTENT
+- PUSH: include one middle or upper press and at least one chest isolation or fly. Shoulders must cover anterior (press may satisfy this indirectly) and lateral via a raise. Include at least one triceps movement if available.
+- PULL: include at least one vertical pull for lats and at least one horizontal row for upper back. Lower back accessory is optional. Include at least one biceps movement if available.
+- LEGS: include one SQUAT pattern with MG_num 4 or higher and one deadlift or hinge pattern with MG_num 4 or higher. Also cover quads, glutes, and hamstrings. Adductors or calves isolation is optional.
+
+## LEVEL BASED EQUIPMENT PREFERENCES
+Apply these preferences when building and scoring candidates. Always obey all other rules.
+- Beginner: prefer bodyweight first, then machines or cables, then free weights. Avoid unstable implements. Keep novelty conservative.
+- Novice: prefer machines or cables as primary, with free weights as secondary. Bodyweight allowed.
+- Intermediate: prefer free weights as primary, with machines or cables supportive. Allow more unilateral or stability when safe.
+- Advanced: strongly prefer free weights. Use machines for targeted overload or novelty.
+- Elite: prioritize free weights and varied planes or implements. Use machines sparingly for precise fatigue management.
+Equipment tie break within a day by level:
+Beginner = bodyweight then machine then cable then free
+Novice = machine then cable then free then bodyweight
+Intermediate or Advanced or Elite = free then machine then cable then bodyweight
+
+## SELECTION PROCEDURE (follow exactly)
+1) Candidate Build for each day
+   - Filter by the day’s split intent.
+   - Enforce the movement group cap: at most one from each group for that day.
+   - Apply level based equipment preferences when forming the candidate pool.
+2) Primary Selection
+   - Choose compounds first (higher MG_num), then accessories (MG_num equals 3), then isolations (MG_num less than or equal to 2).
+   - Indirect diversity: after selecting a major pattern such as press, row, squat, lunge, or deadlift, prefer the next item with a different plane, angle, or implement.
+3) Micro Coverage Check
+   - Ensure at least two distinct micro regions in the day. If not satisfied, replace the lowest priority item with one that fixes coverage while still respecting the group caps.
+4) Ordering Rules
+   - Sort by MG_num in strictly descending order.
+   - No isolation with MG_num less than or equal to 2 may appear before any compound or accessory with MG_num greater than or equal to 3.
+   - Tie breakers, in order:
+     a) Chest or Back before Shoulders or Arms or Calves
+     b) Bilateral before unilateral
+     c) Equipment preference per the level based ordering above
+     d) Prefer items not yet used this week
+5) Anti Top Bias
+   - Before scoring, shuffle candidates for each slot. When a tie remains after all rules, choose from the upper middle of the ranked set, not always the top item.
+6) Integrity Loop
+   - Re check uniqueness, group caps, micro diversity, weekly split minimums, and level equipment preferences. If any rule fails, replace the lowest priority item and re sort, then repeat the checks.
+
+## GLOBAL GUARDS
+- For each day: unique exercise_name, at most one per movement group, MG_num strictly in descending order, at least two micro regions.
+- For the week: balanced coverage across PUSH, PULL, and LEGS according to the weekly minimums.
+- All exercises must be appropriate for the user level.
+- Avoid risky or highly technical variants for Beginner and Novice.
 
 ## Catalog
 # Each item = [bName, eName, MG_num, {{"micro":[...]}}]
 {catalog_json}
 
 ## Output
-Return exactly one minified JSON object only, matching:
+Return exactly one minified JSON object only (no spaces/newlines), matching:
 {{"days":[[[bodypart,exercise_name],...],...]}}
 '''
-
 
 # --- Helper Functions ---
 
@@ -86,6 +130,7 @@ def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_
         prompt_template = Frequency_2
     elif user.freq == 3:
         prompt_template = Frequency_3
+        #prompt_template = DEFAULT_PROMPT_TEMPLATE
     elif user.freq == 4:
         prompt_template = Frequency_4
     elif user.freq == 5:
@@ -98,14 +143,18 @@ def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_
         allowed_tools_set = set(user.tools)
         catalog = [item for item in catalog if item.get('tool_en') in allowed_tools_set]
 
-    # First, filter by beginner status if applicable
-    if user.level == 'Beginner' and allowed_names:
-        beginner_key = 'MBeginner' if user.gender == 'M' else 'FBeginner'
-        beginner_exercise_set = set(allowed_names.get(beginner_key, []))
+    # Filter catalog by level (Beginner/Novice) if applicable
+    if user.level in ['Beginner', 'Novice'] and allowed_names:
+        if user.level == 'Beginner':
+            level_key = 'MBeginner' if user.gender == 'M' else 'FBeginner'
+        else: # Novice
+            level_key = 'MNovice' if user.gender == 'M' else 'FNovice'
+        
+        level_exercise_set = set(allowed_names.get(level_key, []))
         
         catalog = [
             item for item in catalog 
-            if item.get('eName') in beginner_exercise_set
+            if item.get('eName') in level_exercise_set
         ]
 
     split_name, split_days = pick_split(user.freq)
@@ -190,13 +239,50 @@ def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_
             grouped_catalog['PULL'] = get_ordered_list(grouped_catalog['PULL'], pull_order)
 
     catalog_lines = []
+    eName_to_tool_map = {item.get('eName'): item.get('tool_en', 'Etc') for item in catalog}
+
     for day in split_days_upper:
         catalog_lines.append(day)
         exercises_for_day = grouped_catalog.get(day, [])
+
         if exercises_for_day:
-            for i, exercise in enumerate(exercises_for_day):
-                line_end = "," if i < len(exercises_for_day) - 1 else ""
-                catalog_lines.append(json.dumps(exercise, ensure_ascii=False) + line_end)
+            day_tool_groups = {"Free Weight": [], "Machine": [], "BodyWeight": [], "Etc": []}
+            free_weight_tools = {"Barbell", "Dumbbell", "EZbar", "Kettlebell"}
+
+            for exercise_item in exercises_for_day:
+                tool = eName_to_tool_map.get(exercise_item[1], 'Etc')
+                if tool in free_weight_tools:
+                    day_tool_groups["Free Weight"].append(exercise_item)
+                elif tool == 'Machine':
+                    day_tool_groups["Machine"].append(exercise_item)
+                elif tool == 'Bodyweight':
+                    day_tool_groups["BodyWeight"].append(exercise_item)
+                else:
+                    day_tool_groups["Etc"].append(exercise_item)
+
+            if user.level == 'Beginner':
+                tool_group_order = ["BodyWeight", "Machine", "Free Weight", "Etc"]
+            elif user.level == 'Novice':
+                tool_group_order = ["Machine", "Free Weight", "BodyWeight", "Etc"]
+            else:
+                tool_group_order = ["Free Weight", "Machine", "BodyWeight", "Etc"]
+
+            flat_ordered_list = []
+            for group_name in tool_group_order:
+                flat_ordered_list.extend(day_tool_groups.get(group_name, []))
+
+            temp_day_lines = []
+            for group_name in tool_group_order:
+                exercises = day_tool_groups.get(group_name, [])
+                if not exercises:
+                    continue
+                temp_day_lines.append(f"  {group_name}:")
+                for exercise in exercises:
+                    is_last = (exercise == flat_ordered_list[-1]) if flat_ordered_list else False
+                    line_end = "" if is_last else ","
+                    temp_day_lines.append("    " + json.dumps(exercise, ensure_ascii=False) + line_end)
+            catalog_lines.extend(temp_day_lines)
+
         catalog_lines.append("")
 
     catalog_str = "\n".join(catalog_lines)
