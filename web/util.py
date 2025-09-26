@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from prompts import Frequency_2, Frequency_3, Frequency_4, Frequency_5
+from prompts import common_prompt, SPLIT_RULES, LEVEL_GUIDE
 import random
 import json
 import re
@@ -10,92 +10,17 @@ from typing import Dict, List, Tuple
 
 LEVEL_CODE = {"Beginner":"B","Novice":"N","Intermediate":"I","Advanced":"A","Elite":"E"}
 
-DEFAULT_PROMPT_TEMPLATE = '''## [Task]
-Return a weekly bodybuilding plan as strict JSON only.
-
-## [User Info]
-- Gender: {gender}
-- Weight: {weight}kg
-- Training Level: {level}
-- Weekly Workout Frequency: {freq}
-- Workout Duration: {duration} minutes
-- Workout Intensity: {intensity}
-
-## Split
-- Name: {split_name}; Days: {split_days}.
-
-## MOVEMENT GROUPS (cap: at most one per group per day)
-Groups: Press, Row, PullUp, SQUAT, Lunge, Raise, Deadlift, PushUps.
-- Press = all chest or shoulder presses
-- Row = horizontal pulling movements
-- PullUp = vertical pulling movements such as pull up, chin up, pulldown
-- SQUAT = back, front, box, smith, hack, V, reverse V, leg press type squats
-- Lunge = lunge, split squat, step up
-- Raise = all raise variations
-- Deadlift = all hinge and deadlift variations
-- PushUps = push up variations
-Notes:
-- Split squat and step up belong to Lunge, not SQUAT.
-- Pullover is not Press, Row, or PullUp. Treat it as an accessory for chest or lats. It does not block Press, Row, or PullUp.
-
-## MICRO COVERAGE
-- For each day, cover at least two distinct micro regions. Avoid concentrating on a single region.
-- For each day, include one or two safe and less common targets that match the user level. Examples: lower chest, posterior deltoid, adductors, calves.
-
-## WEEKLY MINIMUMS BY SPLIT INTENT
-- PUSH: include one middle or upper press and at least one chest isolation or fly. Shoulders must cover anterior (press may satisfy this indirectly) and lateral via a raise. Include at least one triceps movement if available.
-- PULL: include at least one vertical pull for lats and at least one horizontal row for upper back. Lower back accessory is optional. Include at least one biceps movement if available.
-- LEGS: include one SQUAT pattern with MG_num 4 or higher and one deadlift or hinge pattern with MG_num 4 or higher. Also cover quads, glutes, and hamstrings. Adductors or calves isolation is optional.
-
-## LEVEL BASED EQUIPMENT PREFERENCES
-Apply these preferences when building and scoring candidates. Always obey all other rules.
-- Beginner: prefer bodyweight first, then machines or cables, then free weights. Avoid unstable implements. Keep novelty conservative.
-- Novice: prefer machines or cables as primary, with free weights as secondary. Bodyweight allowed.
-- Intermediate: prefer free weights as primary, with machines or cables supportive. Allow more unilateral or stability when safe.
-- Advanced: strongly prefer free weights. Use machines for targeted overload or novelty.
-- Elite: prioritize free weights and varied planes or implements. Use machines sparingly for precise fatigue management.
-Equipment tie break within a day by level:
-Beginner = bodyweight then machine then cable then free
-Novice = machine then cable then free then bodyweight
-Intermediate or Advanced or Elite = free then machine then cable then bodyweight
-
-## SELECTION PROCEDURE (follow exactly)
-1) Candidate Build for each day
-   - Filter by the day’s split intent.
-   - Enforce the movement group cap: at most one from each group for that day.
-   - Apply level based equipment preferences when forming the candidate pool.
-2) Primary Selection
-   - Choose compounds first (higher MG_num), then accessories (MG_num equals 3), then isolations (MG_num less than or equal to 2).
-   - Indirect diversity: after selecting a major pattern such as press, row, squat, lunge, or deadlift, prefer the next item with a different plane, angle, or implement.
-3) Micro Coverage Check
-   - Ensure at least two distinct micro regions in the day. If not satisfied, replace the lowest priority item with one that fixes coverage while still respecting the group caps.
-4) Ordering Rules
-   - Sort by MG_num in strictly descending order.
-   - No isolation with MG_num less than or equal to 2 may appear before any compound or accessory with MG_num greater than or equal to 3.
-   - Tie breakers, in order:
-     a) Chest or Back before Shoulders or Arms or Calves
-     b) Bilateral before unilateral
-     c) Equipment preference per the level based ordering above
-     d) Prefer items not yet used this week
-5) Anti Top Bias
-   - Before scoring, shuffle candidates for each slot. When a tie remains after all rules, choose from the upper middle of the ranked set, not always the top item.
-6) Integrity Loop
-   - Re check uniqueness, group caps, micro diversity, weekly split minimums, and level equipment preferences. If any rule fails, replace the lowest priority item and re sort, then repeat the checks.
-
-## GLOBAL GUARDS
-- For each day: unique exercise_name, at most one per movement group, MG_num strictly in descending order, at least two micro regions.
-- For the week: balanced coverage across PUSH, PULL, and LEGS according to the weekly minimums.
-- All exercises must be appropriate for the user level.
-- Avoid risky or highly technical variants for Beginner and Novice.
-
-## Catalog
-# Each item = [bName, eName, MG_num, {{"micro":[...]}}]
-{catalog_json}
-
-## Output
-Return exactly one minified JSON object only (no spaces/newlines), matching:
-{{"days":[[[bodypart,exercise_name],...],...]}}
-'''
+SPLIT_MUSCLE_GROUPS = {
+    "UPPER": "(Upper Chest, Middle Chest, Lower Chest, Upper Back, Lower Back, Lats, Anterior Deltoid, Lateral Deltoid, Posterior Deltoid, Traps, Biceps, Triceps, Forearms)",
+    "LOWER": "(Glutes, Quads, Hamstrings, Adductors, Abductors, Calves)",
+    "PUSH": "(Upper Chest, Middle Chest, Lower Chest, Anterior Deltoid, Lateral Deltoid, Posterior Deltoid, Triceps)",
+    "PULL": "(Upper Back, Lower Back, Lats, Traps, Biceps)",
+    "LEGS": "(Glutes, Quads, Hamstrings, Adductors, Abductors, Calves)",
+    "CHEST": "(Upper Chest, Middle Chest, Lower Chest)",
+    "BACK": "(Upper Back, Lower Back, Lats)",
+    "SHOULDERS": "(Anterior Deltoid, Lateral Deltoid, Posterior Deltoid, Traps)",
+    "ARMS": "(Biceps, Triceps, Forearms)"
+}
 
 # --- Helper Functions ---
 
@@ -125,18 +50,7 @@ def pick_split(freq: int) -> Tuple[str, List[str]]:
 
 
 def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_ex: int, allowed_names: dict = None) -> str:
-    # Select the correct prompt template based on frequency
-    if user.freq == 2:
-        prompt_template = Frequency_2
-    elif user.freq == 3:
-        prompt_template = Frequency_3
-        #prompt_template = DEFAULT_PROMPT_TEMPLATE
-    elif user.freq == 4:
-        prompt_template = Frequency_4
-    elif user.freq == 5:
-        prompt_template = Frequency_5
-    else:
-        prompt_template = DEFAULT_PROMPT_TEMPLATE # Fallback
+    prompt_template = common_prompt
 
     # Filter catalog by selected tools first
     if hasattr(user, 'tools') and user.tools:
@@ -198,7 +112,6 @@ def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_
                 eName,
                 mg_num,
                 muscle_group,
-                # tool.upper() if isinstance(tool, str) else tool,
             ]
             grouped_catalog[group_key].append(processed_item)
 
@@ -242,7 +155,8 @@ def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_
     eName_to_tool_map = {item.get('eName'): item.get('tool_en', 'Etc') for item in catalog}
 
     for day in split_days_upper:
-        catalog_lines.append(day)
+        muscle_group_info = SPLIT_MUSCLE_GROUPS.get(day, "")
+        catalog_lines.append(f"{day} {muscle_group_info}".strip())
         exercises_for_day = grouped_catalog.get(day, [])
 
         if exercises_for_day:
@@ -286,18 +200,21 @@ def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_
         catalog_lines.append("")
 
     catalog_str = "\n".join(catalog_lines)
+    
+    split_rules = SPLIT_RULES.get(user.freq, "")
+    level_guide = LEVEL_GUIDE.get(user.level, "")
 
     return prompt_template.format(
         gender="male" if user.gender == "M" else "female",
         weight=int(round(user.weight)),
         level=user.level,
         freq=user.freq,
-        duration=duration_str,
+        duration=user.duration,
         intensity=user.intensity,
         split_name=split_name,
         split_days=" / ".join(split_days),
-        min_ex=min_ex,
-        max_ex=max_ex,
+        level_guide=level_guide,
+        split_rules=split_rules,
         catalog_json=catalog_str
     )
 
@@ -313,12 +230,25 @@ def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = F
             continue
 
         if enable_sorting:
+            random.shuffle(day)  # Shuffle for random tie-breaking
+
+            bname_priority_map = {
+                'CHEST': 1, 'BACK': 1, 'LEG': 1,
+                'SHOULDER': 2,
+                'ARM': 3,
+                'ABS': 4
+            }
+
             def sort_key(entry):
                 exercise_name = entry[1]
                 exercise_info = name_map.get(exercise_name, {})
+                
+                b_name = exercise_info.get('bName', 'ETC').upper() # Normalize to uppercase
                 mg_num = exercise_info.get('MG_num', 0)
                 muscle_point_sum = exercise_info.get('musle_point_sum', 0)
-                b_name = exercise_info.get('bName', '')
+
+                bname_prio = bname_priority_map.get(b_name, 5)  # 5 for others (ETC)
+
                 try:
                     mg_num = int(mg_num)
                 except (ValueError, TypeError):
@@ -327,8 +257,11 @@ def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = F
                     muscle_point_sum = int(muscle_point_sum)
                 except (ValueError, TypeError):
                     muscle_point_sum = 0
-                return (mg_num, muscle_point_sum, b_name)
-            day.sort(key=sort_key, reverse=True)
+                
+                # Sort by bName priority (asc), then MG_num (desc), then muscle_point_sum (desc)
+                return (bname_prio, -mg_num, -muscle_point_sum)
+
+            day.sort(key=sort_key)
 
         lines = [f"## Day{i} (운동개수: {len(day)})"]
         for entry in day:

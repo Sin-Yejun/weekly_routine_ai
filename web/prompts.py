@@ -1,4 +1,4 @@
-Frequency_5 = '''## [Task]
+common_prompt = '''## [Task]
 Return a weekly bodybuilding plan as strict JSON only.
 
 ## [User Info]
@@ -13,272 +13,76 @@ Return a weekly bodybuilding plan as strict JSON only.
 - Name: {split_name}; Days: {split_days}.
 
 ## Content rules
-- Ignore catalog ordering: treat every catalog item as equally likely. Never default to the first seen option. Prefer less-common but level-appropriate options when multiple candidates fit.
-- Movement group rule (max 1 per day). Groups:
-    Press group = all chest/shoulder presses
-    Row group = all horizontal pulling movements
-    Pull Up group = all vertical pulling movements
-    SQUAT group = Split / Back / Sumo / Front variations
-    Lunge group = all lunge/split-squat/step-up variations
-    Raise group = all raise variations
-    Deadlift group = all deadlift variations
-    Push Ups group = all push ups variations
-    If one exercise from a group is chosen, do not add another from the same group that day.
-- Micro coverage rule: Each day must include ≥2 distinct micro regions for that split. Avoid overconcentrating on a single area.
-- Micro novelty rule: Include 1–2 safe, less-common micro targets per day (e.g., LOWER CHEST, POSTERIOR DELTOID, ADDUCTORS, CALVES, FOREARMS) appropriate for {level}.
-- Weekly micro distribution (across 5 days):
-    • CHEST: ≥2 compounds (MG>=4), include MIDDLE/UPPER press + ≥1 LOWER or fly
-    • BACK: ≥1 vertical pull (LATS) + ≥1 horizontal row (UPPER BACK), optional LOWER BACK accessory
-    • LEGS: ≥1 squat (MG>=4) + ≥1 hinge/deadlift (MG>=4/5), plus accessories for hamstrings/glutes/quads; optional calves/adductors
-    • SHOULDER: ≥1 press, ≥1 lateral raise, ≥1 posterior delt movement
-    • ARM: include at least one biceps isolation, one triceps isolation, and one optional forearm/grip
-- Indirect diversity rule: If one variation of a major pattern is included, prefer a different plane, angle, or implement next—avoid duplicates.
-- Anti-top-bias rule: Build a candidate list for each slot; shuffle BEFORE scoring by (1) MG_num, (2) large→small muscle groups, (3) weekly non-repetition, (4) novelty quota. Select from the top-mid, not always the top-1.
+- NO DUPLICATE EXERCISES IN THE WEEK.
+- IGNORE CATALOG ORDERING: Treat all catalog items as equally valid; never always default to the first option.
+- Movement group rule (max 1 per day). The groups are:
+    • Press = chest/shoulder pressing (bench/shoulder press)
+    • Row = horizontal pulling (barbell/dumbbell/cable/machine rows)
+    • Pull Up = vertical pulling (pull-up/chin-up/lat pulldown)
+    • Squat = squat patterns (back/front/sumo/goblet/etc.)
+    • Lunge = lunges/split-squats/step-ups
+    • Raise = raise patterns (lateral/front/rear raises)
+    • Deadlift = hinge patterns (conventional/romanian/stiff-leg/sumo)
+    • Push Up = push-up variations (incline/decline/knee/standard)
+- If one exercise from a group is chosen, no other from that group can be added that day.
+
+## Equipment priority rule:
+{level_guide}
+
+{split_rules}
 
 ## Procedure (follow EXACTLY)
-1) Candidate build: filter Catalog by split mapping, enforce group rule.
-2) Primary selection by split:
-    - CHEST: 2 presses, 2–3 accessories, 1 fly/novelty
-    - BACK: 1 vertical pull, 1 horizontal row, 1–2 accessories, 1 lower-back
-    - LEGS: 1 squat, 1 deadlift, 2 accessories, 1–2 isolations
-    - SHOULDER: 1 press, 1 lateral raise, 1 posterior delt, 1 accessory
-    - ARM: 1 biceps, 1 triceps, 1 forearm, 1 accessory
-3) Micro coverage check: each day must cover ≥2 distinct micro regions.
-4) Strict ordering by MG_num:
-    - Sort MG_num descending.
-    - Ensure no isolation (MG<=2) before compound/accessory (MG>=3).
-    - Tie-breakers: (a) Chest/Back > Shoulders > Arms/Calves, (b) bilateral before unilateral, (c) free-weight > machine > cable > bodyweight, (d) prefer not-yet-used this week.
-5) Integrity loop: re-check uniqueness, group rule, micro diversity; fix & re-sort.
-
-## Final self-check BEFORE emit
-- Per day: exercise_name values are unique.
-- Per day: ≤1 per movement group.
-- Per day: MG_num strictly descending; ties follow tie-breakers.
-- Per day: ≥2 distinct micro regions.
-- Per week: balanced micro coverage across all 5 splits.
-- Exercises appropriate for {level}.
+1) For each day, create a balanced routine that includes exercises for all the specified muscle groups listed next to the day's name.
+2) Candidate build per day: filter Catalog by the day's split mapping; enforce movement group rule and equipment priority for {level}.
+3) Primary selection: choose compounds first (MG_num high), then accessories (MG=3), then isolations (MG<=2), while meeting the split-specific rules above.
+4) Micro coverage check: ensure ≥2 distinct micro regions per day; adjust if needed without breaking step 2.
+5) Strict ordering: sort MG_num descending; no isolation (MG<=2) before any MG>=3. Tie-breakers when MG is equal: (a) Chest/Back before Shoulders/Arms/Calves, (b) bilateral before unilateral (unless unilateral novelty is intended), (c) free-weight > machine > cable > bodyweight (when safe for {level}), (d) prefer exercises not yet used this week.
+6) Integrity loop: re-check uniqueness, movement group ≤1/day, equipment priority mix, micro coverage; replace offending items and re-sort until all checks pass.
 
 ## Catalog
 # Each item = [bName, eName, MG_num, {{"micro":[...]}}]
 {catalog_json}
 
 ## Output
-Return exactly one minified JSON object only (no spaces/newlines), matching:
+Return exactly one minified JSON object only (NO SPACES / NEW LINES), matching:
 {{"days":[[[bodypart,exercise_name],...],...]}}
 '''
 
-Frequency_4 = '''## [Task]
-Return a weekly bodybuilding plan as strict JSON only.
+SPLIT_RULES = {
+    2: """### 2 DAYS — UPPER / LOWER
+- UPPER: Cover Chest (Upper/Middle + ≥1 fly/isolation), Back (≥1 Pull Up + ≥1 Row), Shoulders (Anterior + Lateral), Arms (≥1 Biceps + ≥1 Triceps). Abs optional.
+- LOWER: Include ≥1 Squat AND ≥1 Deadlift (hinge). Cover Quads + Glutes + Hamstrings; optionally Calves or Adductors isolation.""",
 
-## [User Info]
-- Gender: {gender}
-- Weight: {weight}kg
-- Training Level: {level}
-- Weekly Workout Frequency: {freq}
-- Workout Duration: {duration} minutes
-- Workout Intensity: {intensity}
+    3: """### 3 DAYS — PUSH / PULL / LEGS
+- PUSH: Chest must include an Upper or Middle Press + ≥1 Fly/Isolation; Shoulders include Anterior + Lateral; add ≥1 Triceps. Avoid 2+ presses in the same day.
+- PULL: Include ≥1 Pull Up (vertical, Lats) AND ≥1 Row (horizontal, Upper Back). Add optional Posterior Deltoid or Lower Back; include ≥1 Biceps.
+- LEGS: Include ≥1 Squat AND ≥1 Deadlift (hinge). Cover Quads + Glutes + Hamstrings; optionally Calves or Adductors.""",
 
-## Split
-- Name: {split_name}; Days: {split_days}.
+    4: """### 4 DAYS — CHEST / BACK / SHOULDER / LEGS
+- CHEST: ≥1 Press (Bench/Incline) + ≥1 Fly/Isolation. Cover Upper + Middle; optionally Lower chest. Add 1 Triceps accessory if appropriate.
+- BACK: ≥1 Pull Up + ≥1 Row. Cover Upper Back + Lats; optionally Lower Back or Biceps accessory.
+- SHOULDER: Include Anterior + Lateral + ≥1 Posterior Deltoid movement; optional Traps accessory.
+- LEGS: ≥1 Squat + ≥1 Deadlift; cover Quads + Glutes + Hamstrings; optionally Calves or Adductors.""",
 
-## Content rules
-- Ignore catalog ordering: treat every catalog item as equally likely. Never default to the first seen option. Prefer less-common but level-appropriate options when multiple candidates fit.
-- Movement group rule (max 1 per day). Definitions:
-    Press group = all chest or shoulder presses
-    Row group = all horizontal pulling movements (rows)
-    Pull Up group = all vertical pulling movements (pull ups/chin ups/pulldowns)
-    SQUAT group = Split / Back / Sumo / Front variations
-    Lunge group = all lunge/split-squat/step-up variations
-    Raise group = all raise variations
-    Deadlift group = all deadlift variations
-    Push Ups group = Decline / Incline / Hindu / Knee push-up variations
-    Dips group = all dips variations
-    If one exercise from a group is chosen, do not add another from the same group that day.
-- Micro coverage rule: Each day must include ≥2 distinct micro regions for that split (e.g., Chest day not only MIDDLE CHEST; Legs not only QUADS).
-- Micro novelty rule: Include 1–2 safe, less-common micro targets per day (e.g., LOWER CHEST, POSTERIOR DELTOID, ADDUCTORS, CALVES) appropriate for {level}.
-- Weekly micro distribution (across all days):
-    • Chest: presses for MIDDLE/UPPER + ≥1 LOWER or fly
-    • Back: ≥1 vertical pull (LATS) + ≥1 horizontal row (UPPER BACK), optional LOWER BACK accessory
-    • Shoulders: include ANTERIOR + LATERAL + POSTERIOR, not only presses
-    • Legs: cover QUADS + GLUTES + HAMSTRINGS; optional ADDUCTORS or CALVES isolation
-- Indirect diversity rule: If one variation of a major pattern (press/row/squat/lunge/deadlift) is included, prefer a different plane/angle/implement next—do not add another close variant.
-- Anti-top-bias rule: Build a candidate list for each slot; shuffle BEFORE scoring by (1) MG_num, (2) large→small muscle groups, (3) weekly non-repetition, (4) novelty quota. Select from the top-mid, not always the top-1.
+    5: """### 5 DAYS — CHEST / BACK / LEGS / SHOULDER / ARMS
+- CHEST: ≥1 Press + ≥1 Fly; cover Upper + Middle; optionally Lower chest.
+- BACK: ≥1 Pull Up + ≥1 Row; cover Upper Back + Lats; optionally Posterior Deltoid or Traps.
+- LEGS: ≥1 Squat + ≥1 Deadlift; cover Quads + Glutes + Hamstrings; optionally Calves or Adductors.
+- SHOULDER: Anterior + Lateral + ≥1 Posterior Deltoid; optional Traps accessory.
+- ARMS: ≥1 Biceps + ≥1 Triceps; optional Forearms; ensure curl/extension variants are not redundant."""
+}
+# LEVEL_GUIDE = {
+#     "Beginner": """- Beginner: Majority BodyWeight; add 1–2 Machine supports if needed; avoid Free Weight except very simple options.""",
+#     "Novice": """- Novice: Majority Machine; add 1–2 Free Weight as accessory; BodyWeight for warm-up/easy variations.""",
+#     "Intermediate": """- Intermediate: Majority Free Weight; add 1–2 Machine accessories; BodyWeight only if purposeful.""",
+#     "Advanced": """- Advanced: Majority Free Weight; Machine only for accessory/isolation. Include complex compounds.""",
+#     "Elite": """- Elite: Free Weight dominance; include high-skill lifts and advanced variations; minimal Machine or BodyWeight except for targeted isolation."""
+# }
 
-## Procedure (follow EXACTLY)
-1) Candidate build (per day):
-    - Filter Catalog to the day's bName (CHEST/BACK/SHOULDER/LEG).
-    - Remove items that violate the movement group rule if a group is already taken.
-    - Prefer items appropriate for {level} difficulty.
-2) Primary selection:
-    - Pick compounds first using MG_num (higher means more compound). Target mix by day:
-    • CHEST: ≥2 compounds with MG_num>=4; then MG=3 accessories; finish with ≤2 isolations (MG<=2).
-    • BACK: include ≥1 vertical pull (MG>=3) and ≥1 horizontal row (MG>=3/4); optional lower-back accessory.
-    • SHOULDERS: 1–2 presses (MG=3), ≥1 lateral-raise pattern, ≥1 rear-delt movement.
-    • LEGS: include one squat pattern (MG>=4) AND one hinge/deadlift pattern (MG>=4/5); then MG=3 accessories; finish with 1–2 isolations (quads/hamstrings/calves).
-    - Enforce movement group rule (max 1 per group) while selecting.
-3) Micro coverage check:
-    - Ensure the day covers ≥2 distinct micro regions; add/replace items to satisfy this without breaking step 2.
-4) Strict ordering by MG_num (sorting step BEFORE emitting):
-    - Map each chosen exercise to its MG_num using the Catalog.
-    - Sort strictly by MG_num descending (higher→lower).
-    - Hard guard: No MG<=2 item can appear before any MG>=3 item. If violated, reorder.
-    - Tie-breakers when MG_num is equal:
-    a) Larger primary muscle group first (Chest/Back → Shoulders → Arms/Calves)
-    b) Bilateral before unilateral (unless unilateral novelty is targeted)
-    c) Free-weight before machine, machine before cable, cable before bodyweight—when safety and level allow
-    d) Prefer exercises not yet used this week
-5) Integrity loop:
-    - After sorting, re-check: unique exercise_name per day, movement group rule (≤1 per group), micro ≥2 regions.
-    - If any rule is broken, replace the offending item with the best alternative and **repeat steps 3→4→5** until all checks pass.
-
-## Final self-check BEFORE emit
-- Per day: ≤1 exercise from the same movement group.
-- Per day: order is strictly MG_num descending; ties follow the tie-breakers above.
-- Per day: ≥2 distinct micro regions.
-- Per week: broad micro distribution across all splits.
-- All selections are appropriate for {level} difficulty.
-
-## Catalog
-# Each item = [bName, eName, MG_num, {{"micro":[...]}}]
-{catalog_json}
-
-## Output
-Return exactly one minified JSON object only (no spaces/newlines), matching:
-{{"days":[[[bodypart,exercise_name],...],...]}}
-'''
-
-Frequency_3 = '''## [Task]
-Return a weekly bodybuilding plan as strict JSON only.
-
-## [User Info]
-- Gender: {gender}
-- Weight: {weight}kg
-- Training Level: {level}
-- Weekly Workout Frequency: {freq}
-- Workout Duration: {duration} minutes
-- Workout Intensity: {intensity}
-
-## Split
-- Name: {split_name}; Days: {split_days}.
-
-## Content rules
-- NO DUPLICATE EXERCISES.
-- Ignore catalog ordering: treat every catalog item as equally likely. Never default to the first seen option. Prefer less-common but level-appropriate options when multiple candidates fit.
-- Movement group rule (max 1 per day). Definitions:
-    Press group = all chest or shoulder presses
-    Row group = all horizontal pulling movements
-    Pull Up group = all vertical pulling movements (pull ups/chin ups/pulldowns)
-    SQUAT group = Split / Back / Sumo / Front variations
-    Lunge group = all lunge/split-squat/step-up variations
-    Raise group = all raise variations
-    Deadlift group = all deadlift variations
-    Push Ups group = all push-up variations
-    If one exercise from a group is chosen, do not add another from the same group that day.
-- Micro coverage rule: Each day must include ≥2 distinct micro regions. Avoid overconcentrating on one area.
-- Micro novelty rule: Include 1–2 safe, less-common micro targets per day (e.g., LOWER CHEST, POSTERIOR DELTOID, ADDUCTORS, CALVES) appropriate for {level}.
-- Equipment priority rule (by training level):
-  • Beginner: Majority exercises must be BodyWeight; add 1–2 Machine supports if needed. Avoid Free Weight except very simple options.
-  • Novice: Majority exercises should be Machine; add 1–2 Free Weight as accessory. Keep BodyWeight for warm-up or easy variations.
-  • Intermediate and above: Majority exercises must be Free Weight; add 1–2 Machine supports for accessory/isolation. BodyWeight only if purposeful.
-- Each day must respect this priority mix when selecting exercises.
-- Weekly micro distribution:
-    • PUSH: Chest must include MIDDLE/UPPER press + ≥1 isolation/fly; Shoulders must include ANTERIOR + LATERAL; add at least one triceps-focused movement if available.
-    • PULL: ≥1 vertical pull + ≥1 horizontal row; optional ≤1 hinge/deadlift (Leg-tagged) for posterior chain; include ≥1 biceps isolation if available.
-    • LEGS: Must include one squat pattern (MG>=4) AND one hinge/deadlift pattern (MG>=4/5). Also cover QUADS + GLUTES + HAMSTRINGS; optional ADDUCTORS or CALVES isolation.
-- Indirect diversity rule: If one variation of a major pattern (press/row/squat/lunge/deadlift) is included, prefer a different plane/angle/implement next—do not add another close variant.
-- Anti-top-bias rule: Build a candidate list for each slot; shuffle BEFORE scoring by (1) MG_num, (2) large→small muscle groups, (3) weekly non-repetition, (4) novelty quota. Select from the top-mid, not always the top-1.
-
-## Procedure (follow EXACTLY)
-1) Candidate build (per day): filter Catalog by split mapping above, then enforce movement group rule.
-2) Primary selection:
-   - PULL: pick 1 vertical pull + 1 horizontal row first; you MAY add ≤1 Deadlift group (Leg-tagged hinge) as accessory; then biceps/isolation.
-2a) Equipment distribution: enforce level-appropriate equipment priority when building daily selection.
-3) Micro coverage check: each day must cover ≥2 micro regions; adjust if needed.
-4) Strict ordering by MG_num:
-    - Sort exercises MG_num descending.
-    - Ensure no isolation (MG<=2) appears before compound/accessory (MG>=3).
-    - Tie-breakers: (a) Chest/Back before Shoulders/Arms/Calves, (b) bilateral before unilateral, (c) free-weight > machine > cable > bodyweight, (d) prefer not-yet-used this week.
-5) Integrity loop: re-check uniqueness, group rule, micro diversity; fix & re-sort until all rules pass.
-
-## Final self-check BEFORE emit
-- Per day: unique exercise_name values.
-- Per day: ≤1 per movement group.
-- Per day: MG_num strictly descending; ties follow tie-breakers.
-- Per day: ≥2 distinct micro regions.
-- Per week: balanced micro coverage across PUSH/PULL/LEGS.
-- Exercises appropriate for {level}.
-
-## Catalog
-# Each item = [bName, eName, MG_num, {{"micro":[...]}}]
-{catalog_json}
-
-## Output
-Return exactly one minified JSON object only (no spaces/newlines), matching:
-{{"days":[[[bodypart,exercise_name],...],...]}}
-'''
-
-Frequency_2 = '''## [Task]
-Return a weekly bodybuilding plan as strict JSON only.
-
-## [User Info]
-- Gender: {gender}
-- Weight: {weight}kg
-- Training Level: {level}
-- Weekly Workout Frequency: {freq}
-- Workout Duration: {duration} minutes
-- Workout Intensity: {intensity}
-
-## Split
-- Name: {split_name}; Days: {split_days}.
-
-## Content rules
-- Day bodypart mapping (use Catalog bName exactly):
-    • UPPER day → "CHEST","BACK","SHOULDER","ARMS"
-    • LOWER day → "LEG"
-- Ignore catalog ordering: treat every catalog item as equally likely. Never default to the first seen option. Prefer less-common but level-appropriate options when multiple candidates fit.
-- Movement group rule (max 1 per day). Definitions:
-    Press group = all chest/shoulder presses
-    Row group = all horizontal pulling movements
-    Pull Up group = all vertical pulling movements (pull ups/chin ups/pulldowns)
-    SQUAT group = Split / Back / Sumo / Front variations
-    Lunge group = all lunge/split-squat/step-up variations
-    Raise group = all raise variations
-    Deadlift group = all deadlift variations
-    Push Ups group = all push-up variations
-    If one exercise from a group is chosen, do not add another from the same group that day.
-- Micro coverage rule: Each day must include ≥3 distinct micro regions (UPPER day covers chest/back/shoulders/bis/tris; LOWER day covers quads/glutes/hamstrings/calves).
-- Micro novelty rule: Include 1–2 safe, less-common micro targets per day (e.g., LOWER CHEST, POSTERIOR DELTOID, ADDUCTORS, CALVES) appropriate for {level}.
-- Weekly micro distribution:
-    • UPPER: CHEST = presses (MIDDLE/UPPER) + ≥1 fly/lower chest; BACK = ≥1 vertical pull + ≥1 horizontal row + optional erector; SHOULDER = include anterior+lateral+posterior; ARM = at least one biceps and one triceps.
-    • LOWER: Must include one squat pattern (MG>=4) AND one hinge/deadlift pattern (MG>=4/5). Cover quads+glutes+hamstrings; optional adductors or calves isolation.
-- Indirect diversity rule: If one variation of a major pattern (press/row/squat/lunge/deadlift) is included, prefer a different plane/angle/implement next—do not add another close variant.
-- Anti-top-bias rule: Build a candidate list for each slot; shuffle BEFORE scoring by (1) MG_num, (2) large→small muscle groups, (3) weekly non-repetition, (4) novelty quota. Select from the top-mid, not always the top-1.
-
-## Procedure (follow EXACTLY)
-1) Candidate build (per day): filter Catalog by split mapping above, then enforce movement group rule.
-2) Primary selection:
-    - UPPER: start with 2 chest compounds, 2 back compounds (1 vertical+1 horizontal), 1 shoulder press + 1 lateral/rear raise, add 1 biceps + 1 triceps isolation.
-    - LOWER: start with 1 squat + 1 deadlift pattern (MG>=4/5), then 2–3 accessories (MG=3), finish with 1–2 isolations (quads/hamstrings/calves/adductors).
-3) Micro coverage check: each day must cover ≥3 micro regions; adjust if needed.
-4) Strict ordering by MG_num:
-    - Sort exercises MG_num descending.
-    - Ensure no isolation (MG<=2) appears before compound/accessory (MG>=3).
-    - Tie-breakers: (a) Chest/Back before Shoulders/Arms/Calves, (b) bilateral before unilateral, (c) free-weight > machine > cable > bodyweight, (d) prefer not-yet-used this week.
-5) Integrity loop: re-check uniqueness, group rule, micro diversity; fix & re-sort until all rules pass.
-
-## Final self-check BEFORE emit
-- Per day: exercise_name values are strictly unique.
-- Per day: ≤1 per movement group.
-- Per day: MG_num strictly descending; ties follow tie-breakers.
-- Per day: ≥3 distinct micro regions.
-- Per week: balanced micro coverage across UPPER/LOWER.
-- Exercises appropriate for {level}.
-
-## Catalog
-# Each item = [bName, eName, MG_num, {{"micro":[...]}}]
-{catalog_json}
-
-## Output
-Return exactly one minified JSON object only (no spaces/newlines), matching:
-{{"days":[[[bodypart,exercise_name],...],...]}}
-'''
+LEVEL_GUIDE = {
+    "Beginner": """BEGINNER: MAJORITY BODYWEIGHT; ADD 1–2 MACHINE SUPPORTS IF NEEDED; AVOID FREE WEIGHT EXCEPT VERY SIMPLE OPTIONS.""",
+    "Novice": """NOVICE: MAJORITY MACHINE; ADD 1–2 FREE WEIGHT AS ACCESSORY; BODYWEIGHT FOR WARM-UP/EASY VARIATIONS.""",
+    "Intermediate": """INTERMEDIATE: MAJORITY FREE WEIGHT; ADD 1–2 MACHINE ACCESSORIES; BODYWEIGHT ONLY IF PURPOSEFUL.""",
+    "Advanced": """ADVANCED: MAJORITY FREE WEIGHT; MACHINE ONLY FOR ACCESSORY/ISOLATION. INCLUDE COMPLEX COMPOUNDS.""",
+    "Elite": """ELITE: FREE WEIGHT DOMINANCE; INCLUDE HIGH-SKILL LIFTS AND ADVANCED VARIATIONS; MINIMAL MACHINE OR BODYWEIGHT EXCEPT FOR TARGETED ISOLATION."""
+}

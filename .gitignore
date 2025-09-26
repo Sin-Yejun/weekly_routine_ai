@@ -13,3 +13,4 @@ data/01_raw/user_workout_history
 
 # 개인 키 파일
 private.pem
+private.pem.pub
