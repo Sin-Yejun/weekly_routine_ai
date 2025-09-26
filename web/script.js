@@ -7,14 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
         toolCheckboxes.forEach(checkbox => {
             if (level === 'Beginner') {
                 checkbox.checked = checkbox.value !== 'Barbell';
-            } else{
+            } else {
                 checkbox.checked = true;
             }
-            // } else if (level === 'Novice') {
-            //     checkbox.checked = true;
-            // } else { // Intermediate, Advanced, Elite
-            //     checkbox.checked = checkbox.value !== 'Bodyweight';
-            // }
         });
     };
 

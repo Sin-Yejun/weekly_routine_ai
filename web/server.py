@@ -42,6 +42,10 @@ except (FileNotFoundError, json.JSONDecodeError) as e:
     app.logger.error(f"CRITICAL: Could not load exercise catalog at {EXERCISE_CATALOG_PATH}: {e}")
 
 # --- Global Variables & Helper Functions ---
+
+ENABLE_LEG_MAIN_CONSTRAINT = True
+# ENABLE_LEG_MAIN_CONSTRAINT = False
+
 BODY_PART_ENUM = ["Abs","Arm","Back","Cardio","Chest","Leg","Lifting","Shoulder","etc"]
 SPLITS = {
     2: ["UPPER","LOWER"],
@@ -71,6 +75,27 @@ EXERCISE_COUNT_SCHEMA = {
         30: (3, 4), 45: (4, 5), 60: (6, 7), 75: (7, 8), 90: (8, 9)
     }
 }
+
+def get_user_config(data: dict) -> tuple[User, int, int]:
+    """Extracts user configuration from request data, creates a User object, and determines exercise counts."""
+    duration_str = str(data.get('duration', '60'))
+    numeric_duration = int(re.sub(r'[^0-9]', '', duration_str) or '60')
+    
+    user = User(
+        gender=data.get('gender', 'M'),
+        weight=float(data.get('weight', 70)),
+        level=data.get('level', 'Intermediate'),
+        freq=int(data.get('freq', 3)),
+        duration=numeric_duration,
+        intensity=data.get('intensity', 'Normal'),
+        tools=data.get('tools', [])
+    )
+    
+    level_schema = EXERCISE_COUNT_SCHEMA.get(user.level, EXERCISE_COUNT_SCHEMA['Intermediate'])
+    duration_key = min(level_schema.keys(), key=lambda k: abs(k - user.duration) if k <= user.duration else float('inf'))
+    min_ex, max_ex = level_schema[duration_key]
+    
+    return user, min_ex, max_ex
 
 def _leg_main_cap(level: str) -> int:
     return 2 if level in ('Advanced', 'Elite') else 1
@@ -161,7 +186,7 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
             else:
                 allowed_for_day = list(name_to_exercise_map.keys())
 
-        if tag in ("LEGS", "LOWER"):
+        if tag in ("LEGS", "LOWER") and ENABLE_LEG_MAIN_CONSTRAINT:
             day_schema = make_legs_day_schema_by_name(
                 freq=freq, tag=tag, allowed_names=allowed_names,
                 min_ex=min_ex, max_ex=max_ex, level=level
@@ -236,7 +261,7 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
         tag = split_tags[day_idx % len(split_tags)]
         is_legs_day = tag in ["LEGS", "LOWER"]
 
-        if is_legs_day:
+        if is_legs_day and ENABLE_LEG_MAIN_CONSTRAINT:
             max_legs_main = 1 if level in ['Beginner', 'Novice', 'Intermediate'] else 2
             
             current_main_legs = [p for p in fixed if p[1] in legs_main_names]
@@ -295,23 +320,10 @@ def generate_prompt_api():
     data = request.get_json()
     if not data: return jsonify({"error": "Missing request body"}), 400
     try:
+        user, min_ex, max_ex = get_user_config(data)
         duration_str = str(data.get('duration', '60'))
-        numeric_duration = int(re.sub(r'[^0-9]', '', duration_str) or '60')
-        user = User(
-            gender=data.get('gender', 'M'), 
-            weight=float(data.get('weight', 70)), 
-            level=data.get('level', 'Intermediate'), 
-            freq=int(data.get('freq', 3)), 
-            duration=numeric_duration, 
-            intensity=data.get('intensity', 'Normal'),
-            tools=data.get('tools', [])
-        )
-        
-        level_schema = EXERCISE_COUNT_SCHEMA.get(user.level, EXERCISE_COUNT_SCHEMA['Intermediate'])
-        duration_key = min(level_schema.keys(), key=lambda k: abs(k - user.duration) if k <= user.duration else float('inf'))
-        min_ex, max_ex = level_schema[duration_key]
 
-        with open("web/allowed_name_229.json", "r", encoding="utf-8") as f:
+        with open("web/allowed_name_227.json", "r", encoding="utf-8") as f:
             ALLOWED_NAMES = json.load(f)
 
         # === Level-based filtering for prompt generation ===
@@ -353,118 +365,73 @@ def generate_prompt_api():
         app.logger.error(f"Error in generate_prompt_api: {e}", exc_info=True)
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
+def _prepare_allowed_names(user: User, allowed_names: dict) -> dict:
+    """Filters the allowed names based on user's tools and level."""
+    # Filter by tools first
+    if user.tools:
+        selected_tools_set = {t.lower() for t in user.tools}
+        # Deep copy to avoid modifying the global ALLOWED_NAMES
+        filtered_names = json.loads(json.dumps(allowed_names))
+        for key, value in allowed_names.items():
+            if isinstance(value, list):
+                filtered_list = [name for name in value if name_to_exercise_map.get(name, {}).get('tool_en', '').lower() in selected_tools_set]
+                filtered_names[key] = filtered_list
+            elif isinstance(value, dict):
+                for sub_key, sub_list in value.items():
+                    filtered_sub_list = [name for name in sub_list if name_to_exercise_map.get(name, {}).get('tool_en', '').lower() in selected_tools_set]
+                    if not filtered_sub_list and sub_key not in ['ETC']:
+                        app.logger.warning(f"Empty exercise list for freq {key}, day {sub_key} after tool filtering. Falling back to unfiltered list.")
+                        filtered_sub_list = allowed_names.get(key, {}).get(sub_key, [])
+                    filtered_names[key][sub_key] = filtered_sub_list
+        effective_allowed_names = filtered_names
+    else:
+        effective_allowed_names = allowed_names
+
+    # Filter by level (Beginner/Novice)
+    if user.level in ['Beginner', 'Novice']:
+        level_key = ('MBeginner' if user.gender == 'M' else 'FBeginner') if user.level == 'Beginner' else ('MNovice' if user.gender == 'M' else 'FNovice')
+        level_exercise_set = set(effective_allowed_names.get(level_key, []))
+        
+        # Deep copy for modification
+        modified_names = json.loads(json.dumps(effective_allowed_names))
+        
+        if str(user.freq) in modified_names:
+            for tag in modified_names[str(user.freq)]:
+                original_exercises = modified_names[str(user.freq)][tag]
+                intersected = list(level_exercise_set.intersection(original_exercises))
+                
+                if not intersected:
+                    # Fallback logic
+                    freq_union = [ex for t, ex_list in modified_names[str(user.freq)].items() if t != tag for ex in ex_list]
+                    safe_intersection = list(level_exercise_set.intersection(freq_union))
+                    intersected = safe_intersection if safe_intersection else list(level_exercise_set)
+                
+                modified_names[str(user.freq)][tag] = intersected
+        return modified_names
+
+    return effective_allowed_names
+
 def process_inference_request(data, client_creator):
     if not data: return jsonify({"error": "Missing request body"}), 400
     try:
+        user, min_ex, max_ex = get_user_config(data)
         prompt = data.get('prompt')
-        
-        duration_str = str(data.get('duration', '60'))
-        numeric_duration = int(re.sub(r'[^0-9]', '', duration_str) or '60')
 
-        user = User(
-            gender=data.get('gender', 'M'), 
-            weight=float(data.get('weight', 70)), 
-            level=data.get('level', 'Intermediate'), 
-            freq=int(data.get('freq', 3)), 
-            duration=numeric_duration, 
-            intensity=data.get('intensity', 'Normal'),
-            tools=data.get('tools', [])
-        )
-
-        level_schema = EXERCISE_COUNT_SCHEMA.get(user.level, EXERCISE_COUNT_SCHEMA['Intermediate'])
-        duration_key = min(level_schema.keys(), key=lambda k: abs(k - user.duration) if k <= user.duration else float('inf'))
-        min_ex, max_ex = level_schema[duration_key]
-
-        if not prompt:
-            with open("web/allowed_name_229.json", "r", encoding="utf-8") as f:
-                ALLOWED_NAMES_FOR_PROMPT = json.load(f)
-            prompt = build_prompt(user, exercise_catalog, duration_str, min_ex, max_ex, allowed_names=ALLOWED_NAMES_FOR_PROMPT)
-        
-        if user.freq not in SPLITS: return jsonify({"error": f"Unsupported weekly frequency: {user.freq}. Use 2, 3, 4, or 5."}), 400
-        split_tags = SPLITS[user.freq]
-
-        with open("web/allowed_name_229.json", "r", encoding="utf-8") as f:
+        with open("web/allowed_name_227.json", "r", encoding="utf-8") as f:
             ALLOWED_NAMES = json.load(f)
 
-        # Filter ALLOWED_NAMES by selected tools for schema generation
-        if user.tools:
-            selected_tools_set = {t.lower() for t in user.tools}
-            unfiltered_allowed_names = json.loads(json.dumps(ALLOWED_NAMES))
-            filtered_allowed_names = {}
-            for key, value in unfiltered_allowed_names.items():
-                if isinstance(value, list):
-                    filtered_list = [name for name in value if name_to_exercise_map.get(name, {}).get('tool_en', '').lower() in selected_tools_set]
-                    filtered_allowed_names[key] = filtered_list
-                elif isinstance(value, dict):
-                    filtered_dict = {}
-                    for sub_key, sub_list in value.items():
-                        filtered_sub_list = [name for name in sub_list if name_to_exercise_map.get(name, {}).get('tool_en', '').lower() in selected_tools_set]
-                        # Fallback if the list becomes empty, but don't warn for expected empty lists like ETC
-                        if not filtered_sub_list and sub_key not in ['ETC']:
-                            app.logger.warning(f"Empty exercise list for freq {key}, day {sub_key} after tool filtering. Falling back to unfiltered list.")
-                            filtered_sub_list = unfiltered_allowed_names.get(key, {}).get(sub_key, [])
-                        filtered_dict[sub_key] = filtered_sub_list
-                    filtered_allowed_names[key] = filtered_dict
-                else:
-                    filtered_allowed_names[key] = value
-            ALLOWED_NAMES = filtered_allowed_names
-
-        if user.level == 'Beginner':
-            # For Beginners, filter allowed exercises based on gender-specific lists (MBeginner/FBeginner).
-            beginner_key = 'MBeginner' if user.gender == 'M' else 'FBeginner'
-            beginner_exercise_set = set(ALLOWED_NAMES.get(beginner_key, []))
-
-            # Create a deep copy to modify, preserving the original for other users.
-            MODIFIED_ALLOWED_NAMES = json.loads(json.dumps(ALLOWED_NAMES))
-
-            if str(user.freq) in MODIFIED_ALLOWED_NAMES:
-                for tag in MODIFIED_ALLOWED_NAMES[str(user.freq)]:
-                    original_exercises = MODIFIED_ALLOWED_NAMES[str(user.freq)][tag]
-                    intersected_exercises = list(beginner_exercise_set.intersection(original_exercises))
-                    if not intersected_exercises:
-                        # 안전한 Fallback: 같은 freq의 모든 태그 합집합과 Beginner 풀의 교집합
-                        freq_union = []
-                        for _t, _lst in MODIFIED_ALLOWED_NAMES[str(user.freq)].items():
-                            if _t != tag:
-                                freq_union.extend(_lst)
-                        freq_union = list(dict.fromkeys(freq_union))
-                        safe = list(beginner_exercise_set.intersection(freq_union))
-                        # 그래도 비면 최후의 수단: Beginner 풀 자체
-                        intersected_exercises = safe if safe else list(beginner_exercise_set)
-                    MODIFIED_ALLOWED_NAMES[str(user.freq)][tag] = intersected_exercises
-
-            
-            # Build the schema using the filtered list.
-            week_schema = build_week_schema_by_name(user.freq, split_tags, MODIFIED_ALLOWED_NAMES, min_ex, max_ex, level=user.level)
-            effective_allowed_names = MODIFIED_ALLOWED_NAMES
-        elif user.level == 'Novice':
-            # For Novices, filter allowed exercises based on gender-specific lists (MNovice/FNovice).
-            novice_key = 'MNovice' if user.gender == 'M' else 'FNovice'
-            novice_exercise_set = set(ALLOWED_NAMES.get(novice_key, []))
-
-            # Create a deep copy to modify, preserving the original for other users.
-            MODIFIED_ALLOWED_NAMES = json.loads(json.dumps(ALLOWED_NAMES))
-
-            if str(user.freq) in MODIFIED_ALLOWED_NAMES:
-                for tag in MODIFIED_ALLOWED_NAMES[str(user.freq)]:
-                    original_exercises = MODIFIED_ALLOWED_NAMES[str(user.freq)][tag]
-                    intersected_exercises = list(novice_exercise_set.intersection(original_exercises))
-                    if not intersected_exercises:
-                        freq_union = []
-                        for _t, _lst in MODIFIED_ALLOWED_NAMES[str(user.freq)].items():
-                            if _t != tag:
-                                freq_union.extend(_lst)
-                        freq_union = list(dict.fromkeys(freq_union))
-                        safe = list(novice_exercise_set.intersection(freq_union))
-                        intersected_exercises = safe if safe else list(novice_exercise_set)
-                    MODIFIED_ALLOWED_NAMES[str(user.freq)][tag] = intersected_exercises
-            
-            week_schema = build_week_schema_by_name(user.freq, split_tags, MODIFIED_ALLOWED_NAMES, min_ex, max_ex, level=user.level)
-            effective_allowed_names = MODIFIED_ALLOWED_NAMES
-        else:
-            # For non-Beginners, use the original, unfiltered logic.
-            week_schema = build_week_schema_by_name(user.freq, split_tags, ALLOWED_NAMES, min_ex, max_ex, level=user.level)
-            effective_allowed_names = ALLOWED_NAMES
+        if not prompt:
+            duration_str = str(data.get('duration', '60'))
+            prompt = build_prompt(user, exercise_catalog, duration_str, min_ex, max_ex, allowed_names=ALLOWED_NAMES)
+        
+        if user.freq not in SPLITS: 
+            return jsonify({"error": f"Unsupported weekly frequency: {user.freq}. Use 2, 3, 4, or 5."}), 400
+        
+        split_tags = SPLITS[user.freq]
+        
+        effective_allowed_names = _prepare_allowed_names(user, ALLOWED_NAMES)
+        
+        week_schema = build_week_schema_by_name(user.freq, split_tags, effective_allowed_names, min_ex, max_ex, level=user.level)
     
         client, model_name, completer = client_creator()
         

@@ -71,13 +71,7 @@ SPLIT_RULES = {
 - SHOULDER: Anterior + Lateral + ≥1 Posterior Deltoid; optional Traps accessory.
 - ARMS: ≥1 Biceps + ≥1 Triceps; optional Forearms; ensure curl/extension variants are not redundant."""
 }
-# LEVEL_GUIDE = {
-#     "Beginner": """- Beginner: Majority BodyWeight; add 1–2 Machine supports if needed; avoid Free Weight except very simple options.""",
-#     "Novice": """- Novice: Majority Machine; add 1–2 Free Weight as accessory; BodyWeight for warm-up/easy variations.""",
-#     "Intermediate": """- Intermediate: Majority Free Weight; add 1–2 Machine accessories; BodyWeight only if purposeful.""",
-#     "Advanced": """- Advanced: Majority Free Weight; Machine only for accessory/isolation. Include complex compounds.""",
-#     "Elite": """- Elite: Free Weight dominance; include high-skill lifts and advanced variations; minimal Machine or BodyWeight except for targeted isolation."""
-# }
+
 
 LEVEL_GUIDE = {
     "Beginner": """BEGINNER: MAJORITY BODYWEIGHT; ADD 1–2 MACHINE SUPPORTS IF NEEDED; AVOID FREE WEIGHT EXCEPT VERY SIMPLE OPTIONS.""",
