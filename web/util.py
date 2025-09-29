@@ -86,9 +86,23 @@ def _group_catalog_by_split(catalog: list, freq: int) -> Dict[str, list]:
             bName = item.get('bName')
             eName = item.get('eName')
             mg_num = item.get('MG_num', 1)
-            micro_raw = item.get('MG', "")
-            parts = [p.strip().upper() for p in micro_raw.split('/')] if isinstance(micro_raw, str) and micro_raw.strip() else [str(p).strip().upper() for p in micro_raw] if isinstance(micro_raw, list) else []
-            muscle_group = {"micro": parts}
+
+            micro_en_raw = item.get('MG', "")
+            micro_en_parts = [p.strip() for p in micro_en_raw.split('/')] if isinstance(micro_en_raw, str) and micro_en_raw.strip() else []
+
+            scores = item.get('musle_point', [])
+
+            formatted_micro_parts = []
+            if len(micro_en_parts) == len(scores):
+                for i in range(len(micro_en_parts)):
+                    part = micro_en_parts[i]
+                    score = scores[i]
+                    formatted_micro_parts.append(f"{part}({score})")
+            else:
+                # Fallback if lengths don't match, just use the names.
+                formatted_micro_parts = micro_en_parts
+
+            muscle_group = {"micro": formatted_micro_parts}
             
             processed_item = [
                 bName.upper() if isinstance(bName, str) else bName,
@@ -144,25 +158,25 @@ def _build_catalog_string(grouped_catalog: Dict[str, list], user: User, catalog:
         exercises_for_day = grouped_catalog.get(day, [])
 
         if exercises_for_day:
-            day_tool_groups = {"Free Weight": [], "Machine": [], "BodyWeight": [], "Etc": []}
+            day_tool_groups = {"FREE WEIGHT": [], "MACHINE": [], "BODYWEIGHT": [], "ETC": []}
             free_weight_tools = {"Barbell", "Dumbbell", "EZbar", "Kettlebell"}
 
             for exercise_item in exercises_for_day:
                 tool = eName_to_tool_map.get(exercise_item[1], 'Etc')
                 if tool in free_weight_tools:
-                    day_tool_groups["Free Weight"].append(exercise_item)
+                    day_tool_groups["FREE WEIGHT"].append(exercise_item)
                 elif tool == 'Machine':
-                    day_tool_groups["Machine"].append(exercise_item)
+                    day_tool_groups["MACHINE"].append(exercise_item)
                 elif tool == 'Bodyweight':
-                    day_tool_groups["BodyWeight"].append(exercise_item)
+                    day_tool_groups["BODYWEIGHT"].append(exercise_item)
                 else:
-                    day_tool_groups["Etc"].append(exercise_item)
+                    day_tool_groups["ETC"].append(exercise_item)
 
-            tool_order = ["Free Weight", "Machine", "BodyWeight", "Etc"]
+            tool_order = ["FREE WEIGHT", "MACHINE", "BODYWEIGHT", "ETC"]
             if user.level == 'Beginner':
-                tool_order = ["BodyWeight", "Machine", "Free Weight", "Etc"]
+                tool_order = ["BODYWEIGHT", "MACHINE", "FREE WEIGHT", "ETC"]
             elif user.level == 'Novice':
-                tool_order = ["Machine", "Free Weight", "BodyWeight", "Etc"]
+                tool_order = ["MACHINE", "FREE WEIGHT", "BODYWEIGHT", "ETC"]
 
             for group_name in tool_order:
                 exercises = day_tool_groups.get(group_name, [])
@@ -246,7 +260,37 @@ def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = F
             }
             day.sort(key=lambda entry: _get_sort_key(entry, name_map, bname_priority_map))
 
-        lines = [f"## Day{i} (운동개수: {len(day)})" ]
+        micro_sums = {}
+        for entry in day:
+            if isinstance(entry, list) and len(entry) == 2:
+                exercise_name = entry[1]
+                exercise_info = name_map.get(exercise_name, {})
+                
+                micro_groups_raw = exercise_info.get("MG_ko") # Use MG_ko
+                
+                micro_groups = []
+                if isinstance(micro_groups_raw, str):
+                    micro_groups = [m.strip() for m in micro_groups_raw.split('/') if m.strip()]
+                elif isinstance(micro_groups_raw, list):
+                    micro_groups = [str(m).strip() for m in micro_groups_raw if str(m).strip()]
+
+                muscle_point = 0
+                try:
+                    muscle_point = int(exercise_info.get("musle_point_sum", 0))
+                except (ValueError, TypeError):
+                    muscle_point = 0
+
+                if muscle_point > 0:
+                    for group in micro_groups: # group is now in Korean
+                        micro_sums[group] = micro_sums.get(group, 0) + muscle_point
+        
+        day_header = f"## Day{i} (운동개수: {len(day)})"
+        if micro_sums:
+            sorted_micro_sums = sorted(micro_sums.items(), key=lambda item: item[1], reverse=True)
+            micro_sum_str = ", ".join([f"{group}: {point}" for group, point in sorted_micro_sums])
+            day_header += f" (활성도 합: {micro_sum_str})"
+
+        lines = [day_header]
         for entry in day:
             if not isinstance(entry, list) or len(entry) != 2:
                 continue

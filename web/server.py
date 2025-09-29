@@ -37,6 +37,8 @@ try:
                     'kName': exercise.get('kName'),
                     'MG_num': exercise.get('MG_num'),
                     'musle_point_sum': exercise.get('musle_point_sum'),
+                    'MG': exercise.get('MG'),
+                    'MG_ko': exercise.get('MG_ko'),
                 }
 except (FileNotFoundError, json.JSONDecodeError) as e:
     app.logger.error(f"CRITICAL: Could not load exercise catalog at {EXERCISE_CATALOG_PATH}: {e}")
@@ -464,7 +466,7 @@ def infer_vllm_api():
             return client.chat.completions.create(
                 model=VLLM_MODEL, 
                 messages=[{"role": "user", "content": prompt}], 
-                temperature=0.5,
+                temperature=1.0,
                 presence_penalty=0.2,
                 frequency_penalty=0.2,
                 max_tokens=max_tokens, 

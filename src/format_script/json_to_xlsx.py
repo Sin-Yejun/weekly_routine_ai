@@ -30,10 +30,9 @@ filtered_data = []
 for item in data:
     filtered_data.append({
         'eName': item.get('eName'),
-        'kName': item.get('kName'),
-        'MG_ko': item.get('MG_ko'),
-        'MG_num': item.get('MG_num'),
-        'musle_point_sum': item.get('musle_point_sum'),
+        'tool': item.get('tool_en'),
+        'MG': item.get('MG'),
+        'musle_point': item.get('musle_point'),
 
     })
 
