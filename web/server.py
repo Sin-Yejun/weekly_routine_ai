@@ -36,6 +36,7 @@ try:
                     'bName': exercise.get('bName'),
                     'kName': exercise.get('kName'),
                     'MG_num': exercise.get('MG_num'),
+                    'category': exercise.get('category'),
                     'musle_point_sum': exercise.get('musle_point_sum'),
                     'MG': exercise.get('MG'),
                     'MG_ko': exercise.get('MG_ko'),
@@ -45,8 +46,8 @@ except (FileNotFoundError, json.JSONDecodeError) as e:
 
 # --- Global Variables & Helper Functions ---
 
-ENABLE_LEG_MAIN_CONSTRAINT = True
-# ENABLE_LEG_MAIN_CONSTRAINT = False
+# ENABLE_LEG_MAIN_CONSTRAINT = True
+ENABLE_LEG_MAIN_CONSTRAINT = False
 
 BODY_PART_ENUM = ["Abs","Arm","Back","Cardio","Chest","Leg","Lifting","Shoulder","etc"]
 SPLITS = {
@@ -168,7 +169,7 @@ def make_day_schema_pairs_by_name(allowed_names_for_day, min_ex, max_ex):
         "type": "array",
         "description": "All items must be distinct: each exercise_name appears only once per day. Arrange them in an effective order (compound → accessories) appropriate to the user’s level.",
         "minItems": min_ex,
-        "maxItems": max_ex,
+        "maxItems": min_ex,
         "items": {"enum": pair_enum},
     }
 

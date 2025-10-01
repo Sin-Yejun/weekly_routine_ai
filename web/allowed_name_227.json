@@ -28,7 +28,20 @@
     "ABS": ["Sit Up", "V-up", "Crunch", "Heel Touch", "Leg Raise", "Hanging Leg Raise", "Russian Twist", "Plank", "Dumbbell Side Bend", "Abs Roll Out", "Toes To Bar", "Hanging Knee Raise", "Abdominal Crunch Machine", "Cable Crunch", "Decline Sit Up", "Weighted Decline Sit Up", "Torso Rotation Machine", "Seated Knee Up"],
     "CARDIO": ["Treadmill", "Cycle", "Rowing machine", "Double Under", "Assault Bike", "Stepmill Machine", "Elliptical Machine"],
     "ETC": ["Thruster", "Burpee", "Kettlebell Swing", "Farmer's Walk", "Wallball Shot", "Mountain Climber", "Box Jump", "Jumping Jack", "Dumbbell Burpee", "Dumbbell Thruster", "Sumo Deadlift High Pull", "Turkish Get Up"],
-    "LEG_MAIN": ["Barbell Sumo Squat", "Barbell Jump Squat", "Reverse V Squat", "Romanian Deadlift", "Conventional Deadlift", "Barbell Lunge", "Dumbbell Lateral Lunge", "Back Squat", "V Squat", "Sumo Deadlift", "Dumbbell Sumo Squat", "Kettlebell Deadlift", "Deficit Deadlift", "Kettlebell Sumo Deadlift", "Dumbbell Sumo Deadlift"],
+    "LEG_MAIN":[
+        "Back Squat",
+        "Barbell Jump Squat",
+        "Barbell Sumo Squat",
+        "Conventional Deadlift",
+        "Deficit Deadlift",
+        "Dumbbell Sumo Deadlift",
+        "Dumbbell Sumo Squat",
+        "Kettlebell Sumo Deadlift",
+        "Reverse V Squat",
+        "Romanian Deadlift",
+        "Sumo Deadlift",
+        "V Squat"
+    ],
     "TOOL": {
         "Barbell": ["Back Squat", "Front Squat", "Barbell Bulgarian Split Squat", "Conventional Deadlift", "Romanian Deadlift", "Sumo Deadlift", "Barbell Hip Thrust", "Barbell Bench Press", "Barbell Incline Bench Press", "Barbell Row", "Pendlay Row", "Barbell Incline Row", "Overhead Press", "Barbell Shrug", "Barbell Upright Row", "Barbell Bicep Curl", "Close-grip Bench Press", "Barbell Wrist Curl", "Abs Roll Out", "Push Press", "Thruster", "Barbell Preacher Curl", "Barbell Box Squat", "Barbell Decline Bench Press", "Barbell Front Rack Lunge", "Barbell Front Raise", "EZ Bar Front Raise", "Barbell Jump Squat", "Barbell Lunge", "Barbell Lateral Lunge", "Barbell Split Squat", "Barbell Standing Calf Raise", "Stiff Leg Deadlift", "Hang Clean", "Hang Snatch", "Sumo Deadlift High Pull", "Barbell Sumo Squat", "Seated Barbell Shoulder Press", "Deficit Deadlift", "Rack Pull", "Incline Barbell Front Raise", "Barbell Incline Front Raise", "Seated Barbell Tricep Extension"],
         "Bodyweight": ["Air Squat", "Jump Squat", "Lunge", "Hip Thrust", "Dips", "Push Ups", "Hindu Push Ups", "Pull Up", "Chin Up", "Inverted Row", "Hyperextension", "Back Extension", "Sit Up", "V-up", "Crunch", "Heel Touch", "Leg Raise", "Hanging Leg Raise", "Plank", "Toes To Bar", "Burpee", "Mountain Climber", "Box Jump", "Jumping Jack", "Hanging Knee Raise", "Incline Push Ups", "Bodyweight Calf Raise", "Pistol Box Squat", "Bench Dips", "Bodyweight Lateral Lunge", "Sumo Air Squat", "Y Raise", "Donkey Kick", "Decline Sit Up", "Seated Knee Up", "Decline Push Ups", "Knee Push Ups"],

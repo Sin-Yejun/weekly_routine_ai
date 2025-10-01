@@ -29,6 +29,10 @@ except json.JSONDecodeError:
 filtered_data = []
 for item in data:
     filtered_data.append({
+        'eTextId': item.get('eTextId'),
+        'bName': item.get('bName'),
+        'bName_ko': item.get('bName_ko'),
+        'kName': item.get('kName'),
         'eName': item.get('eName'),
         'tool': item.get('tool_en'),
         'MG': item.get('MG'),

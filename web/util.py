@@ -104,9 +104,12 @@ def _group_catalog_by_split(catalog: list, freq: int) -> Dict[str, list]:
 
             muscle_group = {"micro": formatted_micro_parts}
             
+            category = item.get('category')
+
             processed_item = [
                 bName.upper() if isinstance(bName, str) else bName,
                 eName,
+                category,
                 mg_num,
                 muscle_group,
             ]
@@ -146,7 +149,7 @@ def _apply_special_ordering(grouped_catalog: Dict[str, list], freq: int):
     return grouped_catalog
 
 def _build_catalog_string(grouped_catalog: Dict[str, list], user: User, catalog: list) -> str:
-    """Builds the final catalog string for the prompt."""
+    """Builds the final catalog string for the prompt with nested grouping."""
     _, split_days = pick_split(user.freq)
     split_days_upper = [s.upper() for s in split_days]
     catalog_lines = []
@@ -158,33 +161,27 @@ def _build_catalog_string(grouped_catalog: Dict[str, list], user: User, catalog:
         exercises_for_day = grouped_catalog.get(day, [])
 
         if exercises_for_day:
-            day_tool_groups = {"FREE WEIGHT": [], "MACHINE": [], "BODYWEIGHT": [], "ETC": []}
-            free_weight_tools = {"Barbell", "Dumbbell", "EZbar", "Kettlebell"}
+            # 1. Group by Category directly
+            category_groups = {}
+            for exercise in exercises_for_day:
+                # exercise is [bName, eName, category, mg_num, muscle_group]
+                category = exercise[2] if exercise[2] else "(Uncategorized)"
+                if category not in category_groups:
+                    category_groups[category] = []
+                category_groups[category].append(exercise)
 
-            for exercise_item in exercises_for_day:
-                tool = eName_to_tool_map.get(exercise_item[1], 'Etc')
-                if tool in free_weight_tools:
-                    day_tool_groups["FREE WEIGHT"].append(exercise_item)
-                elif tool == 'Machine':
-                    day_tool_groups["MACHINE"].append(exercise_item)
-                elif tool == 'Bodyweight':
-                    day_tool_groups["BODYWEIGHT"].append(exercise_item)
-                else:
-                    day_tool_groups["ETC"].append(exercise_item)
+            # 2. Print exercises within each category
+            # Sort categories alphabetically for consistent order
+            for category in sorted(category_groups.keys()):
+                cat_exercises = category_groups[category]
+                catalog_lines.append(f"  {category}:")
+                for i, exercise in enumerate(cat_exercises):
+                    tool = eName_to_tool_map.get(exercise[1], 'Etc') # Get the tool name
+                    line_end = "," if i < len(cat_exercises) - 1 else ""
+                    # New prompt_item format: [bName, eName, tool, mg_num, muscle_group]
+                    prompt_item = [exercise[0], exercise[1], tool, exercise[3], exercise[4]] 
+                    catalog_lines.append("    " + json.dumps(prompt_item, ensure_ascii=False) + line_end)
 
-            tool_order = ["FREE WEIGHT", "MACHINE", "BODYWEIGHT", "ETC"]
-            if user.level == 'Beginner':
-                tool_order = ["BODYWEIGHT", "MACHINE", "FREE WEIGHT", "ETC"]
-            elif user.level == 'Novice':
-                tool_order = ["MACHINE", "FREE WEIGHT", "BODYWEIGHT", "ETC"]
-
-            for group_name in tool_order:
-                exercises = day_tool_groups.get(group_name, [])
-                if not exercises: continue
-                catalog_lines.append(f"  {group_name}:")
-                for i, exercise in enumerate(exercises):
-                    line_end = "," if i < len(exercises) - 1 else ""
-                    catalog_lines.append("    " + json.dumps(exercise, ensure_ascii=False) + line_end)
         catalog_lines.append("")
 
     return "\n".join(catalog_lines)
@@ -215,29 +212,6 @@ def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_
         catalog_json=catalog_str
     )
 
-def _get_sort_key(entry, name_map, bname_priority_map):
-    """Helper function to generate a sort key for an exercise entry."""
-    exercise_name = entry[1]
-    exercise_info = name_map.get(exercise_name, {})
-    
-    b_name = exercise_info.get('bName', 'ETC').upper()
-    mg_num = exercise_info.get('MG_num', 0)
-    muscle_point_sum = exercise_info.get('musle_point_sum', 0)
-
-    bname_prio = bname_priority_map.get(b_name, 5)  # 5 for others (ETC)
-
-    try:
-        mg_num = int(mg_num)
-    except (ValueError, TypeError):
-        mg_num = 0
-    try:
-        muscle_point_sum = int(muscle_point_sum)
-    except (ValueError, TypeError):
-        muscle_point_sum = 0
-    
-    # Sort by bName priority (asc), then MG_num (desc), then muscle_point_sum (desc)
-    return (bname_prio, -mg_num, -muscle_point_sum)
-
 def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = False) -> str:
     import logging
     logging.basicConfig(level=logging.INFO)
@@ -250,15 +224,40 @@ def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = F
             continue
 
         if enable_sorting:
-            random.shuffle(day)  # Shuffle for random tie-breaking
-
             bname_priority_map = {
                 'CHEST': 1, 'BACK': 1, 'LEG': 1,
                 'SHOULDER': 2,
                 'ARM': 3,
                 'ABS': 4
             }
-            day.sort(key=lambda entry: _get_sort_key(entry, name_map, bname_priority_map))
+            # Create a map from bname to a random number for this run, to randomize order of same-prio groups
+            random_bname_order = {bname: random.random() for bname in bname_priority_map.keys()}
+
+            def get_randomized_sort_key(entry):
+                """Nested helper to generate a randomized sort key."""
+                exercise_name = entry[1]
+                exercise_info = name_map.get(exercise_name, {})
+                
+                b_name = exercise_info.get('bName', 'ETC').upper()
+                mg_num = exercise_info.get('MG_num', 0)
+                muscle_point_sum = exercise_info.get('musle_point_sum', 0)
+
+                prio = bname_priority_map.get(b_name, 5)
+                random_prio = random_bname_order.get(b_name, 0.5)
+
+                try:
+                    mg_num = int(mg_num)
+                except (ValueError, TypeError):
+                    mg_num = 0
+                try:
+                    muscle_point_sum = int(muscle_point_sum)
+                except (ValueError, TypeError):
+                    muscle_point_sum = 0
+                
+                # Sort by bName priority (asc), then by the random priority for that bName, then MG_num (desc), then muscle_point_sum (desc)
+                return (prio, random_prio, -mg_num, -muscle_point_sum)
+
+            day.sort(key=get_randomized_sort_key)
 
         micro_sums = {}
         for entry in day:
@@ -302,7 +301,8 @@ def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = F
             b_name = exercise_full_info.get("bName", bodypart)
             mg_num = exercise_full_info.get("MG_num", "N/A")
             musle_point_sum = exercise_full_info.get("musle_point_sum", "N/A")
-            lines.append(f"{b_name:<10} {korean_name:<15} ({mg_num}, {musle_point_sum})")
+            category = exercise_full_info.get("category", "N/A")
+            lines.append(f"{b_name:<10} {korean_name:<15} ({mg_num}, {musle_point_sum}, {category})")
         if len(lines) > 1:
             out.append("\n".join(lines))
     return "\n\n".join(out)
