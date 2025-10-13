@@ -9,7 +9,7 @@ project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
 
 # Define the input and output file paths relative to the project root
 input_file_rel_path = 'data/02_processed/temp.txt'
-output_file_rel_path = 'data/02_processed/beginner_exercises.json'
+output_file_rel_path = 'data/02_processed/new_exs.json'
 
 input_file_abs_path = os.path.join(project_root, input_file_rel_path)
 output_file_abs_path = os.path.join(project_root, output_file_rel_path)

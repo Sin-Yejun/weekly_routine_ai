@@ -1,7 +1,39 @@
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('routine-form');
     const levelSelect = document.getElementById('level');
+    const freqSelect = document.getElementById('freq');
+    const splitTypeSelect = document.getElementById('split-type');
     const toolCheckboxes = document.querySelectorAll('#tools-filter input[name="tools"]');
+
+    const splitConfigs = {
+        '2': [
+            { id: 'SPLIT', name: '분할 (Upper/Lower)' },
+            { id: 'FB', name: '무분할 (Full Body)' }
+        ],
+        '3': [
+            { id: 'SPLIT', name: '분할 (Push/Pull/Legs)' },
+            { id: 'FB', name: '무분할 (Full Body)' }
+        ],
+        '4': [
+            { id: 'SPLIT', name: '분할 (4-Day Split)' },
+            { id: 'FB', name: '무분할 (Full Body)' }
+        ],
+        '5': [
+            { id: 'SPLIT', name: '분할 (5-Day Split)' },
+            { id: 'FB', name: '무분할 (Full Body)' }
+        ]
+    };
+
+    const updateSplitOptions = (frequency) => {
+        splitTypeSelect.innerHTML = ''; // Clear existing options
+        const options = splitConfigs[frequency] || [];
+        options.forEach(option => {
+            const optionEl = document.createElement('option');
+            optionEl.value = option.id;
+            optionEl.textContent = option.name;
+            splitTypeSelect.appendChild(optionEl);
+        });
+    };
 
     const updateToolSelection = (level) => {
         toolCheckboxes.forEach(checkbox => {
@@ -12,6 +44,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     };
+
+    // Add event listener for frequency changes
+    if (freqSelect) {
+        freqSelect.addEventListener('change', (event) => {
+            updateSplitOptions(event.target.value);
+        });
+    }
 
     // Add event listener for level changes
     if (levelSelect) {
@@ -24,26 +63,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (levelSelect) {
         updateToolSelection(levelSelect.value);
     }
+    if (freqSelect) {
+        updateSplitOptions(freqSelect.value);
+    }
 
     const generatePromptBtn = document.getElementById('generate-prompt-btn');
     const generateVllmBtn = document.getElementById('generate-vllm-btn');
     const generateOpenAiBtn = document.getElementById('generate-openai-btn');
+    const generateDetailsBtn = document.getElementById('generate-details-btn');
     const loadingIndicator = document.getElementById('loading-indicator');
     const sortToggle = document.getElementById('sort-toggle');
 
     const promptOutputEl = document.getElementById('prompt-output');
     const rawOutputEl = document.getElementById('raw-output');
     const formattedOutputEl = document.getElementById('formatted-output');
+    const detailsPromptContainer = document.getElementById('details-prompt-container');
+    const detailsPromptOutputEl = document.getElementById('details-prompt-output');
 
     // Store for both outputs
-    let vllmRoutines = { unsorted: '', sorted: '' };
-    let openAiRoutines = { unsorted: '', sorted: '' };
+    let vllmRoutines = { unsorted: '', sorted: '', initial_routine: null, model_used: '' };
+    let openAiRoutines = { unsorted: '', sorted: '', initial_routine: null, model_used: '' };
+    let currentInitialRoutine = { routine: null, model: '' }; // To store the routine and model for detail generation
 
     const showLoading = (isLoading) => {
         loadingIndicator.classList.toggle('hidden', !isLoading);
         generatePromptBtn.disabled = isLoading;
         generateVllmBtn.disabled = isLoading;
         generateOpenAiBtn.disabled = isLoading;
+        if (generateDetailsBtn) {
+            generateDetailsBtn.disabled = isLoading;
+        }
     };
 
     const updateOutput = (element, routines) => {
@@ -64,8 +113,16 @@ document.addEventListener('DOMContentLoaded', () => {
             promptOutputEl.value = 'Generating prompt...';
             rawOutputEl.textContent = 'vllm의 답변이 여기에 표시됩니다.';
             formattedOutputEl.textContent = 'OpenAI 답변이 여기에 표시됩니다.';
-            vllmRoutines = { unsorted: '', sorted: '' };
-            openAiRoutines = { unsorted: '', sorted: '' };
+            vllmRoutines = { unsorted: '', sorted: '', initial_routine: null, model_used: '' };
+            openAiRoutines = { unsorted: '', sorted: '', initial_routine: null, model_used: '' };
+            if (generateDetailsBtn) {
+                generateDetailsBtn.classList.add('hidden');
+            }
+            if (detailsPromptContainer) {
+                detailsPromptContainer.classList.add('hidden');
+                detailsPromptOutputEl.value = 'The prompt for the details generation will appear here.';
+            }
+            currentInitialRoutine = { routine: null, model: '' };
 
             const formData = new FormData(form);
             const data = {};
@@ -79,6 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     data[key] = value;
                 }
             });
+
+            data.prevent_weekly_duplicates = document.getElementById('prevent-duplicates-toggle').checked;
 
             try {
                 const response = await fetch('/api/generate-prompt', {
@@ -105,6 +164,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleInference = async (apiEndpoint, outputElement, routineStorage) => {
         showLoading(true);
         outputElement.textContent = 'Generating...';
+        if (generateDetailsBtn) {
+            generateDetailsBtn.classList.add('hidden');
+        }
+        if (detailsPromptContainer) {
+            detailsPromptContainer.classList.add('hidden');
+        }
+        currentInitialRoutine = { routine: null, model: '' };
 
         const formData = new FormData(form);
         const userConfig = {};
@@ -118,6 +184,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 userConfig[key] = value;
             }
         });
+
+        userConfig.prevent_weekly_duplicates = document.getElementById('prevent-duplicates-toggle').checked;
         
         const prompt = promptOutputEl.value;
         if (!prompt || prompt.startsWith('The prompt sent')) {
@@ -156,6 +224,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 routineStorage.unsorted = fallbackContent;
                 routineStorage.sorted = fallbackContent;
             }
+
+            // Store the initial routine for detail generation
+            if (result.result && result.result.days) {
+                routineStorage.initial_routine = result.result;
+                routineStorage.model_used = apiEndpoint.includes('infer') ? 'vllm' : 'openai';
+                currentInitialRoutine = { routine: result.result, model: routineStorage.model_used }; // Update global reference
+                if (generateDetailsBtn) {
+                    generateDetailsBtn.classList.remove('hidden');
+                }
+                if (detailsPromptContainer) {
+                    detailsPromptContainer.classList.remove('hidden');
+                }
+
+                // Automatically fetch and display details prompt
+                detailsPromptOutputEl.value = 'Generating details prompt...';
+                try {
+                    const promptResponse = await fetch('/api/generate-details-prompt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_config: userConfig,
+                            initial_routine: currentInitialRoutine.routine
+                        }),
+                    });
+                    if (!promptResponse.ok) {
+                        const errorData = await promptResponse.json();
+                        throw new Error(errorData.error || 'Failed to fetch details prompt');
+                    }
+                    const promptResult = await promptResponse.json();
+                    detailsPromptOutputEl.value = promptResult.prompt || 'Failed to generate details prompt.';
+                } catch (error) {
+                    console.error('Error auto-generating details prompt:', error);
+                    detailsPromptOutputEl.value = `An error occurred: ${error.message}`;
+                }
+            }
             
             updateOutput(outputElement, routineStorage);
 
@@ -173,5 +276,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (generateOpenAiBtn) {
         generateOpenAiBtn.addEventListener('click', () => handleInference('/api/generate-openai', formattedOutputEl, openAiRoutines));
+    }
+
+    // 3. Generate Details Button
+    if (generateDetailsBtn) {
+        generateDetailsBtn.addEventListener('click', async () => {
+            if (!currentInitialRoutine.routine) {
+                alert('Please generate an initial routine first.');
+                return;
+            }
+
+            showLoading(true);
+            formattedOutputEl.textContent = 'Generating detailed routine...';
+
+            const formData = new FormData(form);
+            const userConfig = {};
+            formData.forEach((value, key) => {
+                if (key === 'tools') {
+                    if (!userConfig[key]) {
+                        userConfig[key] = [];
+                    }
+                    userConfig[key].push(value);
+                } else {
+                    userConfig[key] = value;
+                }
+            });
+
+            try {
+                const response = await fetch('/api/generate-details', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_config: userConfig,
+                        initial_routine: currentInitialRoutine.routine,
+                        model_used: currentInitialRoutine.model
+                    }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                // Display raw JSON directly
+                formattedOutputEl.textContent = JSON.stringify(result, null, 2);
+
+            } catch (error) {
+                console.error('Error generating detailed routine:', error);
+                formattedOutputEl.textContent = `An error occurred: ${error.message}`;
+            } finally {
+                showLoading(false);
+            }
+        });
     }
 });

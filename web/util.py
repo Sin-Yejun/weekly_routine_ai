@@ -24,6 +24,24 @@ SPLIT_MUSCLE_GROUPS = {
 
 # --- Helper Functions ---
 
+SPLIT_CONFIGS = {
+    "2": [
+        {"id": "SPLIT", "name": "(Upper/Lower)", "days": ["UPPER", "LOWER"], "rule_key": 2},
+        {"id": "FB", "name": "(Full Body)", "days": ["FULLBODY_A", "FULLBODY_B"], "rule_key": "FB_2"}
+    ],
+    "3": [
+        {"id": "SPLIT", "name": "(Push/Pull/Legs)", "days": ["PUSH", "PULL", "LEGS"], "rule_key": 3},
+        {"id": "FB", "name": "(Full Body)", "days": ["FULLBODY_A", "FULLBODY_B", "FULLBODY_C"], "rule_key": "FB_3"}
+    ],
+    "4": [
+        {"id": "SPLIT", "name": "(4-Day Split)", "days": ["CHEST", "BACK", "SHOULDERS", "LEGS"], "rule_key": 4},
+        {"id": "FB", "name": "(Full Body)", "days": ["FULLBODY_A", "FULLBODY_B", "FULLBODY_C", "FULLBODY_D"], "rule_key": "FB_4"}
+    ],
+    "5": [
+        {"id": "SPLIT", "name": "(5-Day Split)", "days": ["CHEST", "BACK", "LEGS", "SHOULDERS", "ARMS"], "rule_key": 5},
+        {"id": "FB", "name": "(Full Body)", "days": ["FULLBODY_A", "FULLBODY_B", "FULLBODY_C", "FULLBODY_D", "FULLBODY_E"], "rule_key": "FB_5"}
+    ]
+}
 @dataclass
 class User:
     gender: str
@@ -42,21 +60,33 @@ def parse_duration_bucket(bucket: str) -> int:
 def round_to_step(x: float, step: int = 5) -> int:
     return int(round(x / step) * step)
 
-def pick_split(freq: int) -> Tuple[str, List[str]]:
-    if freq == 2: return ("Upper-Lower", ["UPPER","LOWER"])
-    if freq == 3: return ("Push-Pull-Legs", ["PUSH","PULL","LEGS"])
-    if freq == 4: return ("CBSL", ["CHEST","BACK","SHOULDERS","LEGS"])
-    if freq == 5: return ("Bro", ["CHEST","BACK","LEGS","SHOULDERS","ARMS"])
-
-
 def _filter_catalog(catalog: list, user: User, allowed_names: dict) -> list:
     """Filters the catalog based on user's tools and level."""
-    # Filter by selected tools
+    
+    # 1. Filter by selected tools
     if hasattr(user, 'tools') and user.tools:
-        allowed_tools_set = set(user.tools)
-        catalog = [item for item in catalog if item.get('tool_en') in allowed_tools_set]
+        selected_tools_set = {t.lower() for t in user.tools}
+        pullupbar_exercises = set(allowed_names.get("TOOL", {}).get("PullUpBar", []))
+        
+        filtered_list = []
+        for item in catalog:
+            tool_en = item.get('tool_en', '').lower()
+            e_name = item.get('eName', '')
+            is_pullupbar_exercise = e_name in pullupbar_exercises
 
-    # Filter by level (Beginner/Novice)
+            include = False
+            if is_pullupbar_exercise:
+                if "pullupbar" in selected_tools_set and tool_en in selected_tools_set:
+                    include = True
+            else:
+                if tool_en in selected_tools_set:
+                    include = True
+            
+            if include:
+                filtered_list.append(item)
+        catalog = filtered_list
+
+    # 2. Filter by level (Beginner/Novice)
     if user.level in ['Beginner', 'Novice'] and allowed_names:
         level_key = 'MBeginner' if user.gender == 'M' else 'FBeginner' if user.level == 'Beginner' else 'MNovice' if user.gender == 'M' else 'FNovice'
         level_exercise_set = set(allowed_names.get(level_key, []))
@@ -64,60 +94,66 @@ def _filter_catalog(catalog: list, user: User, allowed_names: dict) -> list:
     
     return catalog
 
-def _group_catalog_by_split(catalog: list, freq: int) -> Dict[str, list]:
-    """Groups the catalog by split days based on frequency."""
-    _, split_days = pick_split(freq)
-    split_days_upper = [s.upper() for s in split_days]
-    grouped_catalog = {day: [] for day in split_days_upper}
+def _group_catalog_by_split(catalog: list, split_days: List[str]) -> Dict[str, list]:
+    """Groups the catalog by split days based on the provided day tags."""
+    is_full_body_split = any(day.startswith("FULLBODY") for day in split_days)
+
+    # For full body, create one unified catalog. For splits, create one for each day.
+    if is_full_body_split:
+        grouped_catalog = {"FULLBODY": []}
+    else:
+        grouped_catalog = {day: [] for day in split_days}
 
     for item in catalog:
-        raw_key = ''
-        if freq == 2:
-            raw_key = item.get('body_region', '').upper()
-        elif freq == 3:
-            raw_key = item.get('movement_type', '').upper()
-        elif freq in [4, 5]:
-            raw_key = item.get('bName', '').upper()
-            if raw_key == 'SHOULDER': raw_key = 'SHOULDERS'
-            elif raw_key == 'ARM': raw_key = 'ARMS'
-            elif raw_key == 'LEG': raw_key = 'LEGS'
+        # Common processing for all items
+        bName = item.get('bName')
+        eName = item.get('eName')
+        mg_num = item.get('MG_num', 1)
+        micro_en_raw = item.get('MG', "")
+        micro_en_parts = [p.strip() for p in micro_en_raw.split('/')] if isinstance(micro_en_raw, str) and micro_en_raw.strip() else []
+        scores = item.get('musle_point', [])
+        formatted_micro_parts = []
+        if len(micro_en_parts) == len(scores):
+            for i in range(len(micro_en_parts)):
+                part = micro_en_parts[i]
+                score = scores[i]
+                formatted_micro_parts.append(f"{part}({score})")
+        else:
+            formatted_micro_parts = micro_en_parts
+        muscle_group = {"micro": formatted_micro_parts}
+        category = item.get('category')
+        main_ex = item.get('main_ex', False)
+        processed_item = [
+            bName.upper() if isinstance(bName, str) else bName,
+            eName,
+            category,
+            mg_num,
+            muscle_group,
+            main_ex,
+        ]
 
-        if raw_key and raw_key in grouped_catalog:
-            bName = item.get('bName')
-            eName = item.get('eName')
-            mg_num = item.get('MG_num', 1)
-
-            micro_en_raw = item.get('MG', "")
-            micro_en_parts = [p.strip() for p in micro_en_raw.split('/')] if isinstance(micro_en_raw, str) and micro_en_raw.strip() else []
-
-            scores = item.get('musle_point', [])
-
-            formatted_micro_parts = []
-            if len(micro_en_parts) == len(scores):
-                for i in range(len(micro_en_parts)):
-                    part = micro_en_parts[i]
-                    score = scores[i]
-                    formatted_micro_parts.append(f"{part}({score})")
-            else:
-                # Fallback if lengths don't match, just use the names.
-                formatted_micro_parts = micro_en_parts
-
-            muscle_group = {"micro": formatted_micro_parts}
+        if is_full_body_split:
+            grouped_catalog["FULLBODY"].append(processed_item)
+        else:
+            # Existing logic for split workouts
+            raw_key = ''
+            freq = len(split_days)
+            if freq == 2:
+                raw_key = item.get('body_region', '').upper()
+            elif freq == 3:
+                raw_key = item.get('movement_type', '').upper()
+            elif freq in [4, 5]:
+                raw_key = item.get('bName', '').upper()
+                if raw_key == 'SHOULDER': raw_key = 'SHOULDERS'
+                elif raw_key == 'ARM': raw_key = 'ARMS'
+                elif raw_key == 'LEG': raw_key = 'LEGS'
             
-            category = item.get('category')
+            if raw_key and raw_key in grouped_catalog:
+                grouped_catalog[raw_key].append(processed_item)
 
-            processed_item = [
-                bName.upper() if isinstance(bName, str) else bName,
-                eName,
-                category,
-                mg_num,
-                muscle_group,
-            ]
-            grouped_catalog[raw_key].append(processed_item)
-            
     return grouped_catalog
 
-def _apply_special_ordering(grouped_catalog: Dict[str, list], freq: int):
+def _apply_special_ordering(grouped_catalog: Dict[str, list], split_days: List[str]):
     """Applies special ordering for 2 and 3-day splits."""
     for group_list in grouped_catalog.values():
         random.shuffle(group_list)
@@ -135,67 +171,96 @@ def _apply_special_ordering(grouped_catalog: Dict[str, list], freq: int):
         final_list.extend(sub_groups['ETC'])
         return final_list
 
-    if freq == 2 and 'UPPER' in grouped_catalog:
-        chest_back_order = ['CHEST', 'BACK'] if random.random() < 0.5 else ['BACK', 'CHEST']
-        upper_order = chest_back_order + ['SHOULDER', 'ARM']
-        grouped_catalog['UPPER'] = get_ordered_list(grouped_catalog['UPPER'], upper_order)
+    freq = len(split_days)
+    is_full_body_split = any(day.startswith("FULLBODY") for day in split_days)
 
-    if freq == 3:
-        if 'PUSH' in grouped_catalog:
-            grouped_catalog['PUSH'] = get_ordered_list(grouped_catalog['PUSH'], ['CHEST', 'SHOULDER', 'ARM'])
-        if 'PULL' in grouped_catalog:
-            grouped_catalog['PULL'] = get_ordered_list(grouped_catalog['PULL'], ['BACK', 'ARM'])
+    if not is_full_body_split:
+        if freq == 2 and 'UPPER' in grouped_catalog:
+            chest_back_order = ['CHEST', 'BACK'] if random.random() < 0.5 else ['BACK', 'CHEST']
+            upper_order = chest_back_order + ['SHOULDER', 'ARM']
+            grouped_catalog['UPPER'] = get_ordered_list(grouped_catalog['UPPER'], upper_order)
+
+        if freq == 3:
+            if 'PUSH' in grouped_catalog:
+                grouped_catalog['PUSH'] = get_ordered_list(grouped_catalog['PUSH'], ['CHEST', 'SHOULDER', 'ARM'])
+            if 'PULL' in grouped_catalog:
+                grouped_catalog['PULL'] = get_ordered_list(grouped_catalog['PULL'], ['BACK', 'ARM'])
     
     return grouped_catalog
 
-def _build_catalog_string(grouped_catalog: Dict[str, list], user: User, catalog: list) -> str:
+def _build_catalog_string(grouped_catalog: Dict[str, list], split_days: List[str], catalog: list) -> str:
     """Builds the final catalog string for the prompt with nested grouping."""
-    _, split_days = pick_split(user.freq)
-    split_days_upper = [s.upper() for s in split_days]
     catalog_lines = []
     eName_to_tool_map = {item.get('eName'): item.get('tool_en', 'Etc') for item in catalog}
+    is_full_body_split = any(day.startswith("FULLBODY") for day in split_days)
 
-    for day in split_days_upper:
-        muscle_group_info = SPLIT_MUSCLE_GROUPS.get(day, "")
-        catalog_lines.append(f"{day} {muscle_group_info}".strip())
-        exercises_for_day = grouped_catalog.get(day, [])
-
+    if is_full_body_split:
+        # For full body, print a single unified catalog
+        catalog_lines.append("FULL BODY (All exercises available for all days)")
+        exercises_for_day = grouped_catalog.get("FULLBODY", [])
         if exercises_for_day:
-            # 1. Group by Category directly
             category_groups = {}
             for exercise in exercises_for_day:
-                # exercise is [bName, eName, category, mg_num, muscle_group]
                 category = exercise[2] if exercise[2] else "(Uncategorized)"
                 if category not in category_groups:
                     category_groups[category] = []
                 category_groups[category].append(exercise)
 
-            # 2. Print exercises within each category
-            # Sort categories alphabetically for consistent order
             for category in sorted(category_groups.keys()):
                 cat_exercises = category_groups[category]
                 catalog_lines.append(f"  {category}:")
                 for i, exercise in enumerate(cat_exercises):
-                    tool = eName_to_tool_map.get(exercise[1], 'Etc') # Get the tool name
+                    tool = eName_to_tool_map.get(exercise[1], 'Etc')
                     line_end = "," if i < len(cat_exercises) - 1 else ""
-                    # New prompt_item format: [bName, eName, tool, mg_num, muscle_group]
-                    prompt_item = [exercise[0], exercise[1], tool, exercise[3], exercise[4]] 
+                    bName = exercise[0]
+                    eName = exercise[1]
+                    is_main = exercise[5]
+                    display_bName = f"{bName} (main)" if is_main else bName
+                    prompt_item = [display_bName, eName, tool, exercise[3], exercise[4]]
                     catalog_lines.append("    " + json.dumps(prompt_item, ensure_ascii=False) + line_end)
+    else:
+        # Existing logic for split workouts
+        for day in split_days:
+            muscle_group_info = SPLIT_MUSCLE_GROUPS.get(day, "")
+            catalog_lines.append(f"{day} {muscle_group_info}".strip())
+            exercises_for_day = grouped_catalog.get(day, [])
 
-        catalog_lines.append("")
+            if exercises_for_day:
+                category_groups = {}
+                for exercise in exercises_for_day:
+                    category = exercise[2] if exercise[2] else "(Uncategorized)"
+                    if category not in category_groups:
+                        category_groups[category] = []
+                    category_groups[category].append(exercise)
+
+                for category in sorted(category_groups.keys()):
+                    cat_exercises = category_groups[category]
+                    catalog_lines.append(f"  {category}:")
+                    for i, exercise in enumerate(cat_exercises):
+                        tool = eName_to_tool_map.get(exercise[1], 'Etc')
+                        line_end = "," if i < len(cat_exercises) - 1 else ""
+                        bName = exercise[0]
+                        eName = exercise[1]
+                        is_main = exercise[5]
+                        display_bName = f"{bName} (main)" if is_main else bName
+                        prompt_item = [display_bName, eName, tool, exercise[3], exercise[4]]
+                        catalog_lines.append("    " + json.dumps(prompt_item, ensure_ascii=False) + line_end)
 
     return "\n".join(catalog_lines)
 
-def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_ex: int, allowed_names: dict = None) -> str:
+def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_ex: int, split_config: dict, allowed_names: dict = None) -> str:
     prompt_template = common_prompt
 
-    filtered_catalog = _filter_catalog(catalog, user, allowed_names)
-    grouped_catalog = _group_catalog_by_split(filtered_catalog, user.freq)
-    ordered_grouped_catalog = _apply_special_ordering(grouped_catalog, user.freq)
-    catalog_str = _build_catalog_string(ordered_grouped_catalog, user, filtered_catalog)
+    split_days = split_config["days"]
+    split_name = split_config["name"]
+    rule_key = split_config["rule_key"]
 
-    split_name, split_days = pick_split(user.freq)
-    split_rules = SPLIT_RULES.get(user.freq, "")
+    filtered_catalog = _filter_catalog(catalog, user, allowed_names)
+    grouped_catalog = _group_catalog_by_split(filtered_catalog, split_days)
+    ordered_grouped_catalog = _apply_special_ordering(grouped_catalog, split_days)
+    catalog_str = _build_catalog_string(ordered_grouped_catalog, split_days, filtered_catalog)
+
+    split_rules = SPLIT_RULES.get(rule_key, "")
     level_guide = LEVEL_GUIDE.get(user.level, "")
 
     return prompt_template.format(
@@ -289,7 +354,7 @@ def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = F
             micro_sum_str = ", ".join([f"{group}: {point}" for group, point in sorted_micro_sums])
             day_header += f" (활성도 합: {micro_sum_str})"
 
-        lines = [day_header]
+        lines = []
         for entry in day:
             if not isinstance(entry, list) or len(entry) != 2:
                 continue
@@ -302,7 +367,12 @@ def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = F
             mg_num = exercise_full_info.get("MG_num", "N/A")
             musle_point_sum = exercise_full_info.get("musle_point_sum", "N/A")
             category = exercise_full_info.get("category", "N/A")
-            lines.append(f"{b_name:<10} {korean_name:<15} ({mg_num}, {musle_point_sum}, {category})")
+
+            is_main = exercise_full_info.get("main_ex", False)
+            display_b_name = f"{b_name} (main)" if is_main else b_name
+
+            # lines.append(f"{display_b_name:<15} {korean_name:<15} ({mg_num}, {musle_point_sum}, {category})")
+            lines.append(f"{display_b_name:<15} {korean_name:<15} ({category})")
         if len(lines) > 1:
             out.append("\n".join(lines))
     return "\n\n".join(out)

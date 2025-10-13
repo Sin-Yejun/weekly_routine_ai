@@ -126,7 +126,6 @@ def main():
     
     if tool_en_group:
         allowed_ids['TOOL'] = tool_en_group
-    allowed_ids['LEG_MAIN'] = ["Paused Deadlift","Belt Squat Machine","Trap Bar Deadlift","Barbell Sumo Squat","Safety Bar Squat","Barbell Jump Squat","Reverse V Squat","Trap Bar Squat","Romanian Deadlift","Leverage Squat Machine","Conventional Deadlift","Barbell Lunge","Dumbbell Lateral Lunge","Back Squat","V Squat","Sumo Deadlift","Dumbbell Sumo Squat","Kettlebell Deadlift","Deficit Deadlift","Kettlebell Sumo Deadlift","Kettlebell Lateral Lunge","Dumbbell Sumo Deadlift"]
     # 3. Write the output file with custom formatting
     output_lines = []
     output_lines.append("{")
