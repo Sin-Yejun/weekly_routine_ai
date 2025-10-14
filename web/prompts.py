@@ -16,7 +16,7 @@ Return a weekly bodybuilding plan as MINIFIED JSON only.
 {level_guide}
 
 ## CATEGORY RULE (HARD CONSTRAINT):
-- For each day, you MUST output **NO MORE THAN ONE exercise per category**
+- For each day, you MUST output **NO MORE THAN ONE exercise per category (Benchpress, LUNGE, Push Ups, Deadlift...)**
 - If a violation occurs, the output is INVALID. Re-check and regenerate until the rule is satisfied.
 - Exception: The '(Uncategorized)' group may allow multiple exercises.
 
@@ -28,8 +28,8 @@ Return a weekly bodybuilding plan as MINIFIED JSON only.
 - Chest: Upper 3, Middle 3, Lower 2  
 - Back: Upper 3, Lower 3, Lats 3  
 - Shoulders: Anterior 2, Lateral 2, Posterior 2, Traps 1  
-- Arms: Biceps 2, Triceps 2, Forearms 1  
-- Core: Abs 1  
+- Abs: Upper Abs 2, Lower Abs 2, Obliques 1, Core 1
+- Arm: Biceps 2, Triceps 2, Forearms 1  
 - Legs: Glutes 3, Quads 3, Hamstrings 3, Adductors 2, Abductors 2, Calves 1
 - Prioritize exercises that target higher-importance muscle groups. Aim to achieve a higher total activation score for muscle groups with a weight of 3, and a moderate score for groups with a weight of 2. Ensure lower-importance groups are not excluded so that the overall routine remains well-balanced.
 
@@ -41,7 +41,7 @@ Return a weekly bodybuilding plan as MINIFIED JSON only.
 {catalog_json}
 
 ## Output
-Return exactly one minified JSON object only (NO WHITESPACES / NO NEW LINES), matching:
+Return exactly one MINIFIED JSON object only (NO WHITESPACES / NO NEW LINES), matching:
 {{"days":[[[bodypart,ename],...],...]}}
 '''
 
@@ -61,12 +61,12 @@ SPLIT_RULES = {
 - SHOULDER:  MUST Cover SHOULDER(Posterior, Anterior, Leteral, Traps).
 - LEGS: MUST Cover Quads, Glutes, Hamstrings, Adductors, Abductors, add Calves accessory.""",
 
-    5: """### 5 DAYS — CHEST / BACK / LEGS / SHOULDER / ARMS
+    5: """### 5 DAYS — CHEST / BACK / LEGS / SHOULDER / ARM+ABS
 - CHEST: MUST Cover Upper, Middle, Lower Chest.
 - BACK: MUST Cover Back(Upper, Lower, Lats).
 - LEGS: MUST Cover Quads, Glutes, Hamstrings, Adductors, Abductors, add Calves accessory.
 - SHOULDER: MUST Cover SHOULDER(Posterior, Anterior, Leteral, Traps).
-- ARMS: MUST Cover Biceps, Triceps, Forearms""",
+- ARM+ABS: MUST Cover Biceps, Triceps, Forearms, Upper Abs, Lower Abs, Obliques, and Core.""",
 
     "FB_2": """### 2 DAYS — FULL BODY (ROTATING FOCUS)
 - Each day is a full-body workout with a different primary focus:

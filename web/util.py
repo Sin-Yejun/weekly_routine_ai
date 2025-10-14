@@ -19,7 +19,9 @@ SPLIT_MUSCLE_GROUPS = {
     "CHEST": "(Upper Chest, Middle Chest, Lower Chest)",
     "BACK": "(Upper Back, Lower Back, Lats)",
     "SHOULDERS": "(Anterior Deltoid, Lateral Deltoid, Posterior Deltoid, Traps)",
-    "ARMS": "(Biceps, Triceps, Forearms)"
+    "ARM": "(Biceps, Triceps, Forearms)",
+    "Abs": "(Upper Abs, Lower Abs, Obliques, Core)",
+    "ARM+ABS": "(Biceps, Triceps, Forearms, Upper Abs, Lower Abs, Obliques, Core)"
 }
 
 # --- Helper Functions ---
@@ -38,7 +40,7 @@ SPLIT_CONFIGS = {
         {"id": "FB", "name": "(Full Body)", "days": ["FULLBODY_A", "FULLBODY_B", "FULLBODY_C", "FULLBODY_D"], "rule_key": "FB_4"}
     ],
     "5": [
-        {"id": "SPLIT", "name": "(5-Day Split)", "days": ["CHEST", "BACK", "LEGS", "SHOULDERS", "ARMS"], "rule_key": 5},
+        {"id": "SPLIT", "name": "(5-Day Split)", "days": ["CHEST", "BACK", "LEGS", "SHOULDERS", "ARM+ABS"], "rule_key": 5},
         {"id": "FB", "name": "(Full Body)", "days": ["FULLBODY_A", "FULLBODY_B", "FULLBODY_C", "FULLBODY_D", "FULLBODY_E"], "rule_key": "FB_5"}
     ]
 }
@@ -76,7 +78,7 @@ def _filter_catalog(catalog: list, user: User, allowed_names: dict) -> list:
 
             include = False
             if is_pullupbar_exercise:
-                if "pullupbar" in selected_tools_set and tool_en in selected_tools_set:
+                if "pullupbar" in selected_tools_set:
                     include = True
             else:
                 if tool_en in selected_tools_set:
@@ -135,21 +137,31 @@ def _group_catalog_by_split(catalog: list, split_days: List[str]) -> Dict[str, l
         if is_full_body_split:
             grouped_catalog["FULLBODY"].append(processed_item)
         else:
-            # Existing logic for split workouts
-            raw_key = ''
+            # Refactored logic for split workouts
             freq = len(split_days)
+            target_day_tag = None
+
             if freq == 2:
-                raw_key = item.get('body_region', '').upper()
+                target_day_tag = item.get('body_region', '').upper()
             elif freq == 3:
-                raw_key = item.get('movement_type', '').upper()
+                target_day_tag = item.get('movement_type', '').upper()
             elif freq in [4, 5]:
-                raw_key = item.get('bName', '').upper()
-                if raw_key == 'SHOULDER': raw_key = 'SHOULDERS'
-                elif raw_key == 'ARM': raw_key = 'ARMS'
-                elif raw_key == 'LEG': raw_key = 'LEGS'
+                bName_upper = item.get('bName', '').upper()
+                
+                if bName_upper == 'CHEST': target_day_tag = 'CHEST'
+                elif bName_upper == 'BACK': target_day_tag = 'BACK'
+                elif bName_upper == 'LEG': target_day_tag = 'LEGS'
+                elif bName_upper == 'SHOULDER': target_day_tag = 'SHOULDERS'
+                elif bName_upper == 'ARM' or bName_upper == 'ABS':
+                    if 'ARM+ABS' in split_days:
+                        target_day_tag = 'ARM+ABS'
+                    elif bName_upper == 'ARM' and 'ARMS' in split_days:
+                        target_day_tag = 'ARM'
+                    elif bName_upper == 'ABS' and 'ABS' in split_days:
+                        target_day_tag = 'ABS'
             
-            if raw_key and raw_key in grouped_catalog:
-                grouped_catalog[raw_key].append(processed_item)
+            if target_day_tag and target_day_tag in grouped_catalog:
+                grouped_catalog[target_day_tag].append(processed_item)
 
     return grouped_catalog
 
@@ -352,9 +364,9 @@ def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = F
         if micro_sums:
             sorted_micro_sums = sorted(micro_sums.items(), key=lambda item: item[1], reverse=True)
             micro_sum_str = ", ".join([f"{group}: {point}" for group, point in sorted_micro_sums])
-            day_header += f" (활성도 합: {micro_sum_str})"
+            # day_header += f" (활성도 합: {micro_sum_str})"
 
-        lines = []
+        lines = [day_header]
         for entry in day:
             if not isinstance(entry, list) or len(entry) != 2:
                 continue
@@ -373,6 +385,8 @@ def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = F
 
             # lines.append(f"{display_b_name:<15} {korean_name:<15} ({mg_num}, {musle_point_sum}, {category})")
             lines.append(f"{display_b_name:<15} {korean_name:<15} ({category})")
+            # 테스트용
+            # lines.append(f"{b_name:<15} {korean_name:<15}")
         if len(lines) > 1:
             out.append("\n".join(lines))
     return "\n\n".join(out)

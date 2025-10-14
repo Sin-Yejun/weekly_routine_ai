@@ -73,6 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateDetailsBtn = document.getElementById('generate-details-btn');
     const loadingIndicator = document.getElementById('loading-indicator');
     const sortToggle = document.getElementById('sort-toggle');
+    const preventCategoryDuplicatesToggle = document.getElementById('prevent-category-duplicates-toggle');
+    const preventDuplicatesToggle = document.getElementById('prevent-duplicates-toggle'); // Existing toggle
 
     const promptOutputEl = document.getElementById('prompt-output');
     const rawOutputEl = document.getElementById('raw-output');
@@ -81,8 +83,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const detailsPromptOutputEl = document.getElementById('details-prompt-output');
 
     // Store for both outputs
-    let vllmRoutines = { unsorted: '', sorted: '', initial_routine: null, model_used: '' };
-    let openAiRoutines = { unsorted: '', sorted: '', initial_routine: null, model_used: '' };
+    let vllmRoutines = { 
+        unprocessed: { unsorted: '', sorted: '', initial_routine: null }, 
+        processed: { unsorted: '', sorted: '', initial_routine: null },
+        model_used: '' 
+    };
+    let openAiRoutines = { 
+        unprocessed: { unsorted: '', sorted: '', initial_routine: null }, 
+        processed: { unsorted: '', sorted: '', initial_routine: null },
+        model_used: '' 
+    };
     let currentInitialRoutine = { routine: null, model: '' }; // To store the routine and model for detail generation
 
     const showLoading = (isLoading) => {
@@ -97,11 +107,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateOutput = (element, routines) => {
         const isSorted = sortToggle.checked;
-        const content = isSorted ? routines.sorted : routines.unsorted;
+        const useProcessed = preventCategoryDuplicatesToggle.checked;
+
+        let content;
+        let initialRoutine;
+
+        if (useProcessed) {
+            content = isSorted ? routines.processed.sorted : routines.processed.unsorted;
+            initialRoutine = routines.processed.initial_routine;
+        } else {
+            content = isSorted ? routines.unprocessed.sorted : routines.unprocessed.unsorted;
+            initialRoutine = routines.unprocessed.initial_routine;
+        }
+        
         element.textContent = content || 'No content available.';
+
+        // Update currentInitialRoutine based on the displayed content
+        if (element === rawOutputEl) { // Only update for vLLM output, as it's the primary source for details
+            currentInitialRoutine = { routine: initialRoutine, model: routines.model_used };
+            if (generateDetailsBtn) {
+                if (currentInitialRoutine.routine) {
+                    generateDetailsBtn.classList.remove('hidden');
+                    if (detailsPromptContainer) {
+                        detailsPromptContainer.classList.remove('hidden');
+                    }
+                } else {
+                    generateDetailsBtn.classList.add('hidden');
+                    if (detailsPromptContainer) {
+                        detailsPromptContainer.classList.add('hidden');
+                    }
+                }
+            }
+        }
     };
 
     sortToggle.addEventListener('change', () => {
+        updateOutput(rawOutputEl, vllmRoutines);
+        updateOutput(formattedOutputEl, openAiRoutines);
+    });
+
+    preventCategoryDuplicatesToggle.addEventListener('change', () => {
         updateOutput(rawOutputEl, vllmRoutines);
         updateOutput(formattedOutputEl, openAiRoutines);
     });
@@ -113,8 +158,19 @@ document.addEventListener('DOMContentLoaded', () => {
             promptOutputEl.value = 'Generating prompt...';
             rawOutputEl.textContent = 'vllm의 답변이 여기에 표시됩니다.';
             formattedOutputEl.textContent = 'OpenAI 답변이 여기에 표시됩니다.';
-            vllmRoutines = { unsorted: '', sorted: '', initial_routine: null, model_used: '' };
-            openAiRoutines = { unsorted: '', sorted: '', initial_routine: null, model_used: '' };
+            
+            vllmRoutines = { 
+                unprocessed: { unsorted: '', sorted: '', initial_routine: null }, 
+                processed: { unsorted: '', sorted: '', initial_routine: null },
+                model_used: '' 
+            };
+            openAiRoutines = { 
+                unprocessed: { unsorted: '', sorted: '', initial_routine: null }, 
+                processed: { unsorted: '', sorted: '', initial_routine: null },
+                model_used: '' 
+            };
+            currentInitialRoutine = { routine: null, model: '' };
+
             if (generateDetailsBtn) {
                 generateDetailsBtn.classList.add('hidden');
             }
@@ -122,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 detailsPromptContainer.classList.add('hidden');
                 detailsPromptOutputEl.value = 'The prompt for the details generation will appear here.';
             }
-            currentInitialRoutine = { routine: null, model: '' };
+            
 
             const formData = new FormData(form);
             const data = {};
@@ -137,7 +193,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            data.prevent_weekly_duplicates = document.getElementById('prevent-duplicates-toggle').checked;
+            // The duplicate prevention logic is now handled on the backend for display toggling.
+            // No need to send prevent_weekly_duplicates for prompt generation.
 
             try {
                 const response = await fetch('/api/generate-prompt', {
@@ -185,7 +242,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        userConfig.prevent_weekly_duplicates = document.getElementById('prevent-duplicates-toggle').checked;
+        // Send the state of the new toggle to the backend
+        userConfig.prevent_weekly_duplicates = preventDuplicatesToggle.checked;
+        userConfig.prevent_category_duplicates = preventCategoryDuplicatesToggle.checked;
         
         const prompt = promptOutputEl.value;
         if (!prompt || prompt.startsWith('The prompt sent')) {
@@ -209,27 +268,41 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const result = await response.json();
+            console.log('Backend response result:', result);
             
+            // Store both unprocessed and processed routines
             if (result.formatted_summary && typeof result.formatted_summary === 'object') {
-                routineStorage.unsorted = "--- Formatted Output ---\n" + result.formatted_summary.unsorted;
-                routineStorage.sorted = "--- Formatted Output (Sorted) ---\n" + result.formatted_summary.sorted;
+                // Unprocessed
+                routineStorage.unprocessed.unsorted = "--- Formatted Output (Unprocessed) ---\n" + result.formatted_summary.unprocessed.unsorted;
+                routineStorage.unprocessed.sorted = "--- Formatted Output (Unprocessed, Sorted) ---\n" + result.formatted_summary.unprocessed.sorted;
+                routineStorage.unprocessed.initial_routine = result.formatted_summary.unprocessed.initial_routine;
+
+                // Processed
+                routineStorage.processed.unsorted = "--- Formatted Output (Processed) ---\n" + result.formatted_summary.processed.unsorted;
+                routineStorage.processed.sorted = "--- Formatted Output (Processed, Sorted) ---\n" + result.formatted_summary.processed.sorted;
+                routineStorage.processed.initial_routine = result.formatted_summary.processed.initial_routine;
                 
                 if (result.response) {
                     const rawSuffix = "\n\n--- Raw Model Output ---\n" + result.response;
-                    routineStorage.unsorted += rawSuffix;
-                    routineStorage.sorted += rawSuffix;
+                    routineStorage.unprocessed.unsorted += rawSuffix;
+                    routineStorage.unprocessed.sorted += rawSuffix;
+                    routineStorage.processed.unsorted += rawSuffix;
+                    routineStorage.processed.sorted += rawSuffix;
                 }
             } else {
                 const fallbackContent = result.response ? "--- Raw Model Output ---\n" + result.response : 'No valid response returned.';
-                routineStorage.unsorted = fallbackContent;
-                routineStorage.sorted = fallbackContent;
+                routineStorage.unprocessed.unsorted = fallbackContent;
+                routineStorage.unprocessed.sorted = fallbackContent;
+                routineStorage.processed.unsorted = fallbackContent;
+                routineStorage.processed.sorted = fallbackContent;
             }
 
-            // Store the initial routine for detail generation
-            if (result.result && result.result.days) {
-                routineStorage.initial_routine = result.result;
-                routineStorage.model_used = apiEndpoint.includes('infer') ? 'vllm' : 'openai';
-                currentInitialRoutine = { routine: result.result, model: routineStorage.model_used }; // Update global reference
+            routineStorage.model_used = apiEndpoint.includes('infer') ? 'vllm' : 'openai';
+            
+            // Update currentInitialRoutine based on the processed version for detail generation
+            currentInitialRoutine = { routine: routineStorage.processed.initial_routine, model: routineStorage.model_used }; 
+
+            if (currentInitialRoutine.routine) {
                 if (generateDetailsBtn) {
                     generateDetailsBtn.classList.remove('hidden');
                 }

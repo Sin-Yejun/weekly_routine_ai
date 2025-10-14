@@ -295,7 +295,7 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
                     "All items must be distinct."
                 ),
                 "minItems": min_items,
-                "maxItems": max_ex,
+                "maxItems": min_items,
                 "prefixItems": [
                     {"enum": main_chest_pairs},
                     {"enum": main_back_pairs},
@@ -303,7 +303,6 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
                 ],
                 "items": {"enum": all_pairs}
             }
-
         else:
             # (기존 분할 로직 유지)
             try:
@@ -357,7 +356,7 @@ def _allowed_pairs_for_day_by_name(freq, tag, allowed_names):
             pairs.append([exercise.get('bName'), ex_name])
     return pairs
 
-def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=None, level='Intermediate', duration=60, prevent_weekly_duplicates=True):
+def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=None, level='Intermediate', duration=60, prevent_weekly_duplicates=True, prevent_category_duplicates=True):
     if not isinstance(obj, dict) or "days" not in obj: return obj
 
     level_schema = EXERCISE_COUNT_SCHEMA.get(level, EXERCISE_COUNT_SCHEMA['Intermediate'])
@@ -432,7 +431,7 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
                                   cand_ex.get('bName') == bp and 
                                   cand_ex.get('main_ex', False) == is_main and 
                                   cand_name not in weekly_used_names and 
-                                  cand_name not in {p[1] for p in deduped_day}]
+                                   cand_name not in {p[1] for p in deduped_day}]
                     
                     if candidates:
                         replacement = random.choice(candidates)
@@ -443,6 +442,73 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
                 else:
                     deduped_day.append([bp, name])
             current_day_fixed = deduped_day
+
+        # 4. Enforce category uniqueness per day (if enabled)
+        if prevent_category_duplicates:
+            categories_used_today = set()
+            category_deduped_day = []
+            
+            # Get allowed names for the current day's tag
+            current_day_allowed_names = []
+            try:
+                current_day_allowed_names = allowed_names[str(freq)][tag]
+            except KeyError:
+                app.logger.warning(f"No allowed_names found for freq {freq}, tag {tag}. Falling back to all exercises.")
+                current_day_allowed_names = list(name_to_exercise_map.keys())
+
+            for bp, name in current_day_fixed:
+                exercise_info = name_to_exercise_map.get(name, {})
+                category = exercise_info.get('category')
+
+                if category and category != '(Uncategorized)' and category in categories_used_today:
+                    app.logger.info(f"[Category De-Dupe] Day {day_idx+1}: Category '{category}' for '{name}' already used. Attempting replacement.")
+                    
+                    # Find replacement candidates (Strict: same body part)
+                    strict_candidates = []
+                    for cand_name in current_day_allowed_names:
+                        cand_ex_info = name_to_exercise_map.get(cand_name, {})
+                        cand_category = cand_ex_info.get('category')
+                        cand_bp = cand_ex_info.get('bName')
+
+                        if (cand_bp == bp and # Strict: same body part
+                            cand_category and cand_category != '(Uncategorized)' and cand_category not in categories_used_today and
+                            (not prevent_weekly_duplicates or cand_name not in weekly_used_names) and
+                            cand_name not in {p[1] for p in category_deduped_day} and
+                            cand_name != name):
+                            strict_candidates.append(cand_name)
+                    
+                    candidates = strict_candidates
+
+                    if not candidates:
+                        # Relaxed search: any exercise from allowed_names for the day
+                        relaxed_candidates = []
+                        for cand_name in current_day_allowed_names:
+                            cand_ex_info = name_to_exercise_map.get(cand_name, {})
+                            cand_category = cand_ex_info.get('category')
+
+                            if (cand_category and cand_category != '(Uncategorized)' and cand_category not in categories_used_today and
+                                (not prevent_weekly_duplicates or cand_name not in weekly_used_names) and
+                                cand_name not in {p[1] for p in category_deduped_day} and
+                                cand_name != name):
+                                relaxed_candidates.append(cand_name)
+                        candidates = relaxed_candidates
+                    
+                    if candidates:
+                        replacement = random.choice(candidates)
+                        category_deduped_day.append([bp, replacement])
+                        categories_used_today.add(name_to_exercise_map.get(replacement, {}).get('category'))
+                        if prevent_weekly_duplicates:
+                            weekly_used_names.add(replacement)
+                        app.logger.info(f"[Category De-Dupe] Day {day_idx+1}: Swapped '{name}' (Category: {category}) with '{replacement}' (Category: {name_to_exercise_map.get(replacement, {}).get('category')})")
+                    else:
+                        category_deduped_day.append([bp, name]) # No suitable replacement, keep original
+                        categories_used_today.add(category)
+                        app.logger.warning(f"[Category De-Dupe] Day {day_idx+1}: No suitable replacement found for '{name}' (Category: {category}). Keeping original.")
+                else:
+                    category_deduped_day.append([bp, name])
+                    if category:
+                        categories_used_today.add(category)
+            current_day_fixed = category_deduped_day
 
         # Update weekly used names with the final list for the day
         for _, name in current_day_fixed:
@@ -515,13 +581,15 @@ def generate_prompt_api():
 
 def _prepare_allowed_names(user: User, allowed_names: dict) -> dict:
     """Filters the allowed names based on user's tools and level."""
+    final_allowed_names = json.loads(json.dumps(allowed_names)) # Start with a deep copy
+
+    # 1. Filter by selected tools
     if user.tools:
         selected_tools_set = {t.lower() for t in user.tools}
-        pullupbar_exercises = set(allowed_names.get("TOOL", {}).get("PullUpBar", []))
+        pullupbar_exercises = set(allowed_names.get("TOOL", {}).get("PullUpBar", [])) # Use original allowed_names for pullupbar_exercises
 
-        # Deep copy to avoid modifying the global ALLOWED_NAMES
-        filtered_names = json.loads(json.dumps(allowed_names))
-        for key, value in allowed_names.items():
+        # Iterate through final_allowed_names to filter
+        for key, value in final_allowed_names.items():
             if isinstance(value, list):
                 new_list = []
                 for name in value:
@@ -531,7 +599,7 @@ def _prepare_allowed_names(user: User, allowed_names: dict) -> dict:
 
                     include = False
                     if is_pullupbar_exercise:
-                        if "pullupbar" in selected_tools_set and tool_en in selected_tools_set:
+                        if "pullupbar" in selected_tools_set:
                             include = True
                     else:
                         if tool_en in selected_tools_set:
@@ -539,18 +607,18 @@ def _prepare_allowed_names(user: User, allowed_names: dict) -> dict:
                     
                     if include:
                         new_list.append(name)
-                filtered_names[key] = new_list
+                final_allowed_names[key] = new_list
             elif isinstance(value, dict):
                 for sub_key, sub_list in value.items():
                     new_sub_list = []
                     for name in sub_list:
                         exercise_info = name_to_exercise_map.get(name, {})
-                        tool_en = exercise_info.get('tool_en', '').lower()
+                        tool_en = exercise_info.get('tool_en', '').lower() # Corrected: use exercise_info
                         is_pullupbar_exercise = name in pullupbar_exercises
 
                         include = False
                         if is_pullupbar_exercise:
-                            if "pullupbar" in selected_tools_set and tool_en in selected_tools_set:
+                            if "pullupbar" in selected_tools_set:
                                 include = True
                         else:
                             if tool_en in selected_tools_set:
@@ -561,42 +629,40 @@ def _prepare_allowed_names(user: User, allowed_names: dict) -> dict:
                     
                     if not new_sub_list and sub_key not in ['ETC']:
                         app.logger.warning(f"Empty exercise list for freq {key}, day {sub_key} after tool filtering. Falling back to unfiltered list.")
-                        new_sub_list = allowed_names.get(key, {}).get(sub_key, [])
+                        new_sub_list = allowed_names.get(key, {}).get(sub_key, []) # Fallback should use original allowed_names
                     
-                    filtered_names[key][sub_key] = new_sub_list
-        effective_allowed_names = filtered_names
-    else:
-        effective_allowed_names = allowed_names
+                    final_allowed_names[key][sub_key] = new_sub_list
 
-    # Filter by level (Beginner/Novice)
+    # 2. Filter by level (Beginner/Novice)
     if user.level in ['Beginner', 'Novice']:
         level_key = ('MBeginner' if user.gender == 'M' else 'FBeginner') if user.level == 'Beginner' else ('MNovice' if user.gender == 'M' else 'FNovice')
-        level_exercise_set = set(effective_allowed_names.get(level_key, []))
+        level_exercise_set = set(allowed_names.get(level_key, [])) # Use original allowed_names for level_exercise_set
         
-        # Deep copy for modification
-        modified_names = json.loads(json.dumps(effective_allowed_names))
-        
-        if str(user.freq) in modified_names:
-            for tag in modified_names[str(user.freq)]:
-                original_exercises = modified_names[str(user.freq)][tag]
+        if str(user.freq) in final_allowed_names:
+            for tag in final_allowed_names[str(user.freq)]:
+                original_exercises = final_allowed_names[str(user.freq)][tag]
                 intersected = list(level_exercise_set.intersection(original_exercises))
                 
                 if not intersected:
-                    # Fallback logic
-                    freq_union = [ex for t, ex_list in modified_names[str(user.freq)].items() if t != tag for ex in ex_list]
+                    freq_union = [ex for t, ex_list in allowed_names[str(user.freq)].items() if t != tag for ex in ex_list] # Fallback uses original allowed_names
                     safe_intersection = list(level_exercise_set.intersection(freq_union))
                     intersected = safe_intersection if safe_intersection else list(level_exercise_set)
                 
-                modified_names[str(user.freq)][tag] = intersected
-        return modified_names
+                final_allowed_names[str(user.freq)][tag] = intersected
+        
+        # Also filter the top-level 'ABS' list if it exists
+        if 'ABS' in final_allowed_names:
+            final_allowed_names['ABS'] = list(level_exercise_set.intersection(final_allowed_names['ABS']))
 
-    return effective_allowed_names
+    return final_allowed_names
 
 def process_inference_request(data, client_creator):
     if not data: return jsonify({"error": "Missing request body"}), 400
     try:
         user, min_ex, max_ex = get_user_config(data)
         prompt = data.get('prompt')
+        prevent_weekly_duplicates = data.get('prevent_weekly_duplicates', True)
+        # prevent_category_duplicates = data.get('prevent_category_duplicates', True) # Removed: always calculate both
 
         with open("web/allowed_name_200.json", "r", encoding="utf-8") as f:
             ALLOWED_NAMES = json.load(f)
@@ -629,17 +695,48 @@ def process_inference_request(data, client_creator):
         obj = json.loads(json_repair_str(raw))
         if "days" not in obj: return jsonify({"error": "Parsed object missing 'days'."}), 502
         
-        obj = post_validate_and_fix_week(obj, freq=user.freq, split_tags=split_tags, allowed_names=effective_allowed_names, level=user.level, duration=user.duration, prevent_weekly_duplicates=data.get('prevent_weekly_duplicates', True))
-        
-        summary_unsorted = format_new_routine(obj, name_to_korean_map, enable_sorting=False)
-        summary_sorted = format_new_routine(obj, name_to_korean_map, enable_sorting=True)
+        # --- Post-processing for unprocessed version (only weekly duplicates, no category prevention) ---
+        unprocessed_obj = post_validate_and_fix_week(
+            json.loads(json.dumps(obj)), # Deep copy to avoid modifying original
+            freq=user.freq, 
+            split_tags=split_tags, 
+            allowed_names=effective_allowed_names, 
+            level=user.level, 
+            duration=user.duration, 
+            prevent_weekly_duplicates=prevent_weekly_duplicates,
+            prevent_category_duplicates=False # Always False for unprocessed
+        )
+        summary_unprocessed_unsorted = format_new_routine(unprocessed_obj, name_to_korean_map, enable_sorting=False)
+        summary_unprocessed_sorted = format_new_routine(unprocessed_obj, name_to_korean_map, enable_sorting=True)
+
+        # --- Post-processing for processed version (with category prevention) ---
+        processed_obj = post_validate_and_fix_week(
+            json.loads(json.dumps(obj)), # Deep copy again for processed version
+            freq=user.freq, 
+            split_tags=split_tags, 
+            allowed_names=effective_allowed_names, 
+            level=user.level, 
+            duration=user.duration, 
+            prevent_weekly_duplicates=prevent_weekly_duplicates,
+            prevent_category_duplicates=True # Always True for processed
+        )
+        summary_processed_unsorted = format_new_routine(processed_obj, name_to_korean_map, enable_sorting=False)
+        summary_processed_sorted = format_new_routine(processed_obj, name_to_korean_map, enable_sorting=True)
         
         formatted_summary = {
-            "unsorted": summary_unsorted,
-            "sorted": summary_sorted
+            "unprocessed": {
+                "unsorted": summary_unprocessed_unsorted,
+                "sorted": summary_unprocessed_sorted,
+                "initial_routine": unprocessed_obj # Return the object for detail generation
+            },
+            "processed": {
+                "unsorted": summary_processed_unsorted,
+                "sorted": summary_processed_sorted,
+                "initial_routine": processed_obj # Return the object for detail generation
+            }
         }
         
-        return jsonify({"response": raw, "result": obj, "formatted_summary": formatted_summary})
+        return jsonify({"response": raw, "result": processed_obj, "formatted_summary": formatted_summary})
     except Exception as e:
         app.logger.error(f"Error in process_inference_request: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
