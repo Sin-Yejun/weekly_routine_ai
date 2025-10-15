@@ -132,40 +132,47 @@ LEVEL_GUIDE = {
 }
 
 detail_prompt_abstract = '''## [Task]
-You are an expert personal trainer. Based on the user's profile and the provided list of exercises, create a detailed weekly workout plan.
-Return a MINIFIED JSON object.
+You are a certified personal trainer. Based on the user's profile and the given exercises, generate a detailed weekly workout plan that reflects realistic set progression.
+Return ONLY a MINIFIED JSON object (NO WHITESPACES / NO NEWLINES).
 
-## [User Info]
+## [User Profile]
 - Gender: {gender}
 - Bodyweight: {weight}kg
 - Training Level: {level}
 - Workout Intensity: {intensity}
 
-## [Exercises for the Week]
-Each exercise includes an `eInfoType` that dictates the performance metric for each set.
+## [Weekly Exercise List]
+Each exercise includes its `eInfoType` (performance metric) and `tool`.
 {exercise_list_with_einfotype_json}
 
-## [Instructions]
-1.  For each exercise, create 3-5 sets. Order exercises logically within each day (e.g., compound movements first).
-2.  For each set, provide `[reps, weight, time]` based on the `eInfoType`:
-    - **eInfoType 1 (Time-based)**: `[0, 0, time_in_seconds]`
-    - **eInfoType 2 (Rep-based)**: `[reps, 0, 0]`
-    - **eInfoType 5 (Weight + Time)**: `[0, weight_in_kg, time_in_seconds]`
-    - **eInfoType 6 (Weight + Reps)**: `[reps, weight_in_kg, 0]`
-3.  `weight` should be a number in kg, in multiples of 5 where appropriate. Use 0 for bodyweight exercises. Base weights on the user's profile.
+## [Programming Rules]
+1. **Set Structure**
+   - Use the fixed number of sets predefined for this user's level.
+   - The first 2 sets are *warm-up sets* (light to moderate load, higher reps).
+   - The remaining sets are *main working sets* (heavier, lower reps).
 
-## [Output]
-Return a single MINIFIED JSON object. Each day is an array of exercises. Each exercise is an array: `["eName", [set1_details], [set2_details], ...]`. Each set detail is an array: `[reps, weight, time]`.
+2. **Reps Range (HARD CONSTRAINT)**
+   - All sets must have reps between **8 and 15** inclusive.
 
-Example Output:
-{{"days":[
-      [
-        ["Barbell Bench Press",[10,80,0],[8,85,0],[6,90,0],[3,100,0]],
-        ["Dumbbell Fly",[12,20,0],[10,25,0],[8,30,0]]
-      ],
-      [
-        ["Treadmill",[0,0,1800]]
-      ]
-    ]}}
+3. **Load Calculation**
+   - Assign weights based on the user's **level**, **weight**:
+   - Warm-up sets start lighter and gradually increase toward main sets.
+   - Maintain small, realistic jumps (around 5–10% per set).
+   - Ensure weights reflect the exercise type (compound > isolation).
+
+4. **Tool-Based Weight Rule (HARD CONSTRAINT)**
+   - If `tool` = "Dumbbell" → weight must be a **multiple of 2**.
+   - Otherwise (Barbell, Machine, Cable, Bodyweight, etc.) → weight must be a **multiple of 5**.
+
+5. **Variation & Realism**
+   - Each exercise must have a unique, logical weight progression — not a copy-paste of other exercises.
+   - Progression should reflect exercise difficulty and muscle involvement.
+   - Example: compound lifts (bench press, squat) show steeper weight increase; isolation moves (curl, lateral raise) show smaller jumps.
+
+6. **Output Format**
+  - Return exactly one MINIFIED JSON object only (NO WHITESPACES / NO NEW LINES)
+  - The final output must be ONE JSON object:
+     {{"days":[[["eName",[reps,weight,time],...],...],[...]]}}
 '''
+
 

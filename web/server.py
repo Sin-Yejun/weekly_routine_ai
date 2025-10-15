@@ -14,6 +14,7 @@ from util import User, build_prompt, format_new_routine, SPLIT_CONFIGS
 
 # --- Flask App Initialization --
 app = Flask(__name__, static_folder='.', static_url_path='')
+app.config['JSON_AS_ASCII'] = False
 load_dotenv()
 app.logger.setLevel(logging.INFO)
 
@@ -51,16 +52,57 @@ except (FileNotFoundError, json.JSONDecodeError) as e:
 
 # --- Global Variables & Helper Functions ---
 
-def build_detail_week_schema(initial_routine: dict) -> dict:
+def build_detail_week_schema(initial_routine: dict, level: str) -> dict:
     """
-    2단계(세부 루틴) 출력 구조를 강제하는 JSON 스키마를 생성.
-    - days 길이는 1단계 루틴과 동일
-    - 각 day의 exercise 개수 = 1단계 day 개수와 동일
-    - 각 exercise의 ename은 해당 day의 후보들로 enum 제한
-    - set_details는 3~5세트, reps/weight/time 키 고정
+    2단계(세부 루틴) 출력 구조를 강제하는 JSON 스키마를 생성합니다.
+    - days 길이는 1단계 루틴과 동일합니다.
+    - 각 day의 exercise 개수는 1단계 day의 개수와 동일합니다.
+    - 각 운동의 eInfoType에 따라 세트([reps, weight, time]) 스키마가 동적으로 변경됩니다.
+    - 세트 수는 사용자의 레벨에 따라 4~6개로 결정됩니다.
     """
+    if level == 'Beginner':
+        num_sets = 4
+    elif level == 'Novice':
+        num_sets = 5
+    else:  # Intermediate, Advanced, Elite
+        num_sets = 6
+
+    def _build_set_schema(einfo_type, tool: str = ""):
+        # reps: 8~15 강제
+        reps_schema   = {"type": "integer", "description": "reps", "minimum": 8, "maximum": 15}
+
+        # 덤벨=2kg 배수, 그 외(머신/바벨/케이블 등)=5kg 배수
+        t = (tool or "").lower()
+        #multiple = 2 if t == "dumbbell" else 5
+        weight_schema = {"type": "number", "description": "weight", "minimum": 0}
+
+        time_schema   = {"type": "integer", "description": "time"}
+
+        reps_zero_schema   = {"type": "integer", "const": 0, "description": "reps (must be 0)"}
+        weight_zero_schema = {"type": "number",  "const": 0, "description": "weight (must be 0)"}
+        time_zero_schema   = {"type": "integer", "const": 0, "description": "time (must be 0)"}
+
+        if einfo_type == 1:      # [0, 0, time]
+            prefix_items = [reps_zero_schema, weight_zero_schema, time_schema]
+        elif einfo_type == 2:    # [reps, 0, 0]
+            prefix_items = [reps_schema, weight_zero_schema, time_zero_schema]
+        elif einfo_type == 5:    # [0, weight, time]
+            prefix_items = [reps_zero_schema, weight_schema, time_schema]
+        elif einfo_type == 6:    # [reps, weight, 0]
+            prefix_items = [reps_schema, weight_schema, time_zero_schema]
+        else:                    # 기본: [reps, weight, time]
+            prefix_items = [reps_schema, weight_schema, time_schema]
+
+        return {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "prefixItems": prefix_items,
+            "items": False
+        }
+
     days = initial_routine.get("days", [])
-    prefix = []
+    day_schemas_prefix = []
 
     for day in days:
         allowed_enames = []
@@ -68,32 +110,40 @@ def build_detail_week_schema(initial_routine: dict) -> dict:
             for pair in day:
                 if isinstance(pair, list) and len(pair) == 2 and isinstance(pair[1], str):
                     allowed_enames.append(pair[1])
+        
+        if not allowed_enames:
+            continue
 
-        # day 스키마: [ename, [reps, weight, time], ...] 형식으로 변경
+        one_of_exercise_schemas = []
+        for ename in allowed_enames:
+            # name_to_einfotype_map is a global dictionary available in the file
+            einfo_type = name_to_einfotype_map.get(ename)
+            exercise_info = name_to_exercise_map.get(ename, {})
+            tool = (exercise_info.get("tool_en") or "").lower()
+            set_schema = _build_set_schema(einfo_type, tool)
+            
+            specific_exercise_schema = {
+                "type": "array",
+                "description": f"Schema for exercise '{ename}'. Consists of ename followed by {num_sets} set arrays.",
+                "minItems": num_sets + 1,
+                "maxItems": num_sets + 1,
+                "prefixItems": [
+                    {"type": "string", "const": ename}
+                ],
+                "items": set_schema
+            }
+            one_of_exercise_schemas.append(specific_exercise_schema)
+
         day_schema = {
             "type": "array",
+            "description": f"A single day's workout, containing {len(allowed_enames)} unique exercises. The order of exercises must be logical (e.g., compound then isolation).",
             "minItems": len(allowed_enames),
             "maxItems": len(allowed_enames),
             "items": {
-                "type": "array",
-                "description": "First element is ename (string), subsequent elements are set arrays [reps, weight, time].",
-                "prefixItems": [
-                    { "type": "string", "enum": allowed_enames } # 첫번째 항목: ename
-                ],
-                "items": { # 나머지 항목들: [reps, weight, time] 배열
-                    "type": "array",
-                    "minItems": 3,
-                    "maxItems": 3,
-                    "prefixItems": [
-                        { "type": "integer", "description": "reps" },
-                        { "type": "number",  "description": "weight" },
-                        { "type": "integer", "description": "time" }
-                    ],
-                    "items": False
-                }
+                "oneOf": one_of_exercise_schemas
             }
         }
-        prefix.append(day_schema)
+        day_schemas_prefix.append(day_schema)
 
     return {
         "type": "object",
@@ -101,9 +151,9 @@ def build_detail_week_schema(initial_routine: dict) -> dict:
         "properties": {
             "days": {
                 "type": "array",
-                "minItems": len(prefix),
-                "maxItems": len(prefix),
-                "prefixItems": prefix,
+                "minItems": len(day_schemas_prefix),
+                "maxItems": len(day_schemas_prefix),
+                "prefixItems": day_schemas_prefix,
                 "items": False
             }
         },
@@ -706,8 +756,8 @@ def process_inference_request(data, client_creator):
             prevent_weekly_duplicates=prevent_weekly_duplicates,
             prevent_category_duplicates=False # Always False for unprocessed
         )
-        summary_unprocessed_unsorted = format_new_routine(unprocessed_obj, name_to_korean_map, enable_sorting=False)
-        summary_unprocessed_sorted = format_new_routine(unprocessed_obj, name_to_korean_map, enable_sorting=True)
+        summary_unprocessed_unsorted = format_new_routine(unprocessed_obj, name_to_korean_map, enable_sorting=False, show_b_name=True)
+        summary_unprocessed_sorted = format_new_routine(unprocessed_obj, name_to_korean_map, enable_sorting=True, show_b_name=True)
 
         # --- Post-processing for processed version (with category prevention) ---
         processed_obj = post_validate_and_fix_week(
@@ -720,8 +770,8 @@ def process_inference_request(data, client_creator):
             prevent_weekly_duplicates=prevent_weekly_duplicates,
             prevent_category_duplicates=True # Always True for processed
         )
-        summary_processed_unsorted = format_new_routine(processed_obj, name_to_korean_map, enable_sorting=False)
-        summary_processed_sorted = format_new_routine(processed_obj, name_to_korean_map, enable_sorting=True)
+        summary_processed_unsorted = format_new_routine(processed_obj, name_to_korean_map, enable_sorting=False, show_b_name=True)
+        summary_processed_sorted = format_new_routine(processed_obj, name_to_korean_map, enable_sorting=True, show_b_name=True)
         
         formatted_summary = {
             "unprocessed": {
@@ -794,9 +844,10 @@ def generate_details_prompt_api():
         all_exercises_for_prompt = []
         for day_exercises in initial_routine.get("days", []):
             for bp, e_name in day_exercises:
-                e_info_type = name_to_einfotype_map.get(e_name)
-                if e_info_type is not None:
-                    all_exercises_for_prompt.append({"ename": e_name, "eInfoType": e_info_type})
+                exercise_details = name_to_exercise_map.get(e_name)
+                if exercise_details:
+                    tool = exercise_details.get('tool_en', 'Etc')
+                    all_exercises_for_prompt.append({"ename": e_name, "tool": tool})
         
         if not all_exercises_for_prompt:
             return jsonify({"prompt": "No exercises found in the initial routine to generate a details prompt."})
@@ -877,15 +928,19 @@ def _post_process_detailed_day(detailed_day: list) -> list:
         
     return cleaned_day
 
-def _detailed_completer(prompt, max_tokens, temperature, client, model_name, extra_body: dict = None):
-    return client.chat.completions.create(
-        model=model_name,
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
-        temperature=temperature,
-        extra_body=extra_body if extra_body else {}
-    )
+def _detailed_completer(prompt, max_tokens, temperature, client, model_name, extra_body: dict = None, response_format: dict = None):
+    args = {
+        "model": model_name,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if extra_body:
+        args["extra_body"] = extra_body
+    if response_format:
+        args["response_format"] = response_format
+        
+    return client.chat.completions.create(**args)
 
 @app.route('/api/generate-details', methods=['POST'])
 def generate_details_api():
@@ -903,9 +958,13 @@ def generate_details_api():
         all_exercises_for_prompt = []
         for day_exercises in initial_routine["days"]:
             for bp, e_name in day_exercises:
-                e_info_type = name_to_einfotype_map.get(e_name)
-                if e_info_type is not None:
-                    all_exercises_for_prompt.append({"ename": e_name, "eInfoType": e_info_type})
+                exercise_details = name_to_exercise_map.get(e_name)
+                if exercise_details:
+                    all_exercises_for_prompt.append({
+                        "ename": e_name,
+                        "eInfoType": exercise_details.get('eInfoType'),
+                        "tool": exercise_details.get('tool_en', 'Etc')
+                    })
         
         if not all_exercises_for_prompt:
             return jsonify({"days": []})
@@ -917,7 +976,7 @@ def generate_details_api():
             intensity=user.intensity,
             exercise_list_with_einfotype_json=json.dumps(all_exercises_for_prompt, ensure_ascii=False)
         )
-        detail_week_schema = build_detail_week_schema(initial_routine)
+        detail_week_schema = build_detail_week_schema(initial_routine, user.level)
         completer_args = {}
         if model_used == 'vllm':
             client = OpenAI(base_url=VLLM_BASE_URL, api_key="token-1234")
@@ -960,19 +1019,14 @@ def generate_details_api():
         
         app.logger.info(f"Parsed LLM Output for entire week: {llm_parsed_week}")
 
-        # Post-process to enforce eInfoType rules for the entire week
-        final_detailed_routine = {"days": []}
-        if isinstance(llm_parsed_week, dict) and "days" in llm_parsed_week:
-            for day_idx, day_details in enumerate(llm_parsed_week["days"]):
-                cleaned_detailed_day = _post_process_detailed_day(day_details)
-                final_detailed_routine["days"].append(cleaned_detailed_day)
-        else:
-            app.logger.warning(f"LLM output for entire week was not a dict with 'days' key: {llm_parsed_week}")
-            # Fallback to empty days if parsing fails or format is unexpected
-            final_detailed_routine = {"days": [[] for _ in initial_routine["days"]] }
-        
-        # Return raw JSON object as requested
-        return jsonify(final_detailed_routine)
+        # Format the detailed routine into a human-readable string
+        formatted_string = format_new_routine(llm_parsed_week, name_to_korean_map, enable_sorting=True, show_b_name=False)
+
+        # Return both the raw JSON and the formatted string
+        return jsonify({
+            "raw_json": llm_parsed_week,
+            "formatted_string": formatted_string
+        })
 
     except Exception as e:
         app.logger.error(f"Error in generate_details_api: {e}", exc_info=True)

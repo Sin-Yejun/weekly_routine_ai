@@ -37,11 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateToolSelection = (level) => {
         toolCheckboxes.forEach(checkbox => {
-            if (level === 'Beginner') {
-                checkbox.checked = checkbox.value !== 'Barbell';
-            } else {
-                checkbox.checked = true;
-            }
+            checkbox.checked = true;
         });
     };
 
@@ -378,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch('/api/generate-details', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', },
                     body: JSON.stringify({
                         user_config: userConfig,
                         initial_routine: currentInitialRoutine.routine,
@@ -387,13 +383,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                    // Try to parse error as JSON, but fall back to text
+                    const forJson = response.clone();
+                    let errorMsg = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMsg = errorData.error || errorMsg;
+                    } catch (e) {
+                        errorMsg = await response.text();
+                    }
+                    throw new Error(errorMsg);
                 }
 
-                const result = await response.json();
-                // Display raw JSON directly
-                formattedOutputEl.textContent = JSON.stringify(result, null, 2);
+                const { formatted_string, raw_json } = await response.json();
+                formattedOutputEl.textContent = formatted_string;  // ✅ 한글 그대로 보임
 
             } catch (error) {
                 console.error('Error generating detailed routine:', error);

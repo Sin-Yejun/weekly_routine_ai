@@ -289,8 +289,10 @@ def build_prompt(user: User, catalog: list, duration_str: str, min_ex: int, max_
         catalog_json=catalog_str
     )
 
-def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = False) -> str:
+def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = False, show_b_name: bool = True) -> str:
     import logging
+    import random
+    import json
     logging.basicConfig(level=logging.INFO)
 
     if not isinstance(plan_json, dict) or "days" not in plan_json:
@@ -302,91 +304,143 @@ def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = F
 
         if enable_sorting:
             bname_priority_map = {
-                'CHEST': 1, 'BACK': 1, 'LEG': 1,
-                'SHOULDER': 2,
-                'ARM': 3,
-                'ABS': 4
+                'CHEST': 1, 'BACK': 1, 'LEG': 1, 'SHOULDER': 2, 'ARM': 3, 'ABS': 4
             }
-            # Create a map from bname to a random number for this run, to randomize order of same-prio groups
             random_bname_order = {bname: random.random() for bname in bname_priority_map.keys()}
 
             def get_randomized_sort_key(entry):
-                """Nested helper to generate a randomized sort key."""
-                exercise_name = entry[1]
+                exercise_name = None
+                if isinstance(entry, list) and len(entry) > 1 and isinstance(entry[1], list):
+                    exercise_name = entry[0]
+                elif isinstance(entry, list) and len(entry) == 2 and isinstance(entry[1], str):
+                    exercise_name = entry[1]
+                else:
+                    return (99, 0.5, 0, 0)
+
                 exercise_info = name_map.get(exercise_name, {})
-                
                 b_name = exercise_info.get('bName', 'ETC').upper()
                 mg_num = exercise_info.get('MG_num', 0)
                 muscle_point_sum = exercise_info.get('musle_point_sum', 0)
-
                 prio = bname_priority_map.get(b_name, 5)
                 random_prio = random_bname_order.get(b_name, 0.5)
-
-                try:
-                    mg_num = int(mg_num)
-                except (ValueError, TypeError):
-                    mg_num = 0
-                try:
-                    muscle_point_sum = int(muscle_point_sum)
-                except (ValueError, TypeError):
-                    muscle_point_sum = 0
-                
-                # Sort by bName priority (asc), then by the random priority for that bName, then MG_num (desc), then muscle_point_sum (desc)
+                try: mg_num = int(mg_num)
+                except (ValueError, TypeError): mg_num = 0
+                try: muscle_point_sum = int(muscle_point_sum)
+                except (ValueError, TypeError): muscle_point_sum = 0
                 return (prio, random_prio, -mg_num, -muscle_point_sum)
-
             day.sort(key=get_randomized_sort_key)
 
-        micro_sums = {}
-        for entry in day:
-            if isinstance(entry, list) and len(entry) == 2:
-                exercise_name = entry[1]
+        # --- Conditional Formatting ---
+        if show_b_name:
+            # LOGIC FOR INITIAL ROUTINE (with b_name and padding)
+            day_display_data = []
+            micro_sums = {}
+            max_b_name_width = 0
+            max_k_name_width = 0
+
+            for entry in day:
+                data = {"b_name": "", "k_name": "", "details": ""}
+                exercise_name = None
+                if isinstance(entry, list) and len(entry) > 1 and isinstance(entry[1], list): exercise_name = entry[0]
+                elif isinstance(entry, list) and len(entry) == 2 and isinstance(entry[1], str): exercise_name = entry[1]
+                if not exercise_name: continue
+
                 exercise_info = name_map.get(exercise_name, {})
-                
-                micro_groups_raw = exercise_info.get("MG_ko") # Use MG_ko
-                
+                b_name = exercise_info.get("bName", "N/A")
+                is_main = exercise_info.get("main_ex", False)
+                data["b_name"] = f"{b_name} (main)" if is_main else b_name
+                data["k_name"] = exercise_info.get("kName", exercise_name)
+                data["details"] = f"({exercise_info.get('category', 'N/A')})"
+
+                b_name_width = sum(2 if '\uac00' <= c <= '\ud7a3' else 1 for c in data["b_name"])
+                k_name_width = sum(2 if '\uac00' <= c <= '\ud7a3' else 1 for c in data["k_name"])
+                if b_name_width > max_b_name_width: max_b_name_width = b_name_width
+                if k_name_width > max_k_name_width: max_k_name_width = k_name_width
+                day_display_data.append(data)
+
+                micro_groups_raw = exercise_info.get("MG_ko")
                 micro_groups = []
-                if isinstance(micro_groups_raw, str):
-                    micro_groups = [m.strip() for m in micro_groups_raw.split('/') if m.strip()]
-                elif isinstance(micro_groups_raw, list):
-                    micro_groups = [str(m).strip() for m in micro_groups_raw if str(m).strip()]
-
-                muscle_point = 0
-                try:
-                    muscle_point = int(exercise_info.get("musle_point_sum", 0))
-                except (ValueError, TypeError):
-                    muscle_point = 0
-
+                if isinstance(micro_groups_raw, str): micro_groups = [m.strip() for m in micro_groups_raw.split('/') if m.strip()]
+                elif isinstance(micro_groups_raw, list): micro_groups = [str(m).strip() for m in micro_groups_raw if str(m).strip()]
+                try: muscle_point = int(exercise_info.get("musle_point_sum", 0))
+                except (ValueError, TypeError): muscle_point = 0
                 if muscle_point > 0:
-                    for group in micro_groups: # group is now in Korean
+                    for group in micro_groups:
                         micro_sums[group] = micro_sums.get(group, 0) + muscle_point
-        
-        day_header = f"## Day{i} (운동개수: {len(day)})"
-        if micro_sums:
-            sorted_micro_sums = sorted(micro_sums.items(), key=lambda item: item[1], reverse=True)
-            micro_sum_str = ", ".join([f"{group}: {point}" for group, point in sorted_micro_sums])
-            # day_header += f" (활성도 합: {micro_sum_str})"
 
-        lines = [day_header]
-        for entry in day:
-            if not isinstance(entry, list) or len(entry) != 2:
-                continue
-            bodypart, exercise_name = entry
-            
-            exercise_full_info = name_map.get(exercise_name, {})
-            
-            korean_name = exercise_full_info.get("kName", exercise_name)
-            b_name = exercise_full_info.get("bName", bodypart)
-            mg_num = exercise_full_info.get("MG_num", "N/A")
-            musle_point_sum = exercise_full_info.get("musle_point_sum", "N/A")
-            category = exercise_full_info.get("category", "N/A")
+            day_header = f"## Day{i} (운동개수: {len(day)})"
+            if micro_sums:
+                sorted_micro_sums = sorted(micro_sums.items(), key=lambda item: item[1], reverse=True)
+                micro_sum_str = ", ".join([f"{group}: {point}" for group, point in sorted_micro_sums])
 
-            is_main = exercise_full_info.get("main_ex", False)
-            display_b_name = f"{b_name} (main)" if is_main else b_name
+            lines = [day_header]
+            for data in day_display_data:
+                b_name_width = sum(2 if '\uac00' <= c <= '\ud7a3' else 1 for c in data["b_name"])
+                k_name_width = sum(2 if '\uac00' <= c <= '\ud7a3' else 1 for c in data["k_name"])
+                padding1 = " " * (max_b_name_width - b_name_width + 2)
+                padding2 = " " * (max_k_name_width - k_name_width + 3)
+                line = f'{data["b_name"]}{padding1}{data["k_name"]}{padding2}{data["details"]}'
+                lines.append(line)
 
-            # lines.append(f"{display_b_name:<15} {korean_name:<15} ({mg_num}, {musle_point_sum}, {category})")
-            lines.append(f"{display_b_name:<15} {korean_name:<15} ({category})")
-            # 테스트용
-            # lines.append(f"{b_name:<15} {korean_name:<15}")
-        if len(lines) > 1:
-            out.append("\n".join(lines))
-    return "\n\n".join(out)
+            if len(lines) > 1:
+                out.append("\n".join(lines))
+
+        else:
+            # LOGIC FOR DETAILED ROUTINE (no b_name, single space)
+            day_display_data = []
+            micro_sums = {}
+            for entry in day:
+                data = {"k_name": "", "details": ""}
+                exercise_name = None
+                if isinstance(entry, list) and len(entry) > 1 and isinstance(entry[1], list): exercise_name = entry[0]
+                elif isinstance(entry, list) and len(entry) == 2 and isinstance(entry[1], str): exercise_name = entry[1]
+                if not exercise_name: continue
+
+                exercise_info = name_map.get(exercise_name, {})
+                data["k_name"] = exercise_info.get("kName", exercise_name)
+
+                if isinstance(entry, list) and len(entry) > 1 and isinstance(entry[1], list):
+                    sets = entry[1:]
+                    set_parts = []
+                    for s in sets:
+                        if isinstance(s, list) and len(s) == 3:
+                            reps, weight, time = s
+                            if reps > 0 and weight > 0: set_parts.append(f"{reps}x{weight}")
+                            elif reps > 0: set_parts.append(f"{reps}회")
+                            elif time > 0 and weight > 0: set_parts.append(f"{weight}kg {time}초")
+                            elif time > 0: set_parts.append(f"{time}초")
+                    data["details"] = " / ".join(set_parts)
+                else:
+                    data["details"] = f"({exercise_info.get('category', 'N/A')})"
+                
+                day_display_data.append(data)
+                
+                micro_groups_raw = exercise_info.get("MG_ko")
+                micro_groups = []
+                if isinstance(micro_groups_raw, str): micro_groups = [m.strip() for m in micro_groups_raw.split('/') if m.strip()]
+                elif isinstance(micro_groups_raw, list): micro_groups = [str(m).strip() for m in micro_groups_raw if str(m).strip()]
+                try: muscle_point = int(exercise_info.get("musle_point_sum", 0))
+                except (ValueError, TypeError): muscle_point = 0
+                if muscle_point > 0:
+                    for group in micro_groups:
+                        micro_sums[group] = micro_sums.get(group, 0) + muscle_point
+
+            day_header = f"## Day{i} (운동개수: {len(day)})"
+            if micro_sums:
+                sorted_micro_sums = sorted(micro_sums.items(), key=lambda item: item[1], reverse=True)
+                micro_sum_str = ", ".join([f"{group}: {point}" for group, point in sorted_micro_sums])
+
+            lines = [day_header]
+            for data in day_display_data:
+                line = f'{data["k_name"]} {data["details"]}'
+                lines.append(line)
+
+            if len(lines) > 1:
+                out.append("\n".join(lines))
+
+    formatted_routine = "\n\n".join(out)
+    if not show_b_name:
+        raw_output_str = json.dumps(plan_json, ensure_ascii=False)
+        return f"{formatted_routine}\n\n--- Raw Model Output ---\n{raw_output_str}"
+    
+    return formatted_routine
