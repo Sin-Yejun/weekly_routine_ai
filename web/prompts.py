@@ -47,26 +47,26 @@ Return exactly one MINIFIED JSON object only (NO WHITESPACES / NO NEW LINES), ma
 
 SPLIT_RULES = {
     2: """### 2 DAYS — UPPER / LOWER
-- UPPER: MUST Cover Chest (Upper/Middle/Lower), Back (Upper/Lower/Lats), Shoulders (Deltoids, Traps), Arms (all); optional Abs.
+- UPPER: MUST Cover Chest (Upper, Middle, Lower), Back (Upper, Lats, Lower), Shoulders (Deltoids, Traps), Arms (all); optional Abs.
 - LOWER: MUST Cover Quads, Glutes, Hamstrings, Adductors, Abductors, add Calves accessory.""",
 
     3: """### 3 DAYS — PUSH / PULL / LEGS
 - PUSH: MUST Cover Chest(Upper, Middle, Lower), add Triceps accessory; optional Deltoids.
-- PULL: MUST Cover Back(Upper, Lower, Lats), add Biceps accessory; optional Deltoids.
+- PULL: MUST Cover Back(Upper, Lats, Lower), add Biceps accessory; optional Deltoids.
 - LEGS: MUST Cover Quads, Glutes, Hamstrings, Adductors, Abductors, add Calves accessory.""",
 
     4: """### 4 DAYS — CHEST / BACK / SHOULDER / LEGS
 - CHEST: MUST Cover Chest(Upper, Middle, Lower); add Triceps accessory.
-- BACK: MUST Cover Back(Upper, Lower, Lats); add Biceps accessory.
+- BACK: MUST Cover Back(Upper, Lats, Lower); add Biceps accessory.
 - SHOULDER:  MUST Cover SHOULDER(Posterior, Anterior, Leteral, Traps).
 - LEGS: MUST Cover Quads, Glutes, Hamstrings, Adductors, Abductors, add Calves accessory.""",
 
     5: """### 5 DAYS — CHEST / BACK / LEGS / SHOULDER / ARM+ABS
 - CHEST: MUST Cover Upper, Middle, Lower Chest.
-- BACK: MUST Cover Back(Upper, Lower, Lats).
+- BACK: MUST Cover Back(Upper, Lats, Lower).
 - LEGS: MUST Cover Quads, Glutes, Hamstrings, Adductors, Abductors, add Calves accessory.
 - SHOULDER: MUST Cover SHOULDER(Posterior, Anterior, Leteral, Traps).
-- ARM+ABS: MUST Cover Biceps, Triceps, Forearms, Upper Abs, Lower Abs, Obliques, and Core.""",
+- ARM+ABS: MUST Cover Biceps, Triceps, Forearms, Upper Abs, Lower Abs, Obliques, and Core. COMPOSE ARM HALF, ABS HALF.""",
 
     "FB_2": """### 2 DAYS — FULL BODY (ROTATING FOCUS)
 - Each day is a full-body workout with a different primary focus:
@@ -145,34 +145,76 @@ Return ONLY a MINIFIED JSON object (NO WHITESPACES / NO NEWLINES).
 Each exercise includes its `eInfoType` (performance metric) and `tool`.
 {exercise_list_with_einfotype_json}
 
+## [Loads]
+- Training Max (TM): BP={TM_BP}, SQ={TM_SQ}, DL={TM_DL}, OHP={TM_OHP} (kg).
+  
 ## [Programming Rules]
-1. **Set Structure**
-   - Use the fixed number of sets predefined for this user's level.
-   - The first 2 sets are *warm-up sets* (light to moderate load, higher reps).
-   - The remaining sets are *main working sets* (heavier, lower reps).
 
-2. **Reps Range (HARD CONSTRAINT)**
-   - All sets must have reps between **8 and 15** inclusive.
+### Set Count by Level
+{level_sets}
 
-3. **Load Calculation**
-   - Assign weights based on the user's **level**, **weight**:
-   - Warm-up sets start lighter and gradually increase toward main sets.
-   - Maintain small, realistic jumps (around 5–10% per set).
-   - Ensure weights reflect the exercise type (compound > isolation).
+### Reps Range (HARD CONSTRAINT)
+- All sets must have reps between **8 and 15** inclusive.
+- Typical pattern by level:
+{level_pattern}
 
-4. **Tool-Based Weight Rule (HARD CONSTRAINT)**
-   - If `tool` = "Dumbbell" → weight must be a **multiple of 2**.
-   - Otherwise (Barbell, Machine, Cable, Bodyweight, etc.) → weight must be a **multiple of 5**.
+### Warm-up & Working Set Logic
+- The first 2 sets are warm-ups designed to prepare the body, not to cause fatigue. The remaining sets are working sets for muscle growth.
+- **Set 1 (Activation & Mobility):** Use the **empty bar (20kg) for Barbell**; otherwise ~20–30% of TM. Goal: mobility, pattern check, neural priming.
+- **Set 2 (Ramp-up):** Increase weight to **40–60% of TM**. Goal: load signaling, blood flow, neural readiness.
+- **Sets 3+ (Working Sets):** Use **level-specific ranges** (see below), typically **65–85% of TM**. Weight may rise as reps slightly drop. Keep a clear logical progression from light→medium→heavy.
 
-5. **Variation & Realism**
-   - Each exercise must have a unique, logical weight progression — not a copy-paste of other exercises.
-   - Progression should reflect exercise difficulty and muscle involvement.
-   - Example: compound lifts (bench press, squat) show steeper weight increase; isolation moves (curl, lateral raise) show smaller jumps.
+### Load Calculation (% of Training Max)
+Use the user's estimated TM (based on bodyweight × level coefficient):
+- **Warm-ups:** Set1 = **empty bar 20kg (Barbell)** or ~20–30% TM; Set2 = **40–60% TM**
+- **Working sets (by level):**
+{level_working_sets}
+- Rounding Rule: **all weights are integers**, rounded to nearest **5 kg** (or **2 kg** if Dumbbell).
 
-6. **Output Format**
-  - Return exactly one MINIFIED JSON object only (NO WHITESPACES / NO NEW LINES)
-  - The final output must be ONE JSON object:
-     {{"days":[[["eName",[reps,weight,time],...],...],[...]]}}
+### Example Set Structures (AUTO-CALCULATED; COPY THIS SHAPE)
+# Barbell/Machine/Cable (5kg rounding; Set1 uses empty bar 20kg for Barbell)
+- Bench Press: {BP_example}
+- Squat: {SQ_example}
+- Deadlift: {DL_example}
+- Overhead Press: {OHP_example}
+
+# Dumbbell (per hand; 2kg rounding; upper BP-based TM, lower SQ-based TM)
+- Upper-body ref: {BP_example_db}
+- Lower-body ref: {SQ_example_db}
+
+### Output Format
+Return **one MINIFIED JSON object** only (no spaces, no newlines):
+{{"days":[[["eName",[reps,weight,time],...],...],[...]]}}
 '''
 
+LEVEL_SETS = {
+    "Beginner": "- Beginner: 4 sets",
+    "Novice": "- Novice: 5 sets",
+    "Intermediate": "- Intermediate: 6 sets",
+    "Advanced": "- Advanced: 6 sets",
+    "Elite": "- Elite: 6 sets"
+}
 
+LEVEL_PATTERN = {
+    "Beginner": "- Beginner: [15,12,10,8]",
+    "Novice": "- Novice: [15,12,10,9,8]",
+    "Intermediate": "- Intermediate: [15,12,10,10,8,8]",
+    "Advanced": "- Advanced: [15,12,10,10,8,8]",
+    "Elite": "- Elite: [15,12,10,10,8,8]"
+}
+
+LEVEL_WORKING_SETS = {
+    "Beginner": "- Beginner: 65–70% of TM",
+    "Novice": "- Novice: 70% of TM",
+    "Intermediate": "- Intermediate: 70–75% of TM",
+    "Advanced": "- Advanced: 75–80% of TM",
+    "Elite": "- Elite: 80–85% of TM"
+}
+
+DUMBBELL_GUIDE = {
+    "Beginner": "- Beginner: total 30–40% of TM",
+    "Novice": "- Novice: total 40–50% of TM",
+    "Intermediate": "- Intermediate: total 50–60% of TM",
+    "Advanced": "- Advanced: total 60–70% of TM",
+    "Elite": "- Elite: total 70–80% of TM"
+}

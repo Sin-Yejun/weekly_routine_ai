@@ -9,8 +9,7 @@ import openai
 from openai import OpenAI
 from json_repair import repair_json as json_repair_str
 from dotenv import load_dotenv
-from prompts import detail_prompt_abstract
-from util import User, build_prompt, format_new_routine, SPLIT_CONFIGS
+from util import User, build_prompt, create_detail_prompt, format_new_routine, SPLIT_CONFIGS
 
 # --- Flask App Initialization --
 app = Flask(__name__, static_folder='.', static_url_path='')
@@ -73,8 +72,10 @@ def build_detail_week_schema(initial_routine: dict, level: str) -> dict:
 
         # 덤벨=2kg 배수, 그 외(머신/바벨/케이블 등)=5kg 배수
         t = (tool or "").lower()
-        #multiple = 2 if t == "dumbbell" else 5
-        weight_schema = {"type": "number", "description": "weight", "minimum": 0}
+        if t == "barbell":
+            weight_schema = {"type": "number", "description": "weight", "minimum": 20}
+        else:
+            weight_schema = {"type": "number", "description": "weight", "minimum": 0}
 
         time_schema   = {"type": "integer", "description": "time"}
 
@@ -83,6 +84,7 @@ def build_detail_week_schema(initial_routine: dict, level: str) -> dict:
         time_zero_schema   = {"type": "integer", "const": 0, "description": "time (must be 0)"}
 
         if einfo_type == 1:      # [0, 0, time]
+            time_schema = {"type": "integer", "description": "time", "minimum": 600, "maximum": 1800}
             prefix_items = [reps_zero_schema, weight_zero_schema, time_schema]
         elif einfo_type == 2:    # [reps, 0, 0]
             prefix_items = [reps_schema, weight_zero_schema, time_zero_schema]
@@ -120,13 +122,17 @@ def build_detail_week_schema(initial_routine: dict, level: str) -> dict:
             einfo_type = name_to_einfotype_map.get(ename)
             exercise_info = name_to_exercise_map.get(ename, {})
             tool = (exercise_info.get("tool_en") or "").lower()
+
+            # eInfoType 1 (cardio) is always 1 set, others depend on level
+            num_sets_for_exercise = 1 if einfo_type == 1 else num_sets
+
             set_schema = _build_set_schema(einfo_type, tool)
             
             specific_exercise_schema = {
                 "type": "array",
-                "description": f"Schema for exercise '{ename}'. Consists of ename followed by {num_sets} set arrays.",
-                "minItems": num_sets + 1,
-                "maxItems": num_sets + 1,
+                "description": f"Schema for exercise '{ename}'. Consists of ename followed by {num_sets_for_exercise} set arrays.",
+                "minItems": num_sets_for_exercise + 1,
+                "maxItems": num_sets_for_exercise + 1,
                 "prefixItems": [
                     {"type": "string", "const": ename}
                 ],
@@ -841,24 +847,7 @@ def generate_details_prompt_api():
         
         user, _, _ = get_user_config(user_config)
 
-        all_exercises_for_prompt = []
-        for day_exercises in initial_routine.get("days", []):
-            for bp, e_name in day_exercises:
-                exercise_details = name_to_exercise_map.get(e_name)
-                if exercise_details:
-                    tool = exercise_details.get('tool_en', 'Etc')
-                    all_exercises_for_prompt.append({"ename": e_name, "tool": tool})
-        
-        if not all_exercises_for_prompt:
-            return jsonify({"prompt": "No exercises found in the initial routine to generate a details prompt."})
-
-        prompt = detail_prompt_abstract.format(
-            gender="male" if user.gender == "M" else "female",
-            weight=int(round(user.weight)),
-            level=user.level,
-            intensity=user.intensity,
-            exercise_list_with_einfotype_json=json.dumps(all_exercises_for_prompt, ensure_ascii=False)
-        )
+        prompt = create_detail_prompt(user, initial_routine, name_to_exercise_map)
         
         return jsonify({"prompt": prompt})
 
@@ -954,28 +943,7 @@ def generate_details_api():
         user, _, _ = get_user_config(user_config) # Re-parse user for consistency
         model_used = data.get('model_used', 'openai') # Default to openai if not specified
 
-        # Consolidate all exercises for the entire week into a single list for the prompt
-        all_exercises_for_prompt = []
-        for day_exercises in initial_routine["days"]:
-            for bp, e_name in day_exercises:
-                exercise_details = name_to_exercise_map.get(e_name)
-                if exercise_details:
-                    all_exercises_for_prompt.append({
-                        "ename": e_name,
-                        "eInfoType": exercise_details.get('eInfoType'),
-                        "tool": exercise_details.get('tool_en', 'Etc')
-                    })
-        
-        if not all_exercises_for_prompt:
-            return jsonify({"days": []})
-
-        prompt = detail_prompt_abstract.format(
-            gender="male" if user.gender == "M" else "female",
-            weight=int(round(user.weight)),
-            level=user.level,
-            intensity=user.intensity,
-            exercise_list_with_einfotype_json=json.dumps(all_exercises_for_prompt, ensure_ascii=False)
-        )
+        prompt = create_detail_prompt(user, initial_routine, name_to_exercise_map)
         detail_week_schema = build_detail_week_schema(initial_routine, user.level)
         completer_args = {}
         if model_used == 'vllm':

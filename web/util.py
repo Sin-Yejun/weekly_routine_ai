@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from prompts import common_prompt, SPLIT_RULES, LEVEL_GUIDE
+from prompts import common_prompt, detail_prompt_abstract, SPLIT_RULES, LEVEL_GUIDE, LEVEL_SETS, LEVEL_PATTERN, LEVEL_WORKING_SETS, DUMBBELL_GUIDE
 import random
 import json
 import re
@@ -44,6 +44,19 @@ SPLIT_CONFIGS = {
         {"id": "FB", "name": "(Full Body)", "days": ["FULLBODY_A", "FULLBODY_B", "FULLBODY_C", "FULLBODY_D", "FULLBODY_E"], "rule_key": "FB_5"}
     ]
 }
+
+L = {
+    "M": {"BP":{"B":0.6,"N":1.0,"I":1.3,"A":1.6,"E":2.0},
+        "SQ":{"B":0.8,"N":1.2,"I":1.6,"A":2.0,"E":2.5},
+        "DL":{"B":1.0,"N":1.5,"I":2.0,"A":2.5,"E":3.0},
+        "OHP":{"B":0.4,"N":0.7,"I":0.9,"A":1.1,"E":1.4}},
+    
+    "F": {"BP":{"B":0.39,"N":0.65,"I":0.845,"A":1.04,"E":1.3},
+        "SQ":{"B":0.52,"N":0.78,"I":1.04,"A":1.3,"E":1.625},
+        "DL":{"B":0.65,"N":0.975,"I":1.3,"A":1.625,"E":1.95},
+        "OHP":{"B":0.26,"N":0.455,"I":0.585,"A":0.715,"E":0.91}}
+}
+ANCHOR_PCTS = [0.55, 0.60, 0.65, 0.70]
 @dataclass
 class User:
     gender: str
@@ -61,6 +74,93 @@ def parse_duration_bucket(bucket: str) -> int:
 
 def round_to_step(x: float, step: int = 5) -> int:
     return int(round(x / step) * step)
+
+def compute_tm(gender: str, bodyweight: float, level: str, step: int = 5) -> dict:
+    """TM = round( 0.9 * (bodyweight * L[gender][lift][level_code]) , step )"""
+    code = LEVEL_CODE.get(level)
+    if not code or gender not in L:  # 안전장치
+        return {"BP":0,"SQ":0,"DL":0,"OHP":0}
+    coeffs = L[gender]
+    tm = {}
+    for lift in ("BP","SQ","DL","OHP"):
+        raw = 0.9 * (bodyweight * coeffs[lift][code])
+        tm[lift] = round_to_step(raw, step)
+    return tm
+
+def build_load_row(tm_val: int, pcts=ANCHOR_PCTS, step: int = 5) -> str:
+    # "55%:xx, 60%:yy, 65%:zz, 70%:aa" 형태 문자열
+    parts = []
+    for p in pcts:
+        kg = round_to_step(tm_val * p, step)
+        parts.append(f"{int(p*100)}%:{kg}")
+    return ", ".join(parts)
+
+def _parse_reps_pattern(level: str) -> list[int]:
+    """
+    prompts.LEVEL_PATTERN[level]에서 숫자 배열만 뽑기.
+    예: "- Novice: [15,12,10,9,8]" -> [15,12,10,9,8]
+    """
+    pat = LEVEL_PATTERN.get(level, "")
+    nums = re.findall(r'\d+', pat)
+    return [int(n) for n in nums] if nums else [12, 10, 8, 8]
+
+def _parse_working_pct_bounds(level: str) -> tuple[float, float]:
+    """
+    prompts.LEVEL_WORKING_SETS[level]에서 퍼센트 범위를 추출해 (low, high) 반환.
+    - Beginner: "65–70% of TM" -> (0.65, 0.70)
+    - Novice: "70% of TM"      -> (0.70, 0.70)
+    """
+    text = LEVEL_WORKING_SETS.get(level, "")
+    m_range = re.search(r'(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)\s*%', text)
+    if m_range:
+        low, high = float(m_range.group(1))/100.0, float(m_range.group(2))/100.0
+        return (min(low, high), max(low, high))
+    m_single = re.search(r'(\d+(?:\.\d+)?)\s*%', text)
+    if m_single:
+        v = float(m_single.group(1))/100.0
+        return (v, v)
+    return (0.70, 0.70)
+
+def _linspace(a: float, b: float, n: int) -> list[float]:
+    if n <= 1: 
+        return [a]
+    step = (b - a) / (n - 1)
+    return [a + i*step for i in range(n)]
+
+def _round_by_tool(kg: float, tool: str) -> int:
+    """Dumbbell=2kg, 그 외=5kg 배수 반올림."""
+    step = 2 if (tool or '').lower() == 'dumbbell' else 5
+    return round_to_step(kg, step)
+
+def build_example_sets_by_level(tm_val: int, level: str, tool: str = 'Barbell') -> str:
+    """
+    Warm-up 2세트 + Working (레벨 범위 등분)
+    - 세트 수: LEVEL_PATTERN 기반 → 서버 스키마(4/5/6)와 자연 일치
+    - 1세트: 바벨이면 무조건 20kg(빈봉), 덤벨/머신이면 규칙적용
+    - 2세트: TM의 50%
+    - 3세트+: LEVEL_WORKING_SETS의 범위를 등분
+    """
+    reps = _parse_reps_pattern(level)
+    total_sets = max(4, len(reps))  # 안전장치
+    # Warm-up
+    warmup_pcts = [0.25, 0.50]  # ~25% (빈봉 대체), 50%
+    # Working
+    work_low, work_high = _parse_working_pct_bounds(level)
+    work_sets = max(0, total_sets - 2)
+    work_pcts = _linspace(work_low, work_high, work_sets) if work_sets > 0 else []
+
+    pcts = warmup_pcts + work_pcts
+    pcts = pcts[:total_sets]
+    reps = reps[:total_sets] + [reps[-1]]*(total_sets - len(reps)) if len(reps) < total_sets else reps[:total_sets]
+
+    out = []
+    for idx, (r, p) in enumerate(zip(reps, pcts), 1):
+        if idx == 1 and (tool or '').lower() == 'barbell':
+            kg = 20  # 빈봉 고정(서버 스키마도 바벨 최소 20kg과 일치)
+        else:
+            kg = _round_by_tool(tm_val * p, tool)
+        out.append(f"[{r},{kg},0]")
+    return ", ".join(out)
 
 def _filter_catalog(catalog: list, user: User, allowed_names: dict) -> list:
     """Filters the catalog based on user's tools and level."""
@@ -444,3 +544,55 @@ def format_new_routine(plan_json: dict, name_map: dict, enable_sorting: bool = F
         return f"{formatted_routine}\n\n--- Raw Model Output ---\n{raw_output_str}"
     
     return formatted_routine
+
+def create_detail_prompt(user: User, initial_routine: dict, name_to_exercise_map: dict) -> str:
+    """Generates the prompt for the detailed routine generation API."""
+    all_exercises_for_prompt = []
+    for day_exercises in initial_routine.get("days", []):
+        for bp, e_name in day_exercises:
+            exercise_details = name_to_exercise_map.get(e_name)
+            if exercise_details:
+                tool = exercise_details.get('tool_en', 'Etc')
+                all_exercises_for_prompt.append({"ename": e_name, "tool": tool})
+    
+    if not all_exercises_for_prompt:
+        return "No exercises found in the initial routine to generate a details prompt."
+
+    tm = compute_tm(user.gender, user.weight, user.level)
+    bp_loads = build_load_row(tm['BP'])
+    sq_loads = build_load_row(tm['SQ'])
+    dl_loads = build_load_row(tm['DL'])
+    ohp_loads = build_load_row(tm['OHP'])
+
+    # ★ 레벨/툴 반영 예시 세트 (Barbell & Dumbbell)
+    bp_example    = build_example_sets_by_level(tm['BP'], user.level, tool='Barbell')
+    sq_example    = build_example_sets_by_level(tm['SQ'], user.level, tool='Barbell')
+    dl_example    = build_example_sets_by_level(tm['DL'], user.level, tool='Barbell')
+    ohp_example   = build_example_sets_by_level(tm['OHP'], user.level, tool='Barbell')
+    bp_example_db = build_example_sets_by_level(tm['BP'], user.level, tool='Dumbbell')
+    sq_example_db = build_example_sets_by_level(tm['SQ'], user.level, tool='Dumbbell')
+
+    prompt = detail_prompt_abstract.format(
+        gender="male" if user.gender == "M" else "female",
+        weight=int(round(user.weight)),
+        level=user.level,
+        intensity=user.intensity,
+        exercise_list_with_einfotype_json=json.dumps(all_exercises_for_prompt, ensure_ascii=False),
+        TM_BP=tm['BP'],
+        TM_SQ=tm['SQ'],
+        TM_DL=tm['DL'],
+        TM_OHP=tm['OHP'],
+        BP_loads=bp_loads,
+        SQ_loads=sq_loads,
+        DL_loads=dl_loads,
+        OHP_loads=ohp_loads,
+        level_sets=LEVEL_SETS[user.level],
+        level_pattern=LEVEL_PATTERN[user.level],
+        level_working_sets=LEVEL_WORKING_SETS[user.level],
+        dumbbell_weight_guide=DUMBBELL_GUIDE[user.level],
+        BP_example=bp_example, SQ_example=sq_example,
+        DL_example=dl_example, OHP_example=ohp_example,
+        BP_example_db=bp_example_db, SQ_example_db=sq_example_db
+    )
+    
+    return prompt
