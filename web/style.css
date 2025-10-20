@@ -140,7 +140,7 @@ button:active:not(:disabled) {
 
 .side-by-side-outputs {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 2fr 1fr; /* vLLM wider */
     gap: 20px;
     margin-top: 20px;
 }
@@ -267,7 +267,57 @@ input:checked + .slider:before {
 }
 
 .checkbox-grid input[type="checkbox"] {
+
     width: 18px;
+
     height: 18px;
+
     cursor: pointer;
+
 }
+
+
+
+/* Readability Styles for Routine Output */
+
+pre .day-header {
+
+    color: #00aaff; /* Bright cyan for day headers */
+
+    font-weight: bold;
+
+}
+
+
+
+pre .exercise-bname {
+
+    color: #e0e0e0; /* Light gray for body part */
+
+}
+
+
+
+pre .exercise-kname {
+
+    color: #ffffff; /* White for exercise name */
+
+    font-weight: bold;
+
+}
+
+
+
+pre .exercise-sets {
+
+
+
+    color: #FFA500; /* Orange for sets/reps */
+
+
+
+}
+
+
+
+

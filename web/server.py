@@ -9,7 +9,7 @@ import openai
 from openai import OpenAI
 from json_repair import repair_json as json_repair_str
 from dotenv import load_dotenv
-from util import User, build_prompt, create_detail_prompt, format_new_routine, SPLIT_CONFIGS
+from util import User, build_prompt, SPLIT_CONFIGS, M_ratio_weight, F_ratio_weight
 
 # --- Flask App Initialization --
 app = Flask(__name__, static_folder='.', static_url_path='')
@@ -50,122 +50,6 @@ except (FileNotFoundError, json.JSONDecodeError) as e:
     app.logger.error(f"CRITICAL: Could not load exercise catalog at {EXERCISE_CATALOG_PATH}: {e}")
 
 # --- Global Variables & Helper Functions ---
-
-def build_detail_week_schema(initial_routine: dict, level: str) -> dict:
-    """
-    2단계(세부 루틴) 출력 구조를 강제하는 JSON 스키마를 생성합니다.
-    - days 길이는 1단계 루틴과 동일합니다.
-    - 각 day의 exercise 개수는 1단계 day의 개수와 동일합니다.
-    - 각 운동의 eInfoType에 따라 세트([reps, weight, time]) 스키마가 동적으로 변경됩니다.
-    - 세트 수는 사용자의 레벨에 따라 4~6개로 결정됩니다.
-    """
-    if level == 'Beginner':
-        num_sets = 4
-    elif level == 'Novice':
-        num_sets = 5
-    else:  # Intermediate, Advanced, Elite
-        num_sets = 6
-
-    def _build_set_schema(einfo_type, tool: str = ""):
-        # reps: 8~15 강제
-        reps_schema   = {"type": "integer", "description": "reps", "minimum": 8, "maximum": 15}
-
-        # 덤벨=2kg 배수, 그 외(머신/바벨/케이블 등)=5kg 배수
-        t = (tool or "").lower()
-        if t == "barbell":
-            weight_schema = {"type": "number", "description": "weight", "minimum": 20}
-        else:
-            weight_schema = {"type": "number", "description": "weight", "minimum": 0}
-
-        time_schema   = {"type": "integer", "description": "time"}
-
-        reps_zero_schema   = {"type": "integer", "const": 0, "description": "reps (must be 0)"}
-        weight_zero_schema = {"type": "number",  "const": 0, "description": "weight (must be 0)"}
-        time_zero_schema   = {"type": "integer", "const": 0, "description": "time (must be 0)"}
-
-        if einfo_type == 1:      # [0, 0, time]
-            time_schema = {"type": "integer", "description": "time", "minimum": 600, "maximum": 1800}
-            prefix_items = [reps_zero_schema, weight_zero_schema, time_schema]
-        elif einfo_type == 2:    # [reps, 0, 0]
-            prefix_items = [reps_schema, weight_zero_schema, time_zero_schema]
-        elif einfo_type == 5:    # [0, weight, time]
-            prefix_items = [reps_zero_schema, weight_schema, time_schema]
-        elif einfo_type == 6:    # [reps, weight, 0]
-            prefix_items = [reps_schema, weight_schema, time_zero_schema]
-        else:                    # 기본: [reps, weight, time]
-            prefix_items = [reps_schema, weight_schema, time_schema]
-
-        return {
-            "type": "array",
-            "minItems": 3,
-            "maxItems": 3,
-            "prefixItems": prefix_items,
-            "items": False
-        }
-
-    days = initial_routine.get("days", [])
-    day_schemas_prefix = []
-
-    for day in days:
-        allowed_enames = []
-        if isinstance(day, list):
-            for pair in day:
-                if isinstance(pair, list) and len(pair) == 2 and isinstance(pair[1], str):
-                    allowed_enames.append(pair[1])
-        
-        if not allowed_enames:
-            continue
-
-        one_of_exercise_schemas = []
-        for ename in allowed_enames:
-            # name_to_einfotype_map is a global dictionary available in the file
-            einfo_type = name_to_einfotype_map.get(ename)
-            exercise_info = name_to_exercise_map.get(ename, {})
-            tool = (exercise_info.get("tool_en") or "").lower()
-
-            # eInfoType 1 (cardio) is always 1 set, others depend on level
-            num_sets_for_exercise = 1 if einfo_type == 1 else num_sets
-
-            set_schema = _build_set_schema(einfo_type, tool)
-            
-            specific_exercise_schema = {
-                "type": "array",
-                "description": f"Schema for exercise '{ename}'. Consists of ename followed by {num_sets_for_exercise} set arrays.",
-                "minItems": num_sets_for_exercise + 1,
-                "maxItems": num_sets_for_exercise + 1,
-                "prefixItems": [
-                    {"type": "string", "const": ename}
-                ],
-                "items": set_schema
-            }
-            one_of_exercise_schemas.append(specific_exercise_schema)
-
-        day_schema = {
-            "type": "array",
-            "description": f"A single day's workout, containing {len(allowed_enames)} unique exercises. The order of exercises must be logical (e.g., compound then isolation).",
-            "minItems": len(allowed_enames),
-            "maxItems": len(allowed_enames),
-            "items": {
-                "oneOf": one_of_exercise_schemas
-            }
-        }
-        day_schemas_prefix.append(day_schema)
-
-    return {
-        "type": "object",
-        "required": ["days"],
-        "properties": {
-            "days": {
-                "type": "array",
-                "minItems": len(day_schemas_prefix),
-                "maxItems": len(day_schemas_prefix),
-                "prefixItems": day_schemas_prefix,
-                "items": False
-            }
-        },
-        "additionalProperties": False
-    }
-
 # ENABLE_LEG_MAIN_CONSTRAINT = True
 ENABLE_LEG_MAIN_CONSTRAINT = False
 
@@ -398,7 +282,6 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
     }
 
 
-
 def _allowed_pairs_for_day_by_name(freq, tag, allowed_names):
     try:
         names = list(dict.fromkeys(allowed_names[str(freq)][tag]))
@@ -527,7 +410,7 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
                         cand_bp = cand_ex_info.get('bName')
 
                         if (cand_bp == bp and # Strict: same body part
-                            cand_category and cand_category != '(Uncategorized)' and cand_category not in categories_used_today and
+                            cand_category not in categories_used_today and
                             (not prevent_weekly_duplicates or cand_name not in weekly_used_names) and
                             cand_name not in {p[1] for p in category_deduped_day} and
                             cand_name != name):
@@ -542,7 +425,7 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
                             cand_ex_info = name_to_exercise_map.get(cand_name, {})
                             cand_category = cand_ex_info.get('category')
 
-                            if (cand_category and cand_category != '(Uncategorized)' and cand_category not in categories_used_today and
+                            if (cand_category not in categories_used_today and
                                 (not prevent_weekly_duplicates or cand_name not in weekly_used_names) and
                                 cand_name not in {p[1] for p in category_deduped_day} and
                                 cand_name != name):
@@ -579,6 +462,13 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
 @app.route('/')
 def root():
     return send_from_directory('.', 'index.html')
+
+@app.route('/api/ratios', methods=['GET'])
+def get_ratios():
+    return jsonify({
+        "M_ratio_weight": M_ratio_weight,
+        "F_ratio_weight": F_ratio_weight
+    })
 
 @app.route('/api/exercises', methods=['GET'])
 def get_exercises():
@@ -751,19 +641,7 @@ def process_inference_request(data, client_creator):
         obj = json.loads(json_repair_str(raw))
         if "days" not in obj: return jsonify({"error": "Parsed object missing 'days'."}), 502
         
-        # --- Post-processing for unprocessed version (only weekly duplicates, no category prevention) ---
-        unprocessed_obj = post_validate_and_fix_week(
-            json.loads(json.dumps(obj)), # Deep copy to avoid modifying original
-            freq=user.freq, 
-            split_tags=split_tags, 
-            allowed_names=effective_allowed_names, 
-            level=user.level, 
-            duration=user.duration, 
-            prevent_weekly_duplicates=prevent_weekly_duplicates,
-            prevent_category_duplicates=False # Always False for unprocessed
-        )
-        summary_unprocessed_unsorted = format_new_routine(unprocessed_obj, name_to_korean_map, enable_sorting=False, show_b_name=True)
-        summary_unprocessed_sorted = format_new_routine(unprocessed_obj, name_to_korean_map, enable_sorting=True, show_b_name=True)
+        prevent_category_duplicates = data.get('prevent_category_duplicates', True)
 
         # --- Post-processing for processed version (with category prevention) ---
         processed_obj = post_validate_and_fix_week(
@@ -774,25 +652,34 @@ def process_inference_request(data, client_creator):
             level=user.level, 
             duration=user.duration, 
             prevent_weekly_duplicates=prevent_weekly_duplicates,
-            prevent_category_duplicates=True # Always True for processed
+            prevent_category_duplicates=prevent_category_duplicates # Pass the toggle state
         )
-        summary_processed_unsorted = format_new_routine(processed_obj, name_to_korean_map, enable_sorting=False, show_b_name=True)
-        summary_processed_sorted = format_new_routine(processed_obj, name_to_korean_map, enable_sorting=True, show_b_name=True)
+
+        # Enrich the response with full exercise details
+        enriched_days = []
+        for day_exercises in processed_obj.get("days", []):
+            enriched_day = []
+            for bName, eName in day_exercises:
+                exercise_details = name_to_exercise_map.get(eName, {})
+                enriched_day.append({
+                    "eName": eName,
+                    "bName": bName,
+                    "kName": exercise_details.get("kName", eName),
+                    "MG_num": exercise_details.get("MG_num", 0),
+                    "musle_point_sum": exercise_details.get("musle_point_sum", 0),
+                    "main_ex": exercise_details.get("main_ex", False),
+                    "eInfoType": name_to_einfotype_map.get(eName),
+                    "tool_en": exercise_details.get("tool_en", "Etc")
+                })
+            enriched_days.append(enriched_day)
+
+        final_response = {"days": enriched_days}
         
-        formatted_summary = {
-            "unprocessed": {
-                "unsorted": summary_unprocessed_unsorted,
-                "sorted": summary_unprocessed_sorted,
-                "initial_routine": unprocessed_obj # Return the object for detail generation
-            },
-            "processed": {
-                "unsorted": summary_processed_unsorted,
-                "sorted": summary_processed_sorted,
-                "initial_routine": processed_obj # Return the object for detail generation
-            }
-        }
-        
-        return jsonify({"response": raw, "result": processed_obj, "formatted_summary": formatted_summary})
+        return jsonify({
+            "routine": final_response,
+            "raw_routine": obj,
+            "prompt": prompt
+        })
     except Exception as e:
         app.logger.error(f"Error in process_inference_request: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
@@ -835,170 +722,6 @@ def infer_openai_api():
             )
         return client, OPENAI_MODEL, completer
     return process_inference_request(request.get_json(), openai_client_creator)
-
-@app.route('/api/generate-details-prompt', methods=['POST'])
-def generate_details_prompt_api():
-    data = request.get_json()
-    if not data: return jsonify({"error": "Missing request body"}), 400
-
-    try:
-        user_config = data.get('user_config', {})
-        initial_routine = data.get('initial_routine', {"days": []})
-        
-        user, _, _ = get_user_config(user_config)
-
-        prompt = create_detail_prompt(user, initial_routine, name_to_exercise_map)
-        
-        return jsonify({"prompt": prompt})
-
-    except Exception as e:
-        app.logger.error(f"Error in generate_details_prompt_api: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
-
-
-def _post_process_detailed_day(detailed_day: list) -> list:
-    if not isinstance(detailed_day, list):
-        app.logger.warning(f"_post_process_detailed_day received non-list input: {detailed_day}. Returning empty list.")
-        return []
-
-    cleaned_day = []
-    # 이제 detailed_day는 [ [ename, [set]], [ename, [set]], ... ] 형태의 리스트입니다.
-    for exercise_array in detailed_day:
-        # exercise_array는 [ename, [reps, weight, time], ...] 형태
-        if not isinstance(exercise_array, list) or len(exercise_array) < 2:
-            app.logger.warning(f"Skipping invalid exercise array item: {exercise_array}")
-            continue
-
-        ename = exercise_array[0]
-        set_arrays = exercise_array[1:]
-
-        e_info_type = name_to_einfotype_map.get(ename)
-        if e_info_type is None:
-            app.logger.warning(f"eInfoType not found for {ename}, skipping.")
-            continue
-
-        cleaned_set_details = []
-        for set_item_arr in set_arrays:
-            if not isinstance(set_item_arr, list) or len(set_item_arr) != 3:
-                app.logger.warning(f"Skipping invalid set array for {ename}: {set_item_arr}")
-                continue
-            
-            # 배열에서 순서대로 reps, weight, time 추출
-            reps, weight, time = set_item_arr
-
-            cleaned_set = {"reps": 0, "weight": 0, "time": 0}
-
-            if e_info_type == 1: # Time-based
-                cleaned_set["time"] = time
-            elif e_info_type == 2: # Rep-based
-                cleaned_set["reps"] = reps
-            elif e_info_type == 5: # Weight + Time-based
-                cleaned_set["weight"] = weight
-                cleaned_set["time"] = time
-            elif e_info_type == 6: # Weight + Rep-based
-                cleaned_set["weight"] = weight
-                cleaned_set["reps"] = reps
-            
-            # reps가 정수가 아닐 경우를 대비한 방어 코드
-            if not isinstance(cleaned_set["reps"], int):
-                try:
-                    cleaned_set["reps"] = int(float(str(cleaned_set["reps"]).split('-')[0].strip()))
-                except (ValueError, TypeError):
-                    cleaned_set["reps"] = 0
-            
-            cleaned_set_details.append(cleaned_set)
-        
-        # 최종적으로는 원래 사용하던 안정적인 객체 형태로 변환
-        cleaned_exercise = {
-            "ename": ename,
-            "set_details": cleaned_set_details
-        }
-        cleaned_day.append(cleaned_exercise)
-        
-    return cleaned_day
-
-def _detailed_completer(prompt, max_tokens, temperature, client, model_name, extra_body: dict = None, response_format: dict = None):
-    args = {
-        "model": model_name,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-    if extra_body:
-        args["extra_body"] = extra_body
-    if response_format:
-        args["response_format"] = response_format
-        
-    return client.chat.completions.create(**args)
-
-@app.route('/api/generate-details', methods=['POST'])
-def generate_details_api():
-    data = request.get_json()
-    if not data: return jsonify({"error": "Missing request body"}), 400
-
-    try:
-        user_config = data.get('user_config', {})
-        initial_routine = data.get('initial_routine', {"days": []})
-        
-        user, _, _ = get_user_config(user_config) # Re-parse user for consistency
-        model_used = data.get('model_used', 'openai') # Default to openai if not specified
-
-        prompt = create_detail_prompt(user, initial_routine, name_to_exercise_map)
-        detail_week_schema = build_detail_week_schema(initial_routine, user.level)
-        completer_args = {}
-        if model_used == 'vllm':
-            client = OpenAI(base_url=VLLM_BASE_URL, api_key="token-1234")
-            model_name = VLLM_MODEL
-            # ✅ vLLM: guided_json은 extra_body로
-            resp = _detailed_completer(
-                prompt,
-                max_tokens=4096,
-                temperature=1.0,
-                client=client,
-                model_name=model_name,
-                extra_body={
-                    "guided_json": detail_week_schema,
-                    "repetition_penalty": 1.2,
-                    "top_p": 0.9,
-                    # "top_k": 50
-                },
-            )
-        else: # Default to openai
-            if not OPENAI_API_KEY:
-                return jsonify({"error": "OPENAI_API_KEY not set for OpenAI details generation."}), 500
-            client = OpenAI(api_key=OPENAI_API_KEY)
-            model_name = OPENAI_MODEL
-            # ✅ OpenAI: response_format은 top-level로, extra_body 비움
-            resp = _detailed_completer(
-                prompt,
-                max_tokens=4096,
-                temperature=1.0,
-                client=client,
-                model_name=model_name,
-                extra_body=None,
-                response_format={"type": "json_object"}  # 여기!!
-            )
-        raw_llm_output = getattr(resp.choices[0].message, "content", None) or "[]"
-        
-        app.logger.info(f"Raw LLM Output for entire week: {raw_llm_output}")
-
-        # Repair and parse LLM output
-        llm_parsed_week = json.loads(json_repair_str(raw_llm_output))
-        
-        app.logger.info(f"Parsed LLM Output for entire week: {llm_parsed_week}")
-
-        # Format the detailed routine into a human-readable string
-        formatted_string = format_new_routine(llm_parsed_week, name_to_korean_map, enable_sorting=True, show_b_name=False)
-
-        # Return both the raw JSON and the formatted string
-        return jsonify({
-            "raw_json": llm_parsed_week,
-            "formatted_string": formatted_string
-        })
-
-    except Exception as e:
-        app.logger.error(f"Error in generate_details_api: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
 
 @app.route('/debug/routes')
 def list_routes():

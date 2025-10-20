@@ -22,11 +22,15 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="weight">Weight (kg)</label>
-                        <input type="number" id="weight" name="weight" value="75" required>
+                        <label for="weight">Weight (kg):</label>
+                        <input type="number" id="weight" value="75">
                     </div>
                     <div class="form-group">
-                        <label for="level">Training Level</label>
+                        <label for="back-squat-1rm">Back Squat 1RM (kg):</label>
+                        <input type="number" id="back-squat-1rm" value="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="level">Level:</label>
                         <select id="level" name="level">
                             <option value="Beginner">Beginner</option>
                             <option value="Novice">Novice</option>
@@ -82,10 +86,8 @@
                 </div>
                 <div class="form-actions">
                     <div class="button-group" style="display: flex; gap: 10px; margin-bottom: 10px;">
-                        <button type="button" id="generate-prompt-btn">Generate Prompt</button>
                         <button type="button" id="generate-vllm-btn">Generate with vLLM</button>
                         <button type="button" id="generate-openai-btn">Generate with OpenAI</button>
-                        <button type="button" id="generate-details-btn" class="hidden">Generate Details</button>
                     </div>
                     <div id="loading-indicator" class="hidden">Generating...</div>
                 </div>
@@ -109,24 +111,19 @@
             </form>
         </div>
 
+
         <div class="output-container">
-            <div class="side-by-side-outputs">
-                <div class="output-section">
-                    <h2>Generated Prompt</h2>
-                    <textarea id="prompt-output">The prompt sent to the model will appear here.</textarea>
-                </div>
-                <div class="output-section hidden" id="details-prompt-container">
-                    <h2>Details Prompt</h2>
-                    <textarea id="details-prompt-output">The prompt for the details generation will appear here.</textarea>
-                </div>
+            <div class="output-section">
+                <h2>Generated Prompt</h2>
+                <textarea id="prompt-display" readonly>The prompt used for generation will appear here.</textarea>
             </div>
             <div class="side-by-side-outputs">
                 <div class="output-section">
-                    <h2>Step1 운동종목</h2>
+                    <h2>vLLM API 결과</h2>
                     <pre id="raw-output">답변이 여기에 표시됩니다.</pre>
                 </div>
                 <div class="output-section">
-                    <h2>Step2 운동 전체구성</h2>
+                    <h2>OpenAI API 결과</h2>
                     <pre id="formatted-output">답변이 여기에 표시됩니다.</pre>
                 </div>
             </div>

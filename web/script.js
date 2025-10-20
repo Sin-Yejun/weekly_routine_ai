@@ -1,31 +1,35 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const form = document.getElementById('routine-form');
-    const levelSelect = document.getElementById('level');
     const freqSelect = document.getElementById('freq');
     const splitTypeSelect = document.getElementById('split-type');
-    const toolCheckboxes = document.querySelectorAll('#tools-filter input[name="tools"]');
+    const sortToggle = document.getElementById('sort-toggle');
+
+    let M_ratio_weight = {};
+    let F_ratio_weight = {};
+
+    try {
+        const response = await fetch('/api/ratios');
+        const ratios = await response.json();
+        M_ratio_weight = ratios.M_ratio_weight;
+        F_ratio_weight = ratios.F_ratio_weight;
+    } catch (error) {
+        console.error('Error fetching weight ratios:', error);
+        alert('Could not load necessary data. Please reload the page.');
+    }
 
     const splitConfigs = {
-        '2': [
-            { id: 'SPLIT', name: '분할 (Upper/Lower)' },
-            { id: 'FB', name: '무분할 (Full Body)' }
-        ],
-        '3': [
-            { id: 'SPLIT', name: '분할 (Push/Pull/Legs)' },
-            { id: 'FB', name: '무분할 (Full Body)' }
-        ],
-        '4': [
-            { id: 'SPLIT', name: '분할 (4-Day Split)' },
-            { id: 'FB', name: '무분할 (Full Body)' }
-        ],
-        '5': [
-            { id: 'SPLIT', name: '분할 (5-Day Split)' },
-            { id: 'FB', name: '무분할 (Full Body)' }
-        ]
+        '2': [{ id: 'SPLIT', name: '분할 (Upper/Lower)' }, { id: 'FB', name: '무분할 (Full Body)' }],
+        '3': [{ id: 'SPLIT', name: '분할 (Push/Pull/Legs)' }, { id: 'FB', name: '무분할 (Full Body)' }],
+        '4': [{ id: 'SPLIT', name: '분할 (4-Day Split)' }, { id: 'FB', name: '무분할 (Full Body)' }],
+        '5': [{ id: 'SPLIT', name: '분할 (5-Day Split)' }, { id: 'FB', name: '무분할 (Full Body)' }]
     };
 
+    let currentRoutineData = null;
+    let currentRawRoutineData = null;
+    let currentOutputElement = null;
+
     const updateSplitOptions = (frequency) => {
-        splitTypeSelect.innerHTML = ''; // Clear existing options
+        splitTypeSelect.innerHTML = '';
         const options = splitConfigs[frequency] || [];
         options.forEach(option => {
             const optionEl = document.createElement('option');
@@ -35,227 +39,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    const updateToolSelection = (level) => {
-        toolCheckboxes.forEach(checkbox => {
-            checkbox.checked = true;
-        });
-    };
-
-    // Add event listener for frequency changes
     if (freqSelect) {
-        freqSelect.addEventListener('change', (event) => {
-            updateSplitOptions(event.target.value);
-        });
-    }
-
-    // Add event listener for level changes
-    if (levelSelect) {
-        levelSelect.addEventListener('change', (event) => {
-            updateToolSelection(event.target.value);
-        });
-    }
-
-    // Set initial state on page load
-    if (levelSelect) {
-        updateToolSelection(levelSelect.value);
-    }
-    if (freqSelect) {
+        freqSelect.addEventListener('change', (event) => updateSplitOptions(event.target.value));
         updateSplitOptions(freqSelect.value);
     }
 
-    const generatePromptBtn = document.getElementById('generate-prompt-btn');
     const generateVllmBtn = document.getElementById('generate-vllm-btn');
     const generateOpenAiBtn = document.getElementById('generate-openai-btn');
-    const generateDetailsBtn = document.getElementById('generate-details-btn');
     const loadingIndicator = document.getElementById('loading-indicator');
-    const sortToggle = document.getElementById('sort-toggle');
-    const preventCategoryDuplicatesToggle = document.getElementById('prevent-category-duplicates-toggle');
-    const preventDuplicatesToggle = document.getElementById('prevent-duplicates-toggle'); // Existing toggle
-
-    const promptOutputEl = document.getElementById('prompt-output');
     const rawOutputEl = document.getElementById('raw-output');
     const formattedOutputEl = document.getElementById('formatted-output');
-    const detailsPromptContainer = document.getElementById('details-prompt-container');
-    const detailsPromptOutputEl = document.getElementById('details-prompt-output');
-
-    // Store for both outputs
-    let vllmRoutines = { 
-        unprocessed: { unsorted: '', sorted: '', initial_routine: null }, 
-        processed: { unsorted: '', sorted: '', initial_routine: null },
-        model_used: '' 
-    };
-    let openAiRoutines = { 
-        unprocessed: { unsorted: '', sorted: '', initial_routine: null }, 
-        processed: { unsorted: '', sorted: '', initial_routine: null },
-        model_used: '' 
-    };
-    let currentInitialRoutine = { routine: null, model: '' }; // To store the routine and model for detail generation
 
     const showLoading = (isLoading) => {
         loadingIndicator.classList.toggle('hidden', !isLoading);
-        generatePromptBtn.disabled = isLoading;
         generateVllmBtn.disabled = isLoading;
         generateOpenAiBtn.disabled = isLoading;
-        if (generateDetailsBtn) {
-            generateDetailsBtn.disabled = isLoading;
-        }
     };
 
-    const updateOutput = (element, routines) => {
-        const isSorted = sortToggle.checked;
-        const useProcessed = preventCategoryDuplicatesToggle.checked;
-
-        let content;
-        let initialRoutine;
-
-        if (useProcessed) {
-            content = isSorted ? routines.processed.sorted : routines.processed.unsorted;
-            initialRoutine = routines.processed.initial_routine;
-        } else {
-            content = isSorted ? routines.unprocessed.sorted : routines.unprocessed.unsorted;
-            initialRoutine = routines.unprocessed.initial_routine;
-        }
-        
-        element.textContent = content || 'No content available.';
-
-        // Update currentInitialRoutine based on the displayed content
-        if (element === rawOutputEl) { // Only update for vLLM output, as it's the primary source for details
-            currentInitialRoutine = { routine: initialRoutine, model: routines.model_used };
-            if (generateDetailsBtn) {
-                if (currentInitialRoutine.routine) {
-                    generateDetailsBtn.classList.remove('hidden');
-                    if (detailsPromptContainer) {
-                        detailsPromptContainer.classList.remove('hidden');
-                    }
-                } else {
-                    generateDetailsBtn.classList.add('hidden');
-                    if (detailsPromptContainer) {
-                        detailsPromptContainer.classList.add('hidden');
-                    }
-                }
-            }
-        }
-    };
-
-    sortToggle.addEventListener('change', () => {
-        updateOutput(rawOutputEl, vllmRoutines);
-        updateOutput(formattedOutputEl, openAiRoutines);
-    });
-
-    preventCategoryDuplicatesToggle.addEventListener('change', () => {
-        updateOutput(rawOutputEl, vllmRoutines);
-        updateOutput(formattedOutputEl, openAiRoutines);
-    });
-
-    // 1. Generate Prompt Button
-    if (generatePromptBtn) {
-        generatePromptBtn.addEventListener('click', async () => {
-            showLoading(true);
-            promptOutputEl.value = 'Generating prompt...';
-            rawOutputEl.textContent = 'vllm의 답변이 여기에 표시됩니다.';
-            formattedOutputEl.textContent = 'OpenAI 답변이 여기에 표시됩니다.';
-            
-            vllmRoutines = { 
-                unprocessed: { unsorted: '', sorted: '', initial_routine: null }, 
-                processed: { unsorted: '', sorted: '', initial_routine: null },
-                model_used: '' 
-            };
-            openAiRoutines = { 
-                unprocessed: { unsorted: '', sorted: '', initial_routine: null }, 
-                processed: { unsorted: '', sorted: '', initial_routine: null },
-                model_used: '' 
-            };
-            currentInitialRoutine = { routine: null, model: '' };
-
-            if (generateDetailsBtn) {
-                generateDetailsBtn.classList.add('hidden');
-            }
-            if (detailsPromptContainer) {
-                detailsPromptContainer.classList.add('hidden');
-                detailsPromptOutputEl.value = 'The prompt for the details generation will appear here.';
-            }
-            
-
-            const formData = new FormData(form);
-            const data = {};
-            formData.forEach((value, key) => {
-                if (key === 'tools') {
-                    if (!data[key]) {
-                        data[key] = [];
-                    }
-                    data[key].push(value);
-                } else {
-                    data[key] = value;
-                }
-            });
-
-            // The duplicate prevention logic is now handled on the backend for display toggling.
-            // No need to send prevent_weekly_duplicates for prompt generation.
-
-            try {
-                const response = await fetch('/api/generate-prompt', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data),
-                });
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-                }
-                const result = await response.json();
-                promptOutputEl.value = result.prompt || 'Failed to generate prompt.';
-            } catch (error) {
-                console.error('Error generating prompt:', error);
-                promptOutputEl.value = `An error occurred while generating the prompt: ${error.message}`;
-            } finally {
-                showLoading(false);
-            }
-        });
-    }
-
-    // 2. Generic Inference Handler
-    const handleInference = async (apiEndpoint, outputElement, routineStorage) => {
+    const handleInference = async (apiEndpoint, outputElement) => {
         showLoading(true);
         outputElement.textContent = 'Generating...';
-        if (generateDetailsBtn) {
-            generateDetailsBtn.classList.add('hidden');
-        }
-        if (detailsPromptContainer) {
-            detailsPromptContainer.classList.add('hidden');
-        }
-        currentInitialRoutine = { routine: null, model: '' };
+        currentOutputElement = outputElement; // Store which output is being used
 
         const formData = new FormData(form);
         const userConfig = {};
         formData.forEach((value, key) => {
             if (key === 'tools') {
-                if (!userConfig[key]) {
-                    userConfig[key] = [];
-                }
+                if (!userConfig[key]) userConfig[key] = [];
                 userConfig[key].push(value);
             } else {
                 userConfig[key] = value;
             }
         });
 
-        // Send the state of the new toggle to the backend
-        userConfig.prevent_weekly_duplicates = preventDuplicatesToggle.checked;
-        userConfig.prevent_category_duplicates = preventCategoryDuplicatesToggle.checked;
-        
-        const prompt = promptOutputEl.value;
-        if (!prompt || prompt.startsWith('The prompt sent')) {
-            outputElement.textContent = 'Please generate a prompt first.';
-            showLoading(false);
-            return;
-        }
-
-        const payload = { ...userConfig, prompt };
+        userConfig.prevent_weekly_duplicates = document.getElementById('prevent-duplicates-toggle').checked;
+        userConfig.prevent_category_duplicates = document.getElementById('prevent-category-duplicates-toggle').checked;
 
         try {
             const response = await fetch(apiEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                body: JSON.stringify(userConfig),
             });
 
             if (!response.ok) {
@@ -264,146 +88,171 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const result = await response.json();
-            console.log('Backend response result:', result);
-            
-            // Store both unprocessed and processed routines
-            if (result.formatted_summary && typeof result.formatted_summary === 'object') {
-                // Unprocessed
-                routineStorage.unprocessed.unsorted = "--- Formatted Output (Unprocessed) ---\n" + result.formatted_summary.unprocessed.unsorted;
-                routineStorage.unprocessed.sorted = "--- Formatted Output (Unprocessed, Sorted) ---\n" + result.formatted_summary.unprocessed.sorted;
-                routineStorage.unprocessed.initial_routine = result.formatted_summary.unprocessed.initial_routine;
-
-                // Processed
-                routineStorage.processed.unsorted = "--- Formatted Output (Processed) ---\n" + result.formatted_summary.processed.unsorted;
-                routineStorage.processed.sorted = "--- Formatted Output (Processed, Sorted) ---\n" + result.formatted_summary.processed.sorted;
-                routineStorage.processed.initial_routine = result.formatted_summary.processed.initial_routine;
-                
-                if (result.response) {
-                    const rawSuffix = "\n\n--- Raw Model Output ---\n" + result.response;
-                    routineStorage.unprocessed.unsorted += rawSuffix;
-                    routineStorage.unprocessed.sorted += rawSuffix;
-                    routineStorage.processed.unsorted += rawSuffix;
-                    routineStorage.processed.sorted += rawSuffix;
-                }
-            } else {
-                const fallbackContent = result.response ? "--- Raw Model Output ---\n" + result.response : 'No valid response returned.';
-                routineStorage.unprocessed.unsorted = fallbackContent;
-                routineStorage.unprocessed.sorted = fallbackContent;
-                routineStorage.processed.unsorted = fallbackContent;
-                routineStorage.processed.sorted = fallbackContent;
-            }
-
-            routineStorage.model_used = apiEndpoint.includes('infer') ? 'vllm' : 'openai';
-            
-            // Update currentInitialRoutine based on the processed version for detail generation
-            currentInitialRoutine = { routine: routineStorage.processed.initial_routine, model: routineStorage.model_used }; 
-
-            if (currentInitialRoutine.routine) {
-                if (generateDetailsBtn) {
-                    generateDetailsBtn.classList.remove('hidden');
-                }
-                if (detailsPromptContainer) {
-                    detailsPromptContainer.classList.remove('hidden');
-                }
-
-                // Automatically fetch and display details prompt
-                detailsPromptOutputEl.value = 'Generating details prompt...';
-                try {
-                    const promptResponse = await fetch('/api/generate-details-prompt', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            user_config: userConfig,
-                            initial_routine: currentInitialRoutine.routine
-                        }),
-                    });
-                    if (!promptResponse.ok) {
-                        const errorData = await promptResponse.json();
-                        throw new Error(errorData.error || 'Failed to fetch details prompt');
-                    }
-                    const promptResult = await promptResponse.json();
-                    detailsPromptOutputEl.value = promptResult.prompt || 'Failed to generate details prompt.';
-                } catch (error) {
-                    console.error('Error auto-generating details prompt:', error);
-                    detailsPromptOutputEl.value = `An error occurred: ${error.message}`;
-                }
-            }
-            
-            updateOutput(outputElement, routineStorage);
+            document.getElementById('prompt-display').value = result.prompt || 'No prompt was returned.';
+            currentRoutineData = result.routine;
+            currentRawRoutineData = result.raw_routine;
+            renderRoutine(); // Initial render
 
         } catch (error) {
             console.error(`Error generating routine via ${apiEndpoint}:`, error);
             outputElement.textContent = `An error occurred: ${error.message}`;
+            currentRoutineData = null;
+            currentRawRoutineData = null;
         } finally {
             showLoading(false);
         }
     };
 
+    const getSortKey = (exercise) => {
+        const bnamePriorityMap = {
+            'CHEST': 1, 'BACK': 1, 'LEG': 1, 'SHOULDER': 2, 'ARM': 3, 'ABS': 4, 'ETC': 5
+        };
+        const bName = (exercise.bName || 'ETC').toUpperCase();
+        const priority = bnamePriorityMap[bName] || 99;
+        const isMain = exercise.main_ex ? 0 : 1; // Main exercises first
+        const mgNum = -parseInt(exercise.MG_num || 0);
+        const musclePointSum = -parseInt(exercise.musle_point_sum || 0);
+        return [priority, isMain, mgNum, musclePointSum];
+    };
+
+    const renderRoutine = () => {
+        if (!currentRoutineData || !currentOutputElement) return;
+
+        const isSorted = sortToggle.checked;
+        let routineToRender = JSON.parse(JSON.stringify(currentRoutineData)); // Deep copy
+
+        if (isSorted) {
+            routineToRender.days.forEach(day => {
+                day.sort((a, b) => {
+                    const keyA = getSortKey(a);
+                    const keyB = getSortKey(b);
+                    for (let i = 0; i < keyA.length; i++) {
+                        if (keyA[i] < keyB[i]) return -1;
+                        if (keyA[i] > keyB[i]) return 1;
+                    }
+                    return 0;
+                });
+            });
+        }
+
+        const backSquat1RM = parseFloat(document.getElementById('back-squat-1rm').value);
+        const gender = document.getElementById('gender').value;
+        const level = document.getElementById('level').value;
+
+        calculateAndRenderText(routineToRender, backSquat1RM, gender, level, currentOutputElement, currentRawRoutineData);
+    };
+
+    const calculateAndRenderText = (routineData, backSquat1RM, gender, level, outputElement, rawRoutineData) => {
+        const levelSets = {
+            "Beginner": [15, 12, 10, 8],
+            "Novice": [15, 12, 10, 9, 8],
+            "Intermediate": [15, 12, 10, 10, 8, 8],
+            "Advanced": [15, 12, 10, 10, 8, 8],
+            "Elite": [15, 12, 10, 10, 8, 8]
+        };
+
+        const ratios = (gender === 'M') ? M_ratio_weight : F_ratio_weight;
+        let htmlOutput = '';
+
+        if (!routineData.days || routineData.days.length === 0) {
+            outputElement.innerHTML = 'No routine generated.';
+            return;
+        }
+
+        const getCharWidth = (char) => (char.match(/[\uac00-\ud7a3]/) ? 2 : 1);
+        const getStringWidth = (str) => [...str].reduce((acc, char) => acc + getCharWidth(char), 0);
+
+        routineData.days.forEach((day, dayIndex) => {
+            htmlOutput += `<span class="day-header">## Day ${dayIndex + 1} (운동 수: ${day.length})</span>\n`;
+            
+            const dayWithDisplayNames = day.map(ex => ({
+                ...ex,
+                displayBName: ex.main_ex ? `${ex.bName} (main)` : ex.bName
+            }));
+
+            const maxBNameWidth = Math.max(...dayWithDisplayNames.map(ex => getStringWidth(ex.displayBName)));
+
+            dayWithDisplayNames.forEach(exercise => {
+                const { eName, displayBName, kName, eInfoType, tool_en } = exercise;
+                const bNamePadding = ' '.repeat(maxBNameWidth - getStringWidth(displayBName) + 2);
+
+                const exerciseRatio = ratios[eName];
+                let oneRmDisplay = '';
+                let estimated1RM = 0;
+
+                if (exerciseRatio) {
+                    estimated1RM = backSquat1RM * exerciseRatio;
+                    oneRmDisplay = ` (1RM - ${Math.round(estimated1RM)}) ${exerciseRatio.toFixed(4)}`;
+                }
+
+                htmlOutput += `<span class="exercise-bname">${displayBName}</span>${bNamePadding}<span class="exercise-kname">${kName}</span>${oneRmDisplay}\n`;
+
+                const repsArray = levelSets[level] || levelSets['Intermediate'];
+                
+                                if (eInfoType === 2) {
+                
+                                    if (exerciseRatio) {
+                
+                                        const customReps = Math.round(estimated1RM);
+                
+                                        const numSets = repsArray.length;
+                
+                                        const setStrings = Array(numSets).fill(`${customReps}회`);
+                
+                                        htmlOutput += `<span class="exercise-sets">${setStrings.join(' / ')}</span>\n\n`;
+                
+                                    } else {
+                
+                                        htmlOutput += '<span class="exercise-sets">Calculation not available.</span>\n\n';
+                
+                                    }
+                
+                                } else {
+                    if (exerciseRatio) {
+                        const setStrings = repsArray.map((reps, index) => {
+                            let weight;
+                            if (index === 0) { // Set 1
+                                weight = estimated1RM * 0.4;
+                            } else if (index === 1) { // Set 2
+                                weight = estimated1RM * 0.6;
+                            } else { // Working sets
+                                weight = estimated1RM / (1 + reps / 30);
+                            }
+
+                            let roundedWeight;
+                            const tool = (tool_en || 'etc').toLowerCase();
+                            if (tool === 'dumbbell') {
+                                roundedWeight = Math.round(weight / 2) * 2;
+                            } else if (tool === 'barbell' || tool === 'machine') {
+                                roundedWeight = Math.round(weight / 5) * 5;
+                            } else {
+                                roundedWeight = Math.round(weight / 2.5) * 2.5;
+                            }
+                            return `${roundedWeight}kg ${reps}회`;
+                        });
+                        htmlOutput += `<span class="exercise-sets">${setStrings.join(' / ')}</span>\n\n`;
+                    } else {
+                        htmlOutput += '<span class="exercise-sets">Weight calculation not available.</span>\n\n';
+                    }
+                }
+            });
+        });
+
+        if (rawRoutineData) {
+            htmlOutput += `\n\n<span class="day-header">--- Raw Model Output ---</span>\n`;
+            htmlOutput += JSON.stringify(rawRoutineData, null, 2);
+        }
+
+        outputElement.innerHTML = htmlOutput;
+    };
+
+    sortToggle.addEventListener('change', renderRoutine);
+
     if (generateVllmBtn) {
-        generateVllmBtn.addEventListener('click', () => handleInference('/api/infer', rawOutputEl, vllmRoutines));
+        generateVllmBtn.addEventListener('click', () => handleInference('/api/infer', rawOutputEl));
     }
 
     if (generateOpenAiBtn) {
-        generateOpenAiBtn.addEventListener('click', () => handleInference('/api/generate-openai', formattedOutputEl, openAiRoutines));
-    }
-
-    // 3. Generate Details Button
-    if (generateDetailsBtn) {
-        generateDetailsBtn.addEventListener('click', async () => {
-            if (!currentInitialRoutine.routine) {
-                alert('Please generate an initial routine first.');
-                return;
-            }
-
-            showLoading(true);
-            formattedOutputEl.textContent = 'Generating detailed routine...';
-
-            const formData = new FormData(form);
-            const userConfig = {};
-            formData.forEach((value, key) => {
-                if (key === 'tools') {
-                    if (!userConfig[key]) {
-                        userConfig[key] = [];
-                    }
-                    userConfig[key].push(value);
-                } else {
-                    userConfig[key] = value;
-                }
-            });
-
-            try {
-                const response = await fetch('/api/generate-details', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', },
-                    body: JSON.stringify({
-                        user_config: userConfig,
-                        initial_routine: currentInitialRoutine.routine,
-                        model_used: currentInitialRoutine.model
-                    }),
-                });
-
-                if (!response.ok) {
-                    // Try to parse error as JSON, but fall back to text
-                    const forJson = response.clone();
-                    let errorMsg = `HTTP error! status: ${response.status}`;
-                    try {
-                        const errorData = await response.json();
-                        errorMsg = errorData.error || errorMsg;
-                    } catch (e) {
-                        errorMsg = await response.text();
-                    }
-                    throw new Error(errorMsg);
-                }
-
-                const { formatted_string, raw_json } = await response.json();
-                formattedOutputEl.textContent = formatted_string;  // ✅ 한글 그대로 보임
-
-            } catch (error) {
-                console.error('Error generating detailed routine:', error);
-                formattedOutputEl.textContent = `An error occurred: ${error.message}`;
-            } finally {
-                showLoading(false);
-            }
-        });
+        generateOpenAiBtn.addEventListener('click', () => handleInference('/api/generate-openai', formattedOutputEl));
     }
 });
