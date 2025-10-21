@@ -53,7 +53,7 @@ except (FileNotFoundError, json.JSONDecodeError) as e:
 # ENABLE_LEG_MAIN_CONSTRAINT = True
 ENABLE_LEG_MAIN_CONSTRAINT = False
 
-BODY_PART_ENUM = ["Abs","Arm","Back","Cardio","Chest","Leg","Lifting","Shoulder","etc"]
+
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
 VLLM_MODEL    = "google/gemma-3-4b-it"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -78,6 +78,7 @@ EXERCISE_COUNT_SCHEMA = {
 }
 
 def get_user_config(data: dict) -> tuple[User, int, int]:
+    ## 사용자 설정 추출
     """Extracts user configuration from request data, creates a User object, and determines exercise counts."""
     duration_str = str(data.get('duration', '60'))
     numeric_duration = int(re.sub(r'[^0-9]', '', duration_str) or '60')
@@ -99,10 +100,12 @@ def get_user_config(data: dict) -> tuple[User, int, int]:
     return user, min_ex, max_ex
 
 def _leg_main_cap(level: str) -> int:
+    ## 다리 운동 메인 개수 제한
     return 2 if level in ('Advanced', 'Elite') else 1
 
 
 def _leg_pair_enums_for_day(freq, tag, allowed_names):
+    ## 해당 요일의 다리 운동 페어 생성
     # LEG_MAIN
     leg_main_names = list(dict.fromkeys(allowed_names.get('LEG_MAIN', [])))
     main_pairs = []
@@ -120,6 +123,7 @@ def _leg_pair_enums_for_day(freq, tag, allowed_names):
     return main_pairs, other_pairs, all_pairs
 
 def make_legs_day_schema_by_name(freq, tag, allowed_names, min_ex, max_ex, level):
+    ## 이름으로 다리 운동 스키마 생성
     main_pairs, other_pairs, all_pairs = _leg_pair_enums_for_day(freq, tag, allowed_names)
     cap = _leg_main_cap(level)  # K
 
@@ -140,6 +144,7 @@ def make_legs_day_schema_by_name(freq, tag, allowed_names, min_ex, max_ex, level
 
 
 def make_day_schema_pairs_by_name(allowed_names_for_day, min_ex, max_ex):
+    ## 이름으로 일일 운동 스키마 페어 생성
     pair_enum = []
     seen = set()
     random.shuffle(allowed_names_for_day)
@@ -173,6 +178,7 @@ def make_day_schema_pairs_by_name(allowed_names_for_day, min_ex, max_ex):
 
 
 def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, level='Intermediate'):
+    ## 이름으로 주간 스키마 생성
     def _pairs_from_names(name_list):
         pairs = []
         for name in name_list:
@@ -184,12 +190,17 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
     prefix = []
     for tag in split_tags:
         if tag.startswith("FULLBODY"):
-            # 1) 이 주차에서 허용되는 모든 이름 풀 수집
-            all_allowed_for_freq = set()
-            if str(freq) in allowed_names:
-                for day_exercises in allowed_names[str(freq)].values():
-                    all_allowed_for_freq.update(day_exercises)
-            allowed_for_day = list(all_allowed_for_freq) or list(name_to_exercise_map.keys())
+            # For full-body, aggregate all top-level body part lists
+            all_body_part_keys = ['CHEST', 'BACK', 'SHOULDERS', 'LEGS', 'ARM', 'ABS', 'CARDIO', 'ETC']
+            all_fullbody_exercises = set()
+            for key in all_body_part_keys:
+                if key in allowed_names and isinstance(allowed_names[key], list):
+                    all_fullbody_exercises.update(allowed_names[key])
+            
+            allowed_for_day = list(all_fullbody_exercises)
+            if not allowed_for_day:
+                app.logger.warning("No exercises found in top-level body part lists. Falling back to all exercises.")
+                allowed_for_day = list(name_to_exercise_map.keys())
 
             # 2) 전체 enum (pairs)
             all_pairs = _pairs_from_names(allowed_for_day)
@@ -219,10 +230,10 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
                                     if ex and ex.get('bName') == 'Chest' and name in allowed_for_day]
             if not main_back_pairs:
                 main_back_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
-                                   if ex and ex.get('bName') == 'Back' and name in allowed_for_day]
+                                if ex and ex.get('bName') == 'Back' and name in allowed_for_day]
             if not main_leg_pairs:
                 main_leg_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
-                                  if ex and ex.get('bName') == 'Leg' and name in allowed_for_day]
+                                if ex and ex.get('bName') == 'Leg' and name in allowed_for_day]
 
             # 5) min_ex는 최소 3(메인 3칸) 보장
             min_items = max(min_ex, 3)
@@ -283,6 +294,7 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
 
 
 def _allowed_pairs_for_day_by_name(freq, tag, allowed_names):
+    ## 이름으로 해당 요일의 허용된 페어 가져오기
     try:
         names = list(dict.fromkeys(allowed_names[str(freq)][tag]))
     except Exception:
@@ -296,6 +308,7 @@ def _allowed_pairs_for_day_by_name(freq, tag, allowed_names):
     return pairs
 
 def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=None, level='Intermediate', duration=60, prevent_weekly_duplicates=True, prevent_category_duplicates=True):
+    ## 주간 계획 사후 검증 및 수정
     if not isinstance(obj, dict) or "days" not in obj: return obj
 
     level_schema = EXERCISE_COUNT_SCHEMA.get(level, EXERCISE_COUNT_SCHEMA['Intermediate'])
@@ -367,10 +380,10 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
                     is_main = original_ex_info.get('main_ex', False)
                     
                     candidates = [cand_name for cand_name, cand_ex in name_to_exercise_map.items() if 
-                                  cand_ex.get('bName') == bp and 
-                                  cand_ex.get('main_ex', False) == is_main and 
-                                  cand_name not in weekly_used_names and 
-                                   cand_name not in {p[1] for p in deduped_day}]
+                                cand_ex.get('bName') == bp and 
+                                cand_ex.get('main_ex', False) == is_main and 
+                                cand_name not in weekly_used_names and 
+                                cand_name not in {p[1] for p in deduped_day}]
                     
                     if candidates:
                         replacement = random.choice(candidates)
@@ -389,11 +402,24 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
             
             # Get allowed names for the current day's tag
             current_day_allowed_names = []
-            try:
-                current_day_allowed_names = allowed_names[str(freq)][tag]
-            except KeyError:
-                app.logger.warning(f"No allowed_names found for freq {freq}, tag {tag}. Falling back to all exercises.")
-                current_day_allowed_names = list(name_to_exercise_map.keys())
+            if tag.startswith("FULLBODY"):
+                # For full-body, aggregate all top-level body part lists
+                all_body_part_keys = ['CHEST', 'BACK', 'SHOULDERS', 'LEGS', 'ARM', 'ABS', 'CARDIO', 'ETC']
+                all_fullbody_exercises = set()
+                for key in all_body_part_keys:
+                    if key in allowed_names and isinstance(allowed_names[key], list):
+                        all_fullbody_exercises.update(allowed_names[key])
+                
+                current_day_allowed_names = list(all_fullbody_exercises)
+                if not current_day_allowed_names:
+                    app.logger.warning("No exercises found in top-level body part lists for post-validation. Falling back.")
+                    current_day_allowed_names = list(name_to_exercise_map.keys())
+            else:
+                try:
+                    current_day_allowed_names = allowed_names[str(freq)][tag]
+                except KeyError:
+                    app.logger.warning(f"No allowed_names found for freq {freq}, tag {tag}. Falling back to all exercises.")
+                    current_day_allowed_names = list(name_to_exercise_map.keys())
 
             for bp, name in current_day_fixed:
                 exercise_info = name_to_exercise_map.get(name, {})
@@ -461,10 +487,12 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
 # --- API Endpoints ---
 @app.route('/')
 def root():
+    ## 루트 엔드포인트
     return send_from_directory('.', 'index.html')
 
 @app.route('/api/ratios', methods=['GET'])
 def get_ratios():
+    ## 비율 가중치 가져오기
     return jsonify({
         "M_ratio_weight": M_ratio_weight,
         "F_ratio_weight": F_ratio_weight
@@ -472,11 +500,13 @@ def get_ratios():
 
 @app.route('/api/exercises', methods=['GET'])
 def get_exercises():
+    ## 운동 목록 가져오기
     if not exercise_catalog: return jsonify({"error": "Exercise catalog not found or failed to load."}), 500
     return jsonify(exercise_catalog)
 
 @app.route('/api/generate-prompt', methods=['POST'])
 def generate_prompt_api():
+    ## 프롬프트 생성 API
     data = request.get_json()
     if not data: return jsonify({"error": "Missing request body"}), 400
     try:
@@ -526,6 +556,7 @@ def generate_prompt_api():
         return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
 def _prepare_allowed_names(user: User, allowed_names: dict) -> dict:
+    ## 허용된 이름 목록 준비
     """Filters the allowed names based on user's tools and level."""
     final_allowed_names = json.loads(json.dumps(allowed_names)) # Start with a deep copy
 
@@ -559,7 +590,7 @@ def _prepare_allowed_names(user: User, allowed_names: dict) -> dict:
                     new_sub_list = []
                     for name in sub_list:
                         exercise_info = name_to_exercise_map.get(name, {})
-                        tool_en = exercise_info.get('tool_en', '').lower() # Corrected: use exercise_info
+                        tool_en = exercise_info.get('tool_en', '').lower()
                         is_pullupbar_exercise = name in pullupbar_exercises
 
                         include = False
@@ -575,7 +606,7 @@ def _prepare_allowed_names(user: User, allowed_names: dict) -> dict:
                     
                     if not new_sub_list and sub_key not in ['ETC']:
                         app.logger.warning(f"Empty exercise list for freq {key}, day {sub_key} after tool filtering. Falling back to unfiltered list.")
-                        new_sub_list = allowed_names.get(key, {}).get(sub_key, []) # Fallback should use original allowed_names
+                        new_sub_list = allowed_names.get(key, {}).get(sub_key, [])
                     
                     final_allowed_names[key][sub_key] = new_sub_list
 
@@ -603,6 +634,7 @@ def _prepare_allowed_names(user: User, allowed_names: dict) -> dict:
     return final_allowed_names
 
 def process_inference_request(data, client_creator):
+    ## 추론 요청 처리
     if not data: return jsonify({"error": "Missing request body"}), 400
     try:
         user, min_ex, max_ex = get_user_config(data)
@@ -686,6 +718,7 @@ def process_inference_request(data, client_creator):
 
 @app.route('/api/infer', methods=['POST'])
 def infer_vllm_api():
+    ## vLLM 추론 API
     def vllm_client_creator():
         client = OpenAI(base_url=VLLM_BASE_URL, api_key="token-1234")
         def completer(prompt, week_schema, max_tokens, temperature):
@@ -708,6 +741,7 @@ def infer_vllm_api():
 
 @app.route('/api/generate-openai', methods=['POST'])
 def infer_openai_api():
+    ## OpenAI 추론 API
     if not OPENAI_API_KEY: return jsonify({"error": "OPENAI_API_KEY not set."}), 500
     def openai_client_creator():
         client = OpenAI(api_key=OPENAI_API_KEY)
@@ -725,6 +759,7 @@ def infer_openai_api():
 
 @app.route('/debug/routes')
 def list_routes():
+    ## 모든 라우트 목록 표시 (디버깅용)
     import urllib
     output = []
     for rule in app.url_map.iter_rules():
