@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+flask
+openai
+python-dotenv
+json_repair

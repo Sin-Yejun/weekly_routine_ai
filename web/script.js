@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         userConfig.prevent_weekly_duplicates = document.getElementById('prevent-duplicates-toggle').checked;
         userConfig.prevent_category_duplicates = document.getElementById('prevent-category-duplicates-toggle').checked;
         userConfig.weight = document.getElementById('weight').value;
+        // Add default max_tokens and temperature as they are not exposed in the UI
+        userConfig.max_tokens = 4096;
+        userConfig.temperature = 1.0;
         return userConfig;
     };
 
@@ -96,7 +99,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                // FastAPI returns errors in 'detail' field
+                throw new Error(errorData.detail || errorData.error || `HTTP error! status: ${response.status}`);
             }
 
             const result = await response.json();

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from prompts import common_prompt, SPLIT_RULES, LEVEL_GUIDE
+from .prompts import common_prompt, SPLIT_RULES, LEVEL_GUIDE
 import random
 import json
 import re
