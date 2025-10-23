@@ -66,14 +66,12 @@ SPLIT_RULES = {
 - BACK: MUST Cover Back(Upper, Lats, Lower).
 - LEGS: MUST Cover Quads, Glutes, Hamstrings, Adductors, Abductors, add Calves accessory.
 - SHOULDER: MUST Cover SHOULDER(Posterior, Anterior, Leteral, Traps).
-- ARM+ABS: MUST Cover Biceps, Triceps, Forearms, Upper Abs, Lower Abs, Obliques, and Core. COMPOSE ARM HALF, ABS HALF.""",
+- ARM+ABS: MUST Cover Biceps, Triceps, Upper Abs, Lower Abs, Forearms, Obliques, and Core. COMPOSE ABS, ARM HALF.""",
 
     "FB_2": """### 2 DAYS — FULL BODY (ROTATING FOCUS)
 - Each day is a full-body workout with a different primary focus:
-  - DAY 1: Focus **Chest & Shoulders**; include Back, Legs; optional Arms/Abs.
-  - DAY 2: Focus **Legs & Back**; include Chest, Shoulders; optional Abs.
 - HARD CONSTRAINTS (PER DAY):
-  - Must include at least one '(main)' for **CHEST**, **BACK**, **LEGS**.
+  - Must include at least one '(main)' for **LEGS**, **CHEST**, **BACK**.
   - Respect the CATEGORY RULE (max 1 per category per day).
 - HARD CONSTRAINTS (WEEK):
   - Do NOT repeat the same exercise in the week.
@@ -82,22 +80,15 @@ SPLIT_RULES = {
 
     "FB_3": """### 3 DAYS — FULL BODY (ROTATING FOCUS)
 - Each day is a full-body workout, but emphasize different regions:
-  - DAY 1: Focus on **Chest & Shoulders**; include Back, Legs, and optional Arms/Abs.
-  - DAY 2: Focus on **Back & Legs**; include Chest, Shoulders, and optional Abs.
-  - DAY 3: Focus on **Shoulders & Arms**; include Chest, Back, and optional Abs.
 - HARD CONSTRAINTS:
-  - Each day MUST include at least one '(main)' exercise for Chest, Back, and Legs.
+  - Must include at least one '(main)' for **LEGS**, **CHEST**, **BACK**.
   - Do NOT repeat the same exercise within the week.
   - Ensure Arms and Abs appear at least once across all days.""",
 
     "FB_4": """### 4 DAYS — FULL BODY (ROTATING FOCUS)
-- Each day is a full-body workout; primary focus rotates:
-  - DAY 1: **Chest** focus (add Shoulder/Triceps accessories).
-  - DAY 2: **Back** focus (add Biceps/Rear Delts accessories).
-  - DAY 3: **Legs** focus (add Calves/Abductors/Adductors accessories).
-  - DAY 4: **Shoulders** focus (balance Chest/Back accessories).
+- Each day is a full-body workout; primary focus rotates.
 - HARD CONSTRAINTS (PER DAY):
-  - Must include at least one '(main)' for **CHEST**, **BACK**, **LEGS**.
+  - Must include at least one '(main)' for **LEGS**, **CHEST**, **BACK**.
   - Respect the CATEGORY RULE (max 1 per category per day).
 - HARD CONSTRAINTS (WEEK):
   - No duplicate exercises within the 4-day plan.
@@ -107,13 +98,8 @@ SPLIT_RULES = {
 
     "FB_5": """### 5 DAYS — FULL BODY (ROTATING FOCUS)
 - Each day is full-body; primary focus rotates through all major groups:
-  - DAY 1: **Chest** focus
-  - DAY 2: **Back** focus
-  - DAY 3: **Legs** focus
-  - DAY 4: **Shoulders** focus
-  - DAY 5: **Arms** focus (Biceps/Triceps; forearms optional)
 - HARD CONSTRAINTS (PER DAY):
-  - Must include at least one '(main)' for **CHEST**, **BACK**, **LEGS**.
+  - Must include at least one '(main)' for **LEGS**, **CHEST**, **BACK**.
   - Respect the CATEGORY RULE (max 1 per category per day).
 - HARD CONSTRAINTS (WEEK):
   - No duplicate exercises within the 5-day plan.

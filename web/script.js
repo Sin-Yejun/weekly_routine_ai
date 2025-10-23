@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const getSortKey = (exercise) => {
         // 운동 정렬을 위한 키 생성
         const bnamePriorityMap = {
-            'CHEST': 1, 'BACK': 1, 'LEG': 1, 'SHOULDER': 2, 'ARM': 3, 'ABS': 4, 'ETC': 5
+            'LEG': 1, 'CHEST': 2, 'BACK': 3, 'SHOULDER': 4, 'ARM': 5, 'ABS': 6, 'ETC': 7
         };
         const bName = (exercise.bName || 'ETC').toUpperCase();
                     const priority = bnamePriorityMap[bName] || 99;
@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             return setWeights.map((weight, index) => {
                 const reps = repsArray[index];
-                let roundedWeight = Math.floor(weight / 5) * 5;
+                let roundedWeight = Math.round(weight / 5) * 5;
                 roundedWeight = Math.max(roundedWeight, 5);
                 return `${roundedWeight}kg ${reps}회`;
             });
@@ -243,11 +243,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     let roundedWeight;
                     const tool = (tool_en || 'etc').toLowerCase();
                     if (tool === 'dumbbell' || tool === 'kettlebell') {
-                        roundedWeight = Math.floor(weight / 2) * 2;
+                        roundedWeight = Math.round(weight / 2) * 2;
                     } else if (tool === 'barbell' || tool === 'machine' || tool === 'ezbar') {
-                        roundedWeight = Math.floor(weight / 5) * 5;
+                        roundedWeight = Math.round(weight / 5) * 5;
                     } else {
-                        roundedWeight = Math.floor(weight / 2.5) * 2.5;
+                        roundedWeight = Math.round(weight / 2.5) * 2.5;
                     }
 
                     if (tool === 'barbell') {

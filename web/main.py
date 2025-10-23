@@ -66,7 +66,6 @@ except (FileNotFoundError, json.JSONDecodeError) as e:
     raise RuntimeError(f"Failed to load exercise catalog: {e}")
 
 # --- Global Variables & Helper Functions ---
-ENABLE_LEG_MAIN_CONSTRAINT = False # Keep as is for now
 
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
 VLLM_MODEL    = "google/gemma-3-4b-it"
@@ -129,52 +128,48 @@ def get_user_config_from_model(config: UserConfig) -> Tuple[UtilUser, int, int]:
     
     return user, min_ex, max_ex
 
-def _leg_main_cap(level: str) -> int:
-    return 2 if level in ('Advanced', 'Elite') else 1
+def make_arm_abs_day_schema_by_name(allowed_names, min_ex, max_ex):
+    arm_names = allowed_names.get('ARM', [])
+    abs_names = allowed_names.get('ABS', [])
 
-def _allowed_pairs_for_day_by_name(freq, tag, allowed_names):
-    try:
-        names = list(dict.fromkeys(allowed_names[str(freq)][tag]))
-    except Exception:
-        names = list(dict.fromkeys(allowed_names.get(tag, [])))
-    
-    pairs = []
-    for ex_name in names:
-        exercise = name_to_exercise_map.get(ex_name)
-        if exercise and exercise.get('bName'):
+    def _create_pairs(exercise_names):
+        pairs = []
+        seen = set()
+        for ex_name in exercise_names:
+            exercise = name_to_exercise_map.get(ex_name)
+            if not exercise or not exercise.get('bName'):
+                continue
+            key = (exercise.get('bName'), ex_name)
+            if key in seen:
+                continue
             pairs.append([exercise.get('bName'), ex_name])
-    return pairs
+            seen.add(key)
+        return pairs
 
-def _leg_pair_enums_for_day(freq, tag, allowed_names):
-    leg_main_names = list(dict.fromkeys(allowed_names.get('LEG_MAIN', [])))
-    main_pairs = []
-    for n in leg_main_names:
-        ex = name_to_exercise_map.get(n)
-        if ex and ex.get('bName'):
-            main_pairs.append([ex['bName'], n])
+    arm_pairs = _create_pairs(arm_names)
+    abs_pairs = _create_pairs(abs_names)
 
-    day_pairs_all = _allowed_pairs_for_day_by_name(freq, tag, allowed_names)
-    other_pairs = [p for p in day_pairs_all if p[1] not in leg_main_names]
+    if not arm_pairs or not abs_pairs:
+        return make_day_schema_pairs_by_name(arm_names + abs_names, min_ex, max_ex)
 
-    all_pairs = main_pairs + [p for p in other_pairs if p not in main_pairs]
-    return main_pairs, other_pairs, all_pairs
+    num_arm = min_ex // 2
+    num_abs = min_ex - num_arm
 
-def make_legs_day_schema_by_name(freq, tag, allowed_names, min_ex, max_ex, level):
-    main_pairs, other_pairs, all_pairs = _leg_pair_enums_for_day(freq, tag, allowed_names)
-    cap = _leg_main_cap(level)
-
-    prefix_items = [{"enum": all_pairs} for _ in range(cap)]
+    prefix_items = []
+    for _ in range(num_arm):
+        prefix_items.append({"enum": arm_pairs})
+    for _ in range(num_abs):
+        prefix_items.append({"enum": abs_pairs})
+    
+    random.shuffle(prefix_items)
 
     return {
         "type": "array",
-        "description": (
-            "NO DUPLICATE EXERCISES."
-            "At most {} LEG_MAIN exercises allowed; remaining slots must be non-LEG_MAIN. "
-        ).format(cap),
+        "description": f"A list of exercises for ARM+ABS day. It MUST contain {num_arm} ARM exercises and {num_abs} ABS exercises. All items must be distinct.",
         "minItems": min_ex,
-        "maxItems": max_ex,
+        "maxItems": min_ex,
         "prefixItems": prefix_items,
-        "items": {"enum": other_pairs}
+        "items": False
     }
 
 def make_day_schema_pairs_by_name(allowed_names_for_day, min_ex, max_ex):
@@ -252,30 +247,30 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
                 elif bp == 'Leg':
                     main_leg_pairs.append(pair)
 
-            if not main_chest_pairs:
-                main_chest_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
-                                    if ex and ex.get('bName') == 'Chest' and name in allowed_for_day]
-            if not main_back_pairs:
-                main_back_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
-                                if ex and ex.get('bName') == 'Back' and name in allowed_for_day]
             if not main_leg_pairs:
                 main_leg_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
                                 if ex and ex.get('bName') == 'Leg' and name in allowed_for_day]
+            if not main_back_pairs:
+                main_back_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
+                                if ex and ex.get('bName') == 'Back' and name in allowed_for_day]
+            if not main_chest_pairs:
+                main_chest_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
+                                    if ex and ex.get('bName') == 'Chest' and name in allowed_for_day]
 
             min_items = max(min_ex, 3)
 
             day_schema = {
                 "type": "array",
                 "description": (
-                    "FULLBODY day. First 3 slots are fixed: Chest(main), Back(main), Leg(main). "
+                    "FULLBODY day. First 3 slots are fixed: Leg(main), Chest(main), Back(main)."
                     "All items must be distinct."
                 ),
                 "minItems": min_items,
                 "maxItems": min_items,
                 "prefixItems": [
+                    {"enum": main_leg_pairs},
                     {"enum": main_chest_pairs},
                     {"enum": main_back_pairs},
-                    {"enum": main_leg_pairs}
                 ],
                 "items": {"enum": all_pairs}
             }
@@ -292,11 +287,8 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
                 else:
                     allowed_for_day = list(name_to_exercise_map.keys())
 
-            if tag in ("LEGS", "LOWER") and ENABLE_LEG_MAIN_CONSTRAINT:
-                day_schema = make_legs_day_schema_by_name(
-                    freq=freq, tag=tag, allowed_names=allowed_names,
-                    min_ex=min_ex, max_ex=max_ex, level=level
-                )
+            if tag == 'ARM+ABS':
+                day_schema = make_arm_abs_day_schema_by_name(allowed_names, min_ex, max_ex)
             else:
                 day_schema = make_day_schema_pairs_by_name(allowed_for_day, min_ex, max_ex)
 
@@ -389,6 +381,9 @@ def _prepare_allowed_names(user: UtilUser, allowed_names: dict) -> dict:
         if 'ABS' in final_allowed_names:
             final_allowed_names['ABS'] = list(level_exercise_set.intersection(final_allowed_names['ABS']))
 
+        if 'ARM' in final_allowed_names:
+            final_allowed_names['ARM'] = list(level_exercise_set.intersection(final_allowed_names['ARM']))
+
     return final_allowed_names
 
 def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=None, level='Intermediate', duration=60, prevent_weekly_duplicates=True, prevent_category_duplicates=True):
@@ -421,9 +416,9 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
         tag = split_tags[day_idx % len(split_tags)]
         if tag.startswith("FULLBODY"):
             body_parts_to_check = {
+                "Leg": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Leg' and ex.get('main_ex')],
                 "Chest": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Chest' and ex.get('main_ex')],
                 "Back": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Back' and ex.get('main_ex')],
-                "Leg": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Leg' and ex.get('main_ex')]
             }
             day_names = {p[1] for p in current_day_fixed}
 
@@ -758,3 +753,4 @@ if __name__ == "__main__":
         port=int(os.getenv("WEB_PORT", "5001")),
         log_level="info"
     )
+# uvicorn web.main:app --port 5001

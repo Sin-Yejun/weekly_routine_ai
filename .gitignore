@@ -3,13 +3,9 @@
 
 # Data 파일
 data/
-data/01_raw/user_workout_history
 
 # Python 캐시 파일
 */__pycache__
-
-# MacOS 시스템 파일
-.DS_Store
 
 # 개인 키 파일
 private.pem
