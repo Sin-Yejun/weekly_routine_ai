@@ -51,8 +51,8 @@ SPLIT_RULES = {
 - LOWER: MUST Cover Quads, Glutes, Hamstrings, Adductors, Abductors, add Calves accessory.""",
 
     3: """### 3 DAYS — PUSH / PULL / LEGS
-- PUSH: MUST Cover Chest(Upper, Middle, Lower), add Triceps accessory; optional Deltoids.
-- PULL: MUST Cover Back(Upper, Lats, Lower), add Biceps accessory; optional Deltoids.
+- PUSH: MUST include at least one main exercise for Chest and one for Shoulder. It should also cover Chest (Upper, Middle, Lower), Shoulder (Anterior, Lateral) and add a Triceps accessory.
+- PULL: MUST Cover SHOULDER (Posterior, Traps), Back(Upper, Lats, Lower), and add Biceps accessory;
 - LEGS: MUST Cover Quads, Glutes, Hamstrings, Adductors, Abductors, add Calves accessory.""",
 
     4: """### 4 DAYS — CHEST / BACK / SHOULDER / LEGS

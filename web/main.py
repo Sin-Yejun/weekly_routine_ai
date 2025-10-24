@@ -287,7 +287,51 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
                 else:
                     allowed_for_day = list(name_to_exercise_map.keys())
 
-            if tag == 'ARM+ABS':
+            if tag == 'PUSH' and str(freq) == '3':
+                all_pairs = _pairs_from_names(allowed_for_day)
+                
+                main_chest_pairs = []
+                main_shoulder_pairs = []
+                for name in allowed_for_day:
+                    ex = name_to_exercise_map.get(name)
+                    if not ex or not ex.get('main_ex'):
+                        continue
+                    bp = (ex.get('bName') or '').strip()
+                    pair = [bp, name]
+                    if bp == 'Chest':
+                        main_chest_pairs.append(pair)
+                    elif bp == 'Shoulder':
+                        main_shoulder_pairs.append(pair)
+
+                if not main_chest_pairs:
+                    main_chest_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
+                                        if ex and ex.get('bName') == 'Chest' and ex.get('main_ex') and name in allowed_for_day]
+                if not main_shoulder_pairs:
+                    main_shoulder_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
+                                        if ex and ex.get('bName') == 'Shoulder' and ex.get('main_ex') and name in allowed_for_day]
+
+                if not main_chest_pairs:
+                    main_chest_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items() if ex and ex.get('bName') == 'Chest' and ex.get('main_ex')]
+                if not main_shoulder_pairs:
+                    main_shoulder_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items() if ex and ex.get('bName') == 'Shoulder' and ex.get('main_ex')]
+
+                min_items = max(min_ex, 2)
+
+                day_schema = {
+                    "type": "array",
+                    "description": (
+                        "PUSH day for 3-day split. It MUST contain at least one main Chest exercise and one main Shoulder exercise."
+                        "All items must be distinct."
+                    ),
+                    "minItems": min_items,
+                    "maxItems": min_items,
+                    "prefixItems": [
+                        {"enum": main_chest_pairs},
+                        {"enum": main_shoulder_pairs},
+                    ],
+                    "items": {"enum": all_pairs}
+                }
+            elif tag == 'ARM+ABS':
                 day_schema = make_arm_abs_day_schema_by_name(allowed_names, min_ex, max_ex)
             else:
                 day_schema = make_day_schema_pairs_by_name(allowed_for_day, min_ex, max_ex)
@@ -419,6 +463,37 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
                 "Leg": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Leg' and ex.get('main_ex')],
                 "Chest": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Chest' and ex.get('main_ex')],
                 "Back": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Back' and ex.get('main_ex')],
+            }
+            day_names = {p[1] for p in current_day_fixed}
+
+            for bp, main_exercises in body_parts_to_check.items():
+                has_main = any(ex_name in day_names for ex_name in main_exercises)
+                if not has_main:
+                    replacement_main_ex = next((ex for ex in main_exercises if ex not in day_names and ex not in weekly_used_names), None)
+                    if not replacement_main_ex: continue
+
+                    replace_idx = -1
+                    for i, (p_bp, p_name) in enumerate(current_day_fixed):
+                        p_info = name_to_exercise_map.get(p_name, {})
+                        if p_info.get('bName') == bp and not p_info.get('main_ex'):
+                            replace_idx = i
+                            break
+                    if replace_idx == -1:
+                        for i in range(len(current_day_fixed) - 1, -1, -1):
+                            if not name_to_exercise_map.get(current_day_fixed[i][1], {}).get('main_ex'):
+                                replace_idx = i
+                                break
+                    if replace_idx == -1 and current_day_fixed: replace_idx = len(current_day_fixed) - 1
+
+                    if replace_idx != -1:
+                        original_to_replace = current_day_fixed[replace_idx]
+                        app.logger.info(f"[MainEx Fix] Day {day_idx+1}: Swapping '{original_to_replace[1]}' with '{replacement_main_ex}' for {bp}")
+                        current_day_fixed[replace_idx] = [bp, replacement_main_ex]
+                        day_names = {p[1] for p in current_day_fixed} # Refresh names
+        elif tag == 'PUSH' and freq == 3:
+            body_parts_to_check = {
+                "Chest": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Chest' and ex.get('main_ex')],
+                "Shoulder": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Shoulder' and ex.get('main_ex')],
             }
             day_names = {p[1] for p in current_day_fixed}
 

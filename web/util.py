@@ -28,8 +28,8 @@ LEVEL_CODE = {"Beginner":"B","Novice":"N","Intermediate":"I","Advanced":"A","Eli
 SPLIT_MUSCLE_GROUPS = {
     "UPPER": "(Upper Chest, Middle Chest, Lower Chest, Upper Back, Lower Back, Lats, Anterior Deltoid, Lateral Deltoid, Posterior Deltoid, Traps, Biceps, Triceps, Forearms)",
     "LOWER": "(Glutes, Quads, Hamstrings, Adductors, Abductors, Calves)",
-    "PUSH": "(Upper Chest, Middle Chest, Lower Chest, Anterior Deltoid, Lateral Deltoid, Posterior Deltoid, Triceps)",
-    "PULL": "(Upper Back, Lower Back, Lats, Traps, Biceps)",
+    "PUSH": "(Upper Chest, Middle Chest, Anterior Deltoid, Lateral Deltoid, Lower Chest, Triceps)",
+    "PULL": "(Upper Back, Lower Back, Lats, Posterior Deltoid, Traps, Biceps)",
     "LEGS": "(Glutes, Quads, Hamstrings, Adductors, Abductors, Calves)",
     "CHEST": "(Upper Chest, Middle Chest, Lower Chest)",
     "BACK": "(Upper Back, Lower Back, Lats)",
@@ -223,7 +223,7 @@ def _apply_special_ordering(grouped_catalog: Dict[str, list], split_days: List[s
             if 'PUSH' in grouped_catalog:
                 grouped_catalog['PUSH'] = get_ordered_list(grouped_catalog['PUSH'], ['CHEST', 'SHOULDER', 'ARM'])
             if 'PULL' in grouped_catalog:
-                grouped_catalog['PULL'] = get_ordered_list(grouped_catalog['PULL'], ['BACK', 'ARM'])
+                grouped_catalog['PULL'] = get_ordered_list(grouped_catalog['PULL'], ['BACK', 'SHOULDER', 'ARM'])
     
     return grouped_catalog
 
