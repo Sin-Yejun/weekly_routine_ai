@@ -117,9 +117,7 @@ graph TD
 - **ratios/**  
   - `F_ratio_weight.json` – 여성 비율 가중치 데이터  
   - `M_ratio_weight.json` – 남성 비율 가중치 데이터
-<br>
-<br>
----
+    
 ## 🌳 폴더 구조
 
 ```
