@@ -342,4 +342,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (generateOpenAiBtn) {
         generateOpenAiBtn.addEventListener('click', () => handleInference('/api/generate-openai', formattedOutputEl));
     }
+
+    const viewTestCasesBtn = document.getElementById('view-test-cases-btn');
+    if (viewTestCasesBtn) {
+        viewTestCasesBtn.addEventListener('click', () => {
+            window.location.href = 'test_viewer.html';
+        });
+    }
 });

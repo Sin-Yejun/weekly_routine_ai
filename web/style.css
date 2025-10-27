@@ -120,6 +120,12 @@ button:disabled {
 }
 #generate-openai-btn:hover:not(:disabled) { background-color: #5a32a3; }
 
+#view-test-cases-btn {
+    background-color: #6c757d;
+    color: white;
+}
+#view-test-cases-btn:hover:not(:disabled) { background-color: #5a6268; }
+
 button:active:not(:disabled) {
     transform: translateY(1px);
 }

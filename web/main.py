@@ -817,6 +817,7 @@ async def infer_openai_api(config: UserConfig):
         return client, OPENAI_MODEL, completer
     return await process_inference_request(config, openai_client_creator)
 
+app.mount("/data", StaticFiles(directory=DATA_DIR, html=True), name="data")
 app.mount("/", StaticFiles(directory="web", html=True), name="static")
 
 # --- Main entry point for Uvicorn ---
