@@ -10,3 +10,6 @@ data/
 # 개인 키 파일
 private.pem
 private.pem.pub
+
+# VSCode 설정 파일
+.vscode/

@@ -4,7 +4,7 @@
 
 ## 프로젝트 개요
 
-Weekly Routine AI는 사용자의 정보(성별, 레벨, 운동 빈도 등)를 기반으로 개인화된 주간 운동 루틴을 생성하는 AI 기반 웹 애플리케이션입니다.
+Weekly Routine AI는 사용자의 정보(성별, 레벨, 운동 빈도 등)를 기반으로 개인화된 주간 운동 루틴을 생성하는 AI 입니다.
 
 ## 아키텍처 흐름도
 ```mermaid
@@ -70,7 +70,7 @@ graph TD
 
 3. **웹 브라우저에서 `http://127.0.0.1:5001`로 접속합니다.**
 
---- 
+---
 ## 📁 파일 구조
 
 ### 최상위 디렉토리
@@ -79,18 +79,16 @@ graph TD
 - **requirements.txt** – 필요 패키지 목록  
 - **style.css** – 기본 스타일 정의  
 
----
 
 ### data
 - 데이터 저장 디렉토리  
 
----
 
 ### src
 
 #### analysis
 - `analyze_output_length_full.py` – 출력 길이 분석  
-- `calculate_frequency_improved.py` – 빈도 계산(개선 버전)
+- `calculate_frequency_improved.py` – 주간 운동 횟수 계산
 
 #### data_processing
 - `transform_ai_exercise_list.py` – AI 운동 목록 변환  
@@ -98,7 +96,7 @@ graph TD
 - `update_filtered_exercises.py` – 필터링된 운동 목록 갱신  
 
 #### finetuning
-- `create_finetuning_data_v5.py` – 파인튜닝 데이터 v5 생성  
+- `create_finetuning_data_v5.py` – 파인튜닝 데이터 생성  
 - `train.py` – 모델 학습 스크립트  
 
 #### learning_script
@@ -108,10 +106,8 @@ graph TD
 - `output_json.py` – JSON 출력 처리  
 - `user_info.py` – 사용자 정보 처리  
 
----
-
 ### web
-- **allowed_name_200.json** – 허용 운동 200개 목록  
+- **allowed_name_200.json** – 추천 운동 200개 목록  
 - **index.html** – 메인 페이지  
 - **main.py** – FastAPI 백엔드  
 - **prompts.py** – 웹 프롬프트 정의  
@@ -120,6 +116,46 @@ graph TD
 - **util.py** – 유틸리티 함수  
 - **ratios/**  
   - `F_ratio_weight.json` – 여성 비율 가중치 데이터  
-  - `M_ratio_weight.json` – 남성 비율 가중치 데이터  
+  - `M_ratio_weight.json` – 남성 비율 가중치 데이터
+<br>
+<br>
+---
+## 🌳 폴더 구조
 
-    
+```
+weekly_routine_ai\
+├───.gitignore
+├───README.md
+├───requirements.txt
+├───style.css
+├───data\
+│   └───...
+├───src\
+│   ├───analysis\
+│   │   ├───analyze_output_length_full.py
+│   │   └───calculate_frequency_improved.py
+│   ├─── data_processing\
+│   │   ├─── transform_ai_exercise_list.py
+│   │   ├─── update_ai_exercise_list_e_info_type.py
+│   │   └─── update_filtered_exercises.py
+│   ├─── finetuning\
+│   │   ├─── create_finetuning_data_v5.py
+│   │   └─── train.py
+│   └─── learning_script\
+│       ├─── calculation_prompt.py
+│       ├─── history_summary.py
+│       ├─── integrated_prompt_generator.py
+│       ├─── output_json.py
+│       └─── user_info.py
+└───web\
+    ├─── allowed_name_200.json
+    ├─── index.html
+    ├─── main.py
+    ├─── prompts.py
+    ├─── script.js
+    ├─── style.css
+    ├─── util.py
+    └─── ratios\
+        ├─── F_ratio_weight.json
+        └─── M_ratio_weight.json
+```
