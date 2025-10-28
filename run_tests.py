@@ -68,7 +68,7 @@ def run_tests():
             "duration": 60, # Default value
             "intensity": "Normal", # Default value
             "tools": tools_list, # Dynamically set
-            "prevent_weekly_duplicates": True, # Default
+            "prevent_weekly_duplicates": False, # Default
             "prevent_category_duplicates": True, # As requested
             "max_tokens": 4096,
             "temperature": 1.0

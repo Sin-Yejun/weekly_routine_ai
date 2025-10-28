@@ -128,7 +128,7 @@ def get_user_config_from_model(config: UserConfig) -> Tuple[UtilUser, int, int]:
     
     return user, min_ex, max_ex
 
-def make_arm_abs_day_schema_by_name(allowed_names, min_ex, max_ex):
+def make_arm_abs_day_schema_by_name(allowed_names, min_ex, max_ex, exercise_map):
     arm_names = allowed_names.get('ARM', [])
     abs_names = allowed_names.get('ABS', [])
 
@@ -136,7 +136,7 @@ def make_arm_abs_day_schema_by_name(allowed_names, min_ex, max_ex):
         pairs = []
         seen = set()
         for ex_name in exercise_names:
-            exercise = name_to_exercise_map.get(ex_name)
+            exercise = exercise_map.get(ex_name)
             if not exercise or not exercise.get('bName'):
                 continue
             key = (exercise.get('bName'), ex_name)
@@ -150,7 +150,7 @@ def make_arm_abs_day_schema_by_name(allowed_names, min_ex, max_ex):
     abs_pairs = _create_pairs(abs_names)
 
     if not arm_pairs or not abs_pairs:
-        return make_day_schema_pairs_by_name(arm_names + abs_names, min_ex, max_ex)
+        return make_day_schema_pairs_by_name(arm_names + abs_names, min_ex, max_ex, exercise_map)
 
     num_arm = min_ex // 2
     num_abs = min_ex - num_arm
@@ -172,13 +172,13 @@ def make_arm_abs_day_schema_by_name(allowed_names, min_ex, max_ex):
         "items": False
     }
 
-def make_day_schema_pairs_by_name(allowed_names_for_day, min_ex, max_ex):
+def make_day_schema_pairs_by_name(allowed_names_for_day, min_ex, max_ex, exercise_map):
     pair_enum = []
     seen = set()
     random.shuffle(allowed_names_for_day)
 
     for ex_name in allowed_names_for_day:
-        exercise = name_to_exercise_map.get(ex_name)
+        exercise = exercise_map.get(ex_name)
         if not exercise:
             continue
         bp = exercise.get('bName')
@@ -191,7 +191,7 @@ def make_day_schema_pairs_by_name(allowed_names_for_day, min_ex, max_ex):
         pair_enum.append([bp, ex_name])
 
     if not pair_enum:
-        for ex_name, exercise in name_to_exercise_map.items():
+        for ex_name, exercise in exercise_map.items():
             bp = exercise.get('bName')
             if bp:
                 pair_enum.append([bp, ex_name])
@@ -204,11 +204,11 @@ def make_day_schema_pairs_by_name(allowed_names_for_day, min_ex, max_ex):
         "items": {"enum": pair_enum},
     }
 
-def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, level='Intermediate'):
+def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, exercise_map, level='Intermediate'):
     def _pairs_from_names(name_list):
         pairs = []
         for name in name_list:
-            ex = name_to_exercise_map.get(name)
+            ex = exercise_map.get(name)
             if ex and ex.get('bName'):
                 pairs.append([ex['bName'], name])
         return pairs
@@ -225,7 +225,7 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
             allowed_for_day = list(all_fullbody_exercises)
             if not allowed_for_day:
                 app.logger.warning("No exercises found in top-level body part lists. Falling back to all exercises.")
-                allowed_for_day = list(name_to_exercise_map.keys())
+                allowed_for_day = list(exercise_map.keys())
 
             all_pairs = _pairs_from_names(allowed_for_day)
 
@@ -233,7 +233,7 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
             main_back_pairs  = []
             main_leg_pairs   = []
             for name in allowed_for_day:
-                ex = name_to_exercise_map.get(name)
+                ex = exercise_map.get(name)
                 if not ex: 
                     continue
                 if not ex.get('main_ex'):
@@ -248,13 +248,13 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
                     main_leg_pairs.append(pair)
 
             if not main_leg_pairs:
-                main_leg_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
+                main_leg_pairs = [[ex.get('bName'), name] for name, ex in exercise_map.items()
                                 if ex and ex.get('bName') == 'Leg' and name in allowed_for_day]
             if not main_back_pairs:
-                main_back_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
+                main_back_pairs = [[ex.get('bName'), name] for name, ex in exercise_map.items()
                                 if ex and ex.get('bName') == 'Back' and name in allowed_for_day]
             if not main_chest_pairs:
-                main_chest_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
+                main_chest_pairs = [[ex.get('bName'), name] for name, ex in exercise_map.items()
                                     if ex and ex.get('bName') == 'Chest' and name in allowed_for_day]
 
             min_items = max(min_ex, 3)
@@ -285,7 +285,7 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
                     all_names = [v for v_list in allowed_names[str(freq)].values() for v in v_list]
                     allowed_for_day = list(dict.fromkeys(all_names))
                 else:
-                    allowed_for_day = list(name_to_exercise_map.keys())
+                    allowed_for_day = list(exercise_map.keys())
 
             if tag == 'PUSH' and str(freq) == '3':
                 all_pairs = _pairs_from_names(allowed_for_day)
@@ -293,7 +293,7 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
                 main_chest_pairs = []
                 main_shoulder_pairs = []
                 for name in allowed_for_day:
-                    ex = name_to_exercise_map.get(name)
+                    ex = exercise_map.get(name)
                     if not ex or not ex.get('main_ex'):
                         continue
                     bp = (ex.get('bName') or '').strip()
@@ -304,9 +304,9 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
                         main_shoulder_pairs.append(pair)
 
                 if not main_chest_pairs:
-                    main_chest_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items() if ex and ex.get('bName') == 'Chest' and ex.get('main_ex') and name in allowed_for_day]
+                    main_chest_pairs = [[ex.get('bName'), name] for name, ex in exercise_map.items() if ex and ex.get('bName') == 'Chest' and ex.get('main_ex') and name in allowed_for_day]
                 if not main_shoulder_pairs:
-                    main_shoulder_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items() if ex and ex.get('bName') == 'Shoulder' and ex.get('main_ex') and name in allowed_for_day]
+                    main_shoulder_pairs = [[ex.get('bName'), name] for name, ex in exercise_map.items() if ex and ex.get('bName') == 'Shoulder' and ex.get('main_ex') and name in allowed_for_day]
 
                 min_items = max(min_ex, 2)
 
@@ -325,9 +325,9 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
                     "items": {"enum": all_pairs}
                 }
             elif tag == 'ARM+ABS':
-                day_schema = make_arm_abs_day_schema_by_name(allowed_names, min_ex, max_ex)
+                day_schema = make_arm_abs_day_schema_by_name(allowed_names, min_ex, max_ex, exercise_map)
             else:
-                day_schema = make_day_schema_pairs_by_name(allowed_for_day, min_ex, max_ex)
+                day_schema = make_day_schema_pairs_by_name(allowed_for_day, min_ex, max_ex, exercise_map)
 
         prefix.append(day_schema)
 
@@ -345,7 +345,7 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
         }
     }
 
-def _prepare_allowed_names(user: UtilUser, allowed_names: dict) -> dict:
+def _prepare_allowed_names(user: UtilUser, allowed_names: dict, exercise_map: dict) -> dict:
     """Filters the allowed names based on user's tools and level."""
     final_allowed_names = json.loads(json.dumps(allowed_names)) # Start with a deep copy
 
@@ -358,7 +358,7 @@ def _prepare_allowed_names(user: UtilUser, allowed_names: dict) -> dict:
             if isinstance(value, list):
                 new_list = []
                 for name in value:
-                    exercise_info = name_to_exercise_map.get(name, {})
+                    exercise_info = exercise_map.get(name, {})
                     tool_en = exercise_info.get('tool_en', '').lower()
                     is_pullupbar_exercise = name in pullupbar_exercises
 
@@ -377,7 +377,7 @@ def _prepare_allowed_names(user: UtilUser, allowed_names: dict) -> dict:
                 for sub_key, sub_list in value.items():
                     new_sub_list = []
                     for name in sub_list:
-                        exercise_info = name_to_exercise_map.get(name, {})
+                        exercise_info = exercise_map.get(name, {})
                         tool_en = exercise_info.get('tool_en', '').lower()
                         is_pullupbar_exercise = name in pullupbar_exercises
 
@@ -407,7 +407,7 @@ def _prepare_allowed_names(user: UtilUser, allowed_names: dict) -> dict:
                     if isinstance(sub_list, list):
                         filtered_list = []
                         for name in sub_list:
-                            ex_details = name_to_exercise_map.get(name, {})
+                            ex_details = exercise_map.get(name, {})
                             # Keep if NOT (Bodyweight AND NOT ABS)
                             if not (ex_details.get('tool_en') == 'Bodyweight' and ex_details.get('bName') != 'ABS'):
                                 filtered_list.append(name)
@@ -416,7 +416,7 @@ def _prepare_allowed_names(user: UtilUser, allowed_names: dict) -> dict:
             elif isinstance(value, list):
                 filtered_list = []
                 for name in value:
-                    ex_details = name_to_exercise_map.get(name, {})
+                    ex_details = exercise_map.get(name, {})
                     # Keep if NOT (Bodyweight AND NOT ABS)
                     if not (ex_details.get('tool_en') == 'Bodyweight' and ex_details.get('bName') != 'ABS'):
                         filtered_list.append(name)
@@ -447,7 +447,7 @@ def _prepare_allowed_names(user: UtilUser, allowed_names: dict) -> dict:
 
     return final_allowed_names
 
-def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=None, level='Intermediate', duration=60, prevent_weekly_duplicates=True, prevent_category_duplicates=True):
+def post_validate_and_fix_week(obj, exercise_map, freq=None, split_tags=None, allowed_names=None, level='Intermediate', duration=60, prevent_weekly_duplicates=True, prevent_category_duplicates=True):
     if not isinstance(obj, dict) or "days" not in obj: return obj
 
     level_schema = EXERCISE_COUNT_SCHEMA.get(level, EXERCISE_COUNT_SCHEMA['Intermediate'])
@@ -466,7 +466,7 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
                     continue
                 bp, ex_name = pair
                 bp_clean = bp.replace(" (main)", "").strip()
-                exercise = name_to_exercise_map.get(ex_name)
+                exercise = exercise_map.get(ex_name)
                 if not exercise or ex_name in temp_used_names:
                     continue
                 
@@ -477,9 +477,9 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
         tag = split_tags[day_idx % len(split_tags)]
         if tag.startswith("FULLBODY"):
             body_parts_to_check = {
-                "Leg": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Leg' and ex.get('main_ex')],
-                "Chest": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Chest' and ex.get('main_ex')],
-                "Back": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Back' and ex.get('main_ex')],
+                "Leg": [name for name, ex in exercise_map.items() if ex.get('bName') == 'Leg' and ex.get('main_ex')],
+                "Chest": [name for name, ex in exercise_map.items() if ex.get('bName') == 'Chest' and ex.get('main_ex')],
+                "Back": [name for name, ex in exercise_map.items() if ex.get('bName') == 'Back' and ex.get('main_ex')],
             }
             day_names = {p[1] for p in current_day_fixed}
 
@@ -491,13 +491,13 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
 
                     replace_idx = -1
                     for i, (p_bp, p_name) in enumerate(current_day_fixed):
-                        p_info = name_to_exercise_map.get(p_name, {})
+                        p_info = exercise_map.get(p_name, {})
                         if p_info.get('bName') == bp and not p_info.get('main_ex'):
                             replace_idx = i
                             break
                     if replace_idx == -1:
                         for i in range(len(current_day_fixed) - 1, -1, -1):
-                            if not name_to_exercise_map.get(current_day_fixed[i][1], {}).get('main_ex'):
+                            if not exercise_map.get(current_day_fixed[i][1], {}).get('main_ex'):
                                 replace_idx = i
                                 break
                     if replace_idx == -1 and current_day_fixed: replace_idx = len(current_day_fixed) - 1
@@ -509,8 +509,8 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
                         day_names = {p[1] for p in current_day_fixed} # Refresh names
         elif tag == 'PUSH' and freq == 3:
             body_parts_to_check = {
-                "Chest": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Chest' and ex.get('main_ex')],
-                "Shoulder": [name for name, ex in name_to_exercise_map.items() if ex.get('bName') == 'Shoulder' and ex.get('main_ex')],
+                "Chest": [name for name, ex in exercise_map.items() if ex.get('bName') == 'Chest' and ex.get('main_ex')],
+                "Shoulder": [name for name, ex in exercise_map.items() if ex.get('bName') == 'Shoulder' and ex.get('main_ex')],
             }
             day_names = {p[1] for p in current_day_fixed}
 
@@ -522,13 +522,13 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
 
                     replace_idx = -1
                     for i, (p_bp, p_name) in enumerate(current_day_fixed):
-                        p_info = name_to_exercise_map.get(p_name, {})
+                        p_info = exercise_map.get(p_name, {})
                         if p_info.get('bName') == bp and not p_info.get('main_ex'):
                             replace_idx = i
                             break
                     if replace_idx == -1:
                         for i in range(len(current_day_fixed) - 1, -1, -1):
-                            if not name_to_exercise_map.get(current_day_fixed[i][1], {}).get('main_ex'):
+                            if not exercise_map.get(current_day_fixed[i][1], {}).get('main_ex'):
                                 replace_idx = i
                                 break
                     if replace_idx == -1 and current_day_fixed: replace_idx = len(current_day_fixed) - 1
@@ -543,10 +543,10 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
             deduped_day = []
             for bp, name in current_day_fixed:
                 if name in weekly_used_names:
-                    original_ex_info = name_to_exercise_map.get(name, {})
+                    original_ex_info = exercise_map.get(name, {})
                     is_main = original_ex_info.get('main_ex', False)
                     
-                    candidates = [cand_name for cand_name, cand_ex in name_to_exercise_map.items() if 
+                    candidates = [cand_name for cand_name, cand_ex in exercise_map.items() if 
                                 cand_ex.get('bName') == bp and 
                                 cand_ex.get('main_ex', False) == is_main and 
                                 cand_name not in weekly_used_names and 
@@ -577,16 +577,16 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
                 current_day_allowed_names = list(all_fullbody_exercises)
                 if not current_day_allowed_names:
                     app.logger.warning("No exercises found in top-level body part lists for post-validation. Falling back.")
-                    current_day_allowed_names = list(name_to_exercise_map.keys())
+                    current_day_allowed_names = list(exercise_map.keys())
             else:
                 try:
                     current_day_allowed_names = allowed_names[str(freq)][tag]
                 except KeyError:
                     app.logger.warning(f"No allowed_names found for freq {freq}, tag {tag}. Falling back to all exercises.")
-                    current_day_allowed_names = list(name_to_exercise_map.keys())
+                    current_day_allowed_names = list(exercise_map.keys())
 
             for bp, name in current_day_fixed:
-                exercise_info = name_to_exercise_map.get(name, {})
+                exercise_info = exercise_map.get(name, {})
                 category = exercise_info.get('category')
 
                 if category and category != '(Uncategorized)' and category in categories_used_today:
@@ -594,7 +594,7 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
                     
                     strict_candidates = []
                     for cand_name in current_day_allowed_names:
-                        cand_ex_info = name_to_exercise_map.get(cand_name, {})
+                        cand_ex_info = exercise_map.get(cand_name, {})
                         cand_category = cand_ex_info.get('category')
                         cand_bp = cand_ex_info.get('bName')
 
@@ -610,7 +610,7 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
                     if not candidates:
                         relaxed_candidates = []
                         for cand_name in current_day_allowed_names:
-                            cand_ex_info = name_to_exercise_map.get(cand_name, {})
+                            cand_ex_info = exercise_map.get(cand_name, {})
                             cand_category = cand_ex_info.get('category')
 
                             if (cand_category not in categories_used_today and
@@ -623,10 +623,10 @@ def post_validate_and_fix_week(obj, freq=None, split_tags=None, allowed_names=No
                     if candidates:
                         replacement = random.choice(candidates)
                         category_deduped_day.append([bp, replacement])
-                        categories_used_today.add(name_to_exercise_map.get(replacement, {}).get('category'))
+                        categories_used_today.add(exercise_map.get(replacement, {}).get('category'))
                         if prevent_weekly_duplicates:
                             weekly_used_names.add(replacement)
-                        app.logger.info(f"[Category De-Dupe] Day {day_idx+1}: Swapped '{name}' (Category: {category}) with '{replacement}' (Category: {name_to_exercise_map.get(replacement, {}).get('category')})")
+                        app.logger.info(f"[Category De-Dupe] Day {day_idx+1}: Swapped '{name}' (Category: {category}) with '{replacement}' (Category: {exercise_map.get(replacement, {}).get('category')})")
                     else:
                         category_deduped_day.append([bp, name])
                         categories_used_today.add(category)
@@ -712,13 +712,31 @@ async def process_inference_request(config: UserConfig, client_creator):
     with open(os.path.join(os.path.dirname(__file__), "allowed_name_200.json"), "r", encoding="utf-8") as f:
         ALLOWED_NAMES = json.load(f)
 
+    # Create a request-specific catalog AND map to handle dynamic main_ex flags
+    request_catalog = json.loads(json.dumps(exercise_catalog))
+    request_name_to_exercise_map = {ex.get('eName'): ex for ex in request_catalog}
+
+    if user.level == 'Beginner':
+        app.logger.info("Applying Beginner main leg exercise rule...")
+        beginner_main_legs = {"Leg Press", "Dumbbell Lunge", "Smith Machine Squat", "Dumbbell Goblet Squat", "Air Squat"}
+        for exercise in request_catalog:
+            if exercise.get('bName') == 'Leg':
+                is_beginner_main_leg = exercise.get('eName') in beginner_main_legs
+                original_main_status = exercise.get('main_ex', False)
+                if original_main_status != is_beginner_main_leg:
+                    exercise['main_ex'] = is_beginner_main_leg
+                    # Also update the temporary map
+                    if exercise.get('eName') in request_name_to_exercise_map:
+                        request_name_to_exercise_map[exercise.get('eName')]['main_ex'] = is_beginner_main_leg
+                    action = "promoting" if is_beginner_main_leg else "demoting"
+
     if not config.prompt:
         duration_str = str(config.duration)
         split_options = SPLIT_CONFIGS.get(str(user.freq), [])
         split_config = next((c for c in split_options if c['id'] == config.split_id), None)
         if not split_config:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid split_id '{config.split_id}' for frequency {user.freq}")
-        prompt = build_prompt(user, exercise_catalog, duration_str, min_ex, max_ex, split_config, allowed_names=ALLOWED_NAMES)
+        prompt = build_prompt(user, request_catalog, duration_str, min_ex, max_ex, split_config, allowed_names=ALLOWED_NAMES)
     else:
         prompt = config.prompt
     
@@ -728,9 +746,9 @@ async def process_inference_request(config: UserConfig, client_creator):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid split_id '{config.split_id}' for frequency {user.freq}")
     split_tags = split_config['days']
     
-    effective_allowed_names = _prepare_allowed_names(user, ALLOWED_NAMES)
+    effective_allowed_names = _prepare_allowed_names(user, ALLOWED_NAMES, request_name_to_exercise_map)
     
-    week_schema = build_week_schema_by_name(user.freq, split_tags, effective_allowed_names, min_ex, max_ex, level=user.level)
+    week_schema = build_week_schema_by_name(user.freq, split_tags, effective_allowed_names, min_ex, max_ex, request_name_to_exercise_map, level=user.level)
 
     client, model_name, completer = client_creator()
     
@@ -759,6 +777,7 @@ async def process_inference_request(config: UserConfig, client_creator):
     
     processed_obj = post_validate_and_fix_week(
         json.loads(json.dumps(obj)),
+        exercise_map=request_name_to_exercise_map,
         freq=user.freq, 
         split_tags=split_tags, 
         allowed_names=effective_allowed_names, 
@@ -772,7 +791,7 @@ async def process_inference_request(config: UserConfig, client_creator):
     for day_exercises in processed_obj.get("days", []):
         enriched_day = []
         for bName, eName in day_exercises:
-            exercise_details = name_to_exercise_map.get(eName, {})
+            exercise_details = request_name_to_exercise_map.get(eName, {})
             enriched_day.append({
                 "eName": eName,
                 "bName": bName,

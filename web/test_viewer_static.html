@@ -26,8 +26,8 @@
                 <div class="form-group">
                     <label for="gender-filter">Gender</label>
                     <select id="gender-filter">
-                        <option value="M">Male</option>
-                        <option value="F">Female</option>
+                        <option value="M">남자</option>
+                        <option value="F">여자</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -76,18 +76,19 @@
             <div class="form-group form-group-full-width" style="margin-top: 20px;">
                 <label>운동 경험 (1RM 추정)</label>
                 <p class="experience-description">
-                    최근 백스쿼트나 벤치프레스 기록을 입력하면 1RM(1회 최대 무게)을 자동 추정하여 중량을 더 정확히 계산합니다.<br>
-                    입력하지 않으면 선택한 레벨에 따라 자동 계산됩니다.
+                <strong>백스쿼트나 벤치프레스 기록을 입력</strong>하면 1RM(1회 최대 무게)을 자동으로 추정해, 보다 정확한 중량을 계산합니다.<br>
+                위의 운동을 해본 적이 없다면, [운동 검색]에 랫풀다운, 레그프레스 등 최근에 해본 다른 운동을 입력해도 됩니다.<br>
+                운동 경험이 전혀 없다면 [경험 없음]을 선택하면 레벨에 맞게 자동 계산됩니다.
                 </p>
                 <div id="experience-options">
                     <div class="experience-option">
                         <input type="radio" id="exp-unknown" name="experience" value="unknown" checked>
-                        <label for="exp-unknown">경험 정보 없음 (레벨에 따라 자동 계산)</label>
+                        <label for="exp-unknown">경험 없음</label>
                     </div>
                     <div class="experience-option">
                         <input type="radio" id="exp-back-squat" name="experience" value="back-squat">
                         <label for="exp-back-squat">백스쿼트</label>
-                        <div class="experience-details hidden" id="details-back-squat">
+                        <div class="experience-details" id="details-back-squat">
                             <input type="number" id="exp-weight-bs" placeholder="무게(kg)" class="small-input">
                             <input type="number" id="exp-reps-bs" placeholder="반복횟수" class="small-input">
                         </div>
@@ -95,13 +96,24 @@
                     <div class="experience-option">
                         <input type="radio" id="exp-bench-press" name="experience" value="bench-press">
                         <label for="exp-bench-press">벤치프레스</label>
-                        <div class="experience-details hidden" id="details-bench-press">
+                        <div class="experience-details" id="details-bench-press">
                             <input type="number" id="exp-weight-bp" placeholder="무게(kg)" class="small-input">
                             <input type="number" id="exp-reps-bp" placeholder="반복횟수" class="small-input">
                         </div>
                     </div>
+                    <div class="experience-option">
+                        <input type="radio" id="exp-other-exercise" name="experience" value="other-exercise">
+                        <!-- REMOVED LABEL -->
+                        <input type="text" id="other-exercise-search" placeholder="운동 검색" class="small-input" list="exercise-options">
+                        <datalist id="exercise-options"></datalist>
+                        <!-- MOVED WEIGHT/REPS OUT OF details-other-exercise DIV -->
+                         <div class="experience-details">
+                            <input type="number" id="exp-weight-other" placeholder="무게(kg)" class="small-input">
+                            <input type="number" id="exp-reps-other" placeholder="반복횟수" class="small-input">
+                        </div>
+                    </div>
                 </div>
-                <button type="button" id="calculate-weights-btn" class="small-button">중량 생성</button>
+                <button type="button" id="calculate-weights-btn" class="small-button">세트 정보 생성</button>
             </div>
 
             <h2 style="margin-top: 30px;">Matching Routine</h2>
