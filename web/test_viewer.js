@@ -7666,7 +7666,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const repsArray = getRepsArray(level, exerciseDetails.MG_num || 0);
-            const setStrings = calculateSetStrings(exerciseDetails, estimated1RM, repsArray, level, intensity);
+            let setStrings = calculateSetStrings(exerciseDetails, estimated1RM, repsArray, level, intensity);
+
+            if (exerciseDetails.eName === "Weighted Pull Up" || exerciseDetails.eName === "Weighted Chin Up") {
+                if (setStrings.length > 0) {
+                    setStrings.pop(); // Reduce sets by 1
+                }
+                setStrings = setStrings.map(s => {
+                    if (s.includes('회')) {
+                        return s.replace(/(\d+)(회)/, (match, reps, unit) => {
+                            const newReps = Math.max(1, parseInt(reps) - 5);
+                            return `${newReps}${unit}`;
+                        });
+                    }
+                    return s;
+                });
+            }
 
             const setsSpan = document.createElement('span');
             setsSpan.className = 'exercise-sets';
