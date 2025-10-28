@@ -348,11 +348,11 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, e
 def _prepare_allowed_names(user: UtilUser, allowed_names: dict, exercise_map: dict) -> dict:
     """Filters the allowed names based on user's tools and level."""
     final_allowed_names = json.loads(json.dumps(allowed_names)) # Start with a deep copy
+    pullupbar_exercises = set(allowed_names.get("TOOL", {}).get("PullUpBar", []))
 
     # 1. Filter by selected tools
     if user.tools:
         selected_tools_set = {t.lower() for t in user.tools}
-        pullupbar_exercises = set(allowed_names.get("TOOL", {}).get("PullUpBar", []))
 
         for key, value in final_allowed_names.items():
             if isinstance(value, list):
@@ -408,8 +408,8 @@ def _prepare_allowed_names(user: UtilUser, allowed_names: dict, exercise_map: di
                         filtered_list = []
                         for name in sub_list:
                             ex_details = exercise_map.get(name, {})
-                            # Keep if NOT (Bodyweight AND NOT ABS)
-                            if not (ex_details.get('tool_en') == 'Bodyweight' and ex_details.get('bName') != 'ABS'):
+                            # Keep if NOT (Bodyweight AND NOT ABS AND NOT a PullUpBar exercise)
+                            if not (ex_details.get('tool_en') == 'Bodyweight' and ex_details.get('bName') != 'ABS' and name not in pullupbar_exercises):
                                 filtered_list.append(name)
                         final_allowed_names[key][sub_key] = filtered_list
             # Handle direct lists (like 'CHEST', 'ARM')
@@ -417,8 +417,8 @@ def _prepare_allowed_names(user: UtilUser, allowed_names: dict, exercise_map: di
                 filtered_list = []
                 for name in value:
                     ex_details = exercise_map.get(name, {})
-                    # Keep if NOT (Bodyweight AND NOT ABS)
-                    if not (ex_details.get('tool_en') == 'Bodyweight' and ex_details.get('bName') != 'ABS'):
+                    # Keep if NOT (Bodyweight AND NOT ABS AND NOT a PullUpBar exercise)
+                    if not (ex_details.get('tool_en') == 'Bodyweight' and ex_details.get('bName') != 'ABS' and name not in pullupbar_exercises):
                         filtered_list.append(name)
                 final_allowed_names[key] = filtered_list
 

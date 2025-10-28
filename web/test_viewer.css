@@ -243,6 +243,7 @@ h2 {
 #other-exercise-search {
     display: flex;
     width: 115px;
+    color: #e0e0e0;
     font-weight: bold;
     box-sizing: border-box;
 }

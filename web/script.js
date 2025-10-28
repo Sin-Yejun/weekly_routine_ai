@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     } else if (tool === 'kettlebell') {
                         roundedWeight = Math.max(roundedWeight, 4);
                     } else if (tool === 'etc') {
-                        roundedWeight = Math.max(roundedWeight, 2.5);
+                        roundedWeight = Math.max(roundedWeight, 0);
                     }
 
                     return `${roundedWeight}kg ${reps}회`;
@@ -320,7 +320,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                 htmlOutput += `<span class="exercise-bname">${displayBName}</span>${bNamePadding}<span class="exercise-kname">${kName}</span>${oneRmDisplay}\n`;
 
                 const repsArray = getRepsArray(level, parseInt(MG_num) || 0);
-                const setStrings = calculateSetStrings(exercise, estimated1RM, repsArray, level);
+                let setStrings = calculateSetStrings(exercise, estimated1RM, repsArray, level);
+
+                if (eName === "Weighted Pull Up" || eName === "Weighted Chin Up") {
+                    if (setStrings.length > 0) {
+                        setStrings.pop(); // Reduce sets by 1
+                    }
+                    setStrings = setStrings.map(s => {
+                        if (s.includes('회')) {
+                            return s.replace(/(\d+)(회)/, (match, reps, unit) => {
+                                const newReps = Math.max(1, parseInt(reps) - 5);
+                                return `${newReps}${unit}`;
+                            });
+                        }
+                        return s;
+                    });
+                }
+
                 htmlOutput += `<span class="exercise-sets">${setStrings.join(' / ')}</span>\n\n`;
             });
         });
