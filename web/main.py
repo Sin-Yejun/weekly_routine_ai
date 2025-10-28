@@ -405,7 +405,31 @@ def _prepare_allowed_names(user: UtilUser, allowed_names: dict) -> dict:
                     
                     final_allowed_names[key][sub_key] = new_sub_list
 
-    # 2. Filter by level (Beginner/Novice)
+    # 2. Filter by level (Intermediate/Advanced/Elite) for Bodyweight exercises
+    if user.level in ['Intermediate', 'Advanced', 'Elite']:
+        for key, value in final_allowed_names.items():
+            # Handle nested dictionaries (like for frequencies '3', '4', '5')
+            if isinstance(value, dict):
+                for sub_key, sub_list in value.items():
+                    if isinstance(sub_list, list):
+                        filtered_list = []
+                        for name in sub_list:
+                            ex_details = name_to_exercise_map.get(name, {})
+                            # Keep if NOT (Bodyweight AND NOT ABS)
+                            if not (ex_details.get('tool_en') == 'Bodyweight' and ex_details.get('bName') != 'ABS'):
+                                filtered_list.append(name)
+                        final_allowed_names[key][sub_key] = filtered_list
+            # Handle direct lists (like 'CHEST', 'ARM')
+            elif isinstance(value, list):
+                filtered_list = []
+                for name in value:
+                    ex_details = name_to_exercise_map.get(name, {})
+                    # Keep if NOT (Bodyweight AND NOT ABS)
+                    if not (ex_details.get('tool_en') == 'Bodyweight' and ex_details.get('bName') != 'ABS'):
+                        filtered_list.append(name)
+                final_allowed_names[key] = filtered_list
+
+    # 3. Filter by level (Beginner/Novice)
     if user.level in ['Beginner', 'Novice']:
         level_key = ('MBeginner' if user.gender == 'M' else 'FBeginner') if user.level == 'Beginner' else ('MNovice' if user.gender == 'M' else 'FNovice')
         level_exercise_set = set(allowed_names.get(level_key, []))

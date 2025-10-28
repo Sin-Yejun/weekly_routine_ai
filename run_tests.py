@@ -44,39 +44,22 @@ def run_tests():
         print(f"Error: Could not load or parse {TEST_CASES_PATH}. {e}")
         return
 
-    # Define the 6 specific cases to re-run
-    targets_to_rerun = [
-        {"gender": "M", "level": "Beginner", "split_id": "SPLIT", "freq": 2},
-        {"gender": "M", "level": "Intermediate", "split_id": "SPLIT", "freq": 2},
-        {"gender": "M", "level": "Elite", "split_id": "SPLIT", "freq": 3},
-        {"gender": "F", "level": "Intermediate", "split_id": "SPLIT", "freq": 3},
-        {"gender": "F", "level": "Intermediate", "split_id": "SPLIT", "freq": 4},
-        {"gender": "F", "level": "Advanced", "split_id": "SPLIT", "freq": 3},
-    ]
-
-    # Create a set of tuples for efficient lookup
-    target_set = { (t["gender"], t["level"], t["split_id"], t["freq"]) for t in targets_to_rerun }
-
-    # Separate cases to keep from cases to re-process
-    other_cases = []
-    cases_to_process = []
-    for case in all_cases:
-        case_tuple = (case["gender"], case["level"], case["split_id"], case["freq"])
-        if case_tuple in target_set:
-            cases_to_process.append(case)
-        else:
-            other_cases.append(case)
+    # Rerunning all cases
+    cases_to_process = all_cases
+    other_cases = [] # No cases to keep
 
     if not cases_to_process:
-        print("No target cases found for reprocessing. Exiting.")
+        print("No cases found to process. Exiting.")
         return
 
-    print(f"{len(other_cases)} cases will be kept as is.")
-    print(f"Starting to re-process {len(cases_to_process)} target cases...")
+    print(f"Starting to process {len(cases_to_process)} total cases...")
 
     newly_processed_cases = []
     for i, case in enumerate(cases_to_process):
         print(f"--- Processing case {i+1}/{len(cases_to_process)}: {case['gender']}-{case['level']}-{case['freq']}day-{case['split_id']} ---")
+
+        # Server now handles all level-based tool filtering. Client sends all available tools.
+        tools_list = ["Barbell", "Dumbbell", "Machine", "Bodyweight", "EZbar", "Etc", "PullUpBar"]
 
         # Construct the full payload for the API
         payload = {
@@ -84,7 +67,7 @@ def run_tests():
             "weight": 75, # Default value from index.html
             "duration": 60, # Default value
             "intensity": "Normal", # Default value
-            "tools": ["Barbell", "Dumbbell", "Machine", "Bodyweight", "EZbar", "Etc", "PullUpBar"], # Default "Kettlebell" 제외
+            "tools": tools_list, # Dynamically set
             "prevent_weekly_duplicates": True, # Default
             "prevent_category_duplicates": True, # As requested
             "max_tokens": 4096,
