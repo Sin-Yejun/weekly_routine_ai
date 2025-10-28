@@ -346,7 +346,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const viewTestCasesBtn = document.getElementById('view-test-cases-btn');
     if (viewTestCasesBtn) {
         viewTestCasesBtn.addEventListener('click', () => {
-            window.location.href = 'test_viewer.html';
+            window.location.href = 'test_viewer_static.html';
         });
     }
 });

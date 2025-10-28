@@ -1,3 +1,4 @@
+
 /* General Body Styles */
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -108,26 +109,6 @@ h2 {
     grid-column: 1 / -1; /* Span full width */
 }
 
-.checkbox-group-horizontal {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    flex-wrap: wrap; /* Allow wrapping on smaller screens */
-}
-
-.checkbox-group-horizontal label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 14px;
-}
-
-.experience-details-container {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
 .small-input {
     width: 100px; /* Adjust width as needed */
     padding: 8px;
@@ -150,10 +131,6 @@ h2 {
 }
 
 /* Routine Display Styles */
-.routine-container {
-    margin-top: 20px;
-}
-
 .routine-output {
     background-color: #242424;
     border: 1px solid #444;
@@ -206,8 +183,6 @@ h2 {
 }
 
 /* --- Style enhancements for Experience Section --- */
-
-/* Create a boxed container for the experience section */
 .form-group.form-group-full-width {
     background-color: #242424;
     padding: 20px;
@@ -215,7 +190,6 @@ h2 {
     border: 1px solid #444;
 }
 
-/* Adjust the label inside the new box */
 .form-group.form-group-full-width > label {
     font-size: 1.1em;
     color: #f5f5f5;
@@ -224,7 +198,6 @@ h2 {
     margin-bottom: 15px;
 }
 
-/* Style the calculate button */
 #calculate-weights-btn {
     width: 120px; /* Give it a fixed width */
     padding: 10px 15px; /* Make it a bit larger */
@@ -233,7 +206,40 @@ h2 {
     margin-top: 10px; /* Add some space above it */
 }
 
-/* Add margin to radio buttons for spacing */
+.experience-option {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.experience-option label {
+    margin-right: 15px;
+    min-width: 100px; /* Align inputs */
+}
+.experience-details {
+    display: flex;
+    gap: 10px;
+}
+#experience-options {
+    margin-bottom: 15px;
+}
+.experience-description {
+    font-size: 16px;
+    color: #bbb;
+    margin-top: 5px;
+    padding-left: 10px;
+    border-left: 3px solid #007bff;
+    margin-bottom: 15px;
+    line-height: 1.5;
+}
+.filter-description {
+    font-size: 16px;
+    color: #bbb;
+    margin-top: -10px; /* Pull it closer to the h2 */
+    margin-bottom: 20px;
+    padding-left: 10px;
+    border-left: 3px solid #007bff;
+    line-height: 1.6;
+}
 .experience-option input[type="radio"] {
     margin-right: 8px;
 }

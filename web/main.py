@@ -304,16 +304,9 @@ def build_week_schema_by_name(freq, split_tags, allowed_names, min_ex, max_ex, l
                         main_shoulder_pairs.append(pair)
 
                 if not main_chest_pairs:
-                    main_chest_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
-                                        if ex and ex.get('bName') == 'Chest' and ex.get('main_ex') and name in allowed_for_day]
+                    main_chest_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items() if ex and ex.get('bName') == 'Chest' and ex.get('main_ex') and name in allowed_for_day]
                 if not main_shoulder_pairs:
-                    main_shoulder_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items()
-                                        if ex and ex.get('bName') == 'Shoulder' and ex.get('main_ex') and name in allowed_for_day]
-
-                if not main_chest_pairs:
-                    main_chest_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items() if ex and ex.get('bName') == 'Chest' and ex.get('main_ex')]
-                if not main_shoulder_pairs:
-                    main_shoulder_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items() if ex and ex.get('bName') == 'Shoulder' and ex.get('main_ex')]
+                    main_shoulder_pairs = [[ex.get('bName'), name] for name, ex in name_to_exercise_map.items() if ex and ex.get('bName') == 'Shoulder' and ex.get('main_ex') and name in allowed_for_day]
 
                 min_items = max(min_ex, 2)
 
