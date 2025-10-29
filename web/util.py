@@ -51,11 +51,11 @@ SPLIT_CONFIGS = {
         {"id": "FB", "name": "(Full Body)", "days": ["FULLBODY_A", "FULLBODY_B", "FULLBODY_C"], "rule_key": "FB_3"}
     ],
     "4": [
-        {"id": "SPLIT", "name": "(4-Day Split)", "days": ["CHEST", "BACK", "SHOULDERS", "LEGS"], "rule_key": 4},
+        {"id": "SPLIT", "name": "(4-Day Split)", "days": ["LEGS", "CHEST", "BACK", "SHOULDERS"], "rule_key": 4},
         {"id": "FB", "name": "(Full Body)", "days": ["FULLBODY_A", "FULLBODY_B", "FULLBODY_C", "FULLBODY_D"], "rule_key": "FB_4"}
     ],
     "5": [
-        {"id": "SPLIT", "name": "(5-Day Split)", "days": ["CHEST", "BACK", "LEGS", "SHOULDERS", "ARM+ABS"], "rule_key": 5},
+        {"id": "SPLIT", "name": "(5-Day Split)", "days": ["LEGS", "CHEST", "BACK", "SHOULDERS", "ARM+ABS"], "rule_key": 5},
         {"id": "FB", "name": "(Full Body)", "days": ["FULLBODY_A", "FULLBODY_B", "FULLBODY_C", "FULLBODY_D", "FULLBODY_E"], "rule_key": "FB_5"}
     ]
 }
