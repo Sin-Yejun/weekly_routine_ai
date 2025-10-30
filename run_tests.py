@@ -54,75 +54,82 @@ def run_tests():
 
     print(f"Starting to process {len(cases_to_process)} total cases...")
 
-    newly_processed_cases = []
-    for i, case in enumerate(cases_to_process):
-        print(f"--- Processing case {i+1}/{len(cases_to_process)}: {case['gender']}-{case['level']}-{case['freq']}day-{case['split_id']} ---")
-
-        # Server now handles all level-based tool filtering. Client sends all available tools.
-        tools_list = ["Barbell", "Dumbbell", "Machine", "Bodyweight", "EZbar", "Etc", "PullUpBar"]
-
-        # Construct the full payload for the API
-        payload = {
-            **case,
-            "weight": 75, # Default value from index.html
-            "duration": 60, # Default value
-            "intensity": "Normal", # Default value
-            "tools": tools_list, # Dynamically set
-            "prevent_weekly_duplicates": False, # Default
-            "prevent_category_duplicates": True, # As requested
-            "max_tokens": 4096,
-            "temperature": 1.0
-        }
+    for week_num in range(1, 5):
+        print(f"\n--- Generating routines for Week {week_num} ---\n")
         
-        try:
-            # Prepare and send the request
-            data = json.dumps(payload).encode('utf-8')
-            headers = {'Content-Type': 'application/json'}
-            req = urllib.request.Request(API_ENDPOINT, data=data, headers=headers, method='POST')
+        for i, case in enumerate(cases_to_process):
+            # Check if the routine for the current week already exists and is valid
+            if f'week{week_num}' in case and case.get(f'week{week_num}') and 'error' not in case.get(f'week{week_num}', {}):
+                print(f"  Skipping case {i+1}/{len(cases_to_process)}: Week {week_num} data already exists.")
+                continue
+
+            print(f"--- Processing case {i+1}/{len(cases_to_process)} for Week {week_num}: {case['gender']}-{case['level']}-{case['freq']}day-{case['split_id']} ---")
+
+            # Server now handles all level-based tool filtering. Client sends all available tools.
+            tools_list = ["Barbell", "Dumbbell", "Machine", "Bodyweight", "EZbar", "Etc", "PullUpBar"]
+
+            # Construct the full payload for the API, excluding other weekly routines
+            base_case = {k: v for k, v in case.items() if not k.startswith('week')}
+            if 'routine' in base_case:
+                del base_case['routine']
+
+            payload = {
+                **base_case,
+                "weight": 75,
+                "duration": 60,
+                "intensity": "Normal",
+                "tools": tools_list,
+                "prevent_weekly_duplicates": False,
+                "prevent_category_duplicates": True,
+                "max_tokens": 4096,
+                "temperature": 1.0
+            }
             
-            with urllib.request.urlopen(req, timeout=180) as response:
-                if response.status != 200:
-                    print(f"  Error: Received status {response.status}. Skipping.")
-                    raw_body = response.read().decode('utf-8', errors='ignore')
-                    print(f"  Response body: {raw_body}")
-                    case['routine'] = {"error": f"HTTP {response.status}"}
-                else:
-                    response_data = json.loads(response.read().decode('utf-8'))
-                    
-                    # Process the received routine
-                    raw_routine = response_data.get('routine', {})
-                    simplified_routine = {}
-                    
-                    if raw_routine and 'days' in raw_routine:
-                        # Sort exercises within each day
-                        for day_exercises in raw_routine['days']:
-                            day_exercises.sort(key=get_sort_key)
+            try:
+                # Prepare and send the request
+                data = json.dumps(payload).encode('utf-8')
+                headers = {'Content-Type': 'application/json'}
+                req = urllib.request.Request(API_ENDPOINT, data=data, headers=headers, method='POST')
+                
+                with urllib.request.urlopen(req, timeout=180) as response:
+                    if response.status != 200:
+                        print(f"  Error: Received status {response.status}. Skipping.")
+                        raw_body = response.read().decode('utf-8', errors='ignore')
+                        print(f"  Response body: {raw_body}")
+                        case[f'week{week_num}'] = {"error": f"HTTP {response.status}"}
+                    else:
+                        response_data = json.loads(response.read().decode('utf-8'))
+                        
+                        # Process the received routine
+                        raw_routine = response_data.get('routine', {})
+                        simplified_routine = {}
+                        
+                        if raw_routine and 'days' in raw_routine:
+                            for day_exercises in raw_routine['days']:
+                                day_exercises.sort(key=get_sort_key)
+                            for day_idx, day_exercises in enumerate(raw_routine['days']):
+                                day_key = f"Day {day_idx + 1}"
+                                simplified_routine[day_key] = [ex.get('kName', 'Unknown') for ex in day_exercises]
+                        
+                        case[f'week{week_num}'] = simplified_routine
+                        print(f"  Success: Routine for Week {week_num} generated and processed.")
 
-                        # Extract only the Korean names
-                        for day_idx, day_exercises in enumerate(raw_routine['days']):
-                            day_key = f"Day {day_idx + 1}"
-                            simplified_routine[day_key] = [ex.get('kName', 'Unknown') for ex in day_exercises]
-                    
-                    # Add the simplified routine to the case
-                    case['routine'] = simplified_routine
-                    print(f"  Success: Routine generated and processed.")
+            except Exception as e:
+                print(f"  An error occurred during API call or processing for Week {week_num}: {e}")
+                case[f'week{week_num}'] = {"error": str(e)}
+            
+            time.sleep(1) # Be nice to the server
 
-        except Exception as e:
-            print(f"  An error occurred during API call or processing: {e}")
-            case['routine'] = {"error": str(e)}
-        
-        newly_processed_cases.append(case)
-        time.sleep(1) # Be nice to the server
+        # Save results after each week's batch processing
+        print(f"\n--- All cases for Week {week_num} processed. Writing results to {TEST_CASES_PATH}... ---")
+        try:
+            with open(TEST_CASES_PATH, 'w', encoding='utf-8') as f:
+                json.dump(all_cases, f, indent=2, ensure_ascii=False)
+            print(f"--- Successfully updated test_cases.json for Week {week_num}. ---\n")
+        except IOError as e:
+            print(f"Error writing to file after Week {week_num}: {e}")
 
-    # Combine and write back
-    final_cases = other_cases + newly_processed_cases
-    print(f"\nAll remaining cases processed. Writing {len(final_cases)} total cases back to {TEST_CASES_PATH}...")
-    try:
-        with open(TEST_CASES_PATH, 'w', encoding='utf-8') as f:
-            json.dump(final_cases, f, indent=2, ensure_ascii=False)
-        print("Successfully updated test_cases.json.")
-    except IOError as e:
-        print(f"Error writing to file: {e}")
+    print("\nAll weekly routines have been processed.")
 
 if __name__ == '__main__':
     run_tests()

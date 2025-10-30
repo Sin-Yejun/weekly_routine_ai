@@ -113,14 +113,24 @@
                         </div>
                     </div>
                 </div>
-                <button type="button" id="calculate-weights-btn" class="small-button">세트 정보 생성</button>
+                <div id="weight-buttons">
+                    <button type="button" id="calculate-weights-btn" class="small-button">세트 정보 생성</button>
+                    <button type="button" id="hide-weights-btn" class="small-button" style="background-color: #dc3545;">세트 정보 숨기기</button>
+                </div>
             </div>
 
-            <h2 style="margin-top: 30px;">Matching Routine</h2>
+            <h2 style="margin-top: 30px;">AI Weekly Routine</h2>
+            <div class="week-tabs">
+                <button class="week-tab active" data-week="week1">Week 1</button>
+                <button class="week-tab" data-week="week2">Week 2</button>
+                <button class="week-tab" data-week="week3">Week 3</button>
+                <button class="week-tab" data-week="week4">Week 4</button>
+            </div>
             <div id="routine-display" class="routine-output">
                 <p>Select filters to view a routine.</p>
             </div>
     </div>
+    <script src="test_data.js"></script>
     <script src="test_viewer.js"></script>
 </body>
 </html>
