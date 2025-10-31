@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const otherExerciseSearch = document.getElementById('other-exercise-search');
     const expWeightOther      = document.getElementById('exp-weight-other');
     const expRepsOther        = document.getElementById('exp-reps-other');
-    const expOtherExerciseRadio = document.getElementById('exp-other-exercise');
     const exerciseOptionsDatalist = document.getElementById('exercise-options');
 
     let allTestCases = [];
@@ -26,22 +25,53 @@ document.addEventListener('DOMContentLoaded', () => {
     let M_ratio_weight = {};
     let F_ratio_weight = {};
     let isWeightsCalculated = false;
+    let isOverview = false;
+    const overviewToggle = document.getElementById('overview-toggle'); // [HTML 추가 버튼]
+    const weekTabsEl = document.querySelector('.week-tabs');
 
     // --- Functions ---
 
+      // (A) 주차 루틴을 duration(30/45/60)에 맞게 trimming
+    const trimExercisesForDuration = (routineForWeek, selectedDuration) => {
+      const cloned = JSON.parse(JSON.stringify(routineForWeek));
+      Object.values(cloned).forEach(exercises => {
+        if (selectedDuration === 45) {
+          if (exercises.length > 1) exercises.pop();
+        } else if (selectedDuration === 30) {
+          if (exercises.length > 1) exercises.pop();
+          if (exercises.length > 1) exercises.pop();
+        }
+      });
+      return cloned;
+    };
+    // (B) 한 주(week1~week4)를 카드 HTML로 생성
+    const renderWeekCardHTML = (weekKey, routineForWeek, selectedDuration) => {
+      if (!routineForWeek || routineForWeek.error) {
+        return `
+          <div class="overview-card">
+            <div class="week-title">${weekKey.toUpperCase()}</div>
+            <p>${routineForWeek?.error ? ('생성 실패: ' + routineForWeek.error) : 'No data'}</p>
+          </div>`;
+      }
+          const trimmed = trimExercisesForDuration(routineForWeek, selectedDuration);
+    let html = `<div class="overview-card"><div class="week-title">${weekKey.toUpperCase()}</div>`;
+    for (const [day, exercises] of Object.entries(trimmed)) {
+        html += `<div class="day-header">${day} (운동 수: ${exercises.length})</div><ul>`;
+        exercises.forEach(kName => {
+          const bName = kNameToExerciseDetailsMap.get(kName)?.bName || 'N/A';
+          html += `<li data-kname="${kName}">${bName} - ${kName}</li>`;
+        });
+        html += `</ul>`;
+      }
+      html += `</div>`;
+      return html;
+    };
     const splitLabels = {
         '2': '분할 (상체 / 하체)',
         '3': '분할 (밀기 / 당기기 / 하체)',
         '4': '분할 (하체 / 가슴 / 등 / 어깨)',
         '5': '분할 (하체 / 가슴 / 등 / 어깨 / 팔+복근)'
     };
-
-     // Populate datalist for other exercises
-    kNameToExerciseDetailsMap.forEach((value, key) => {
-        const option = document.createElement('option');
-        option.value = key; // Use kName for display and selection
-        exerciseOptionsDatalist.appendChild(option);
-    });
 
     const updateSplitOptions = () => {
         const selectedFreq = freqFilter.value;
@@ -185,71 +215,102 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
-
     const updateRoutineDisplay = (selectedWeek = 'week1') => {
-        const wereWeightsCalculated = isWeightsCalculated;
+      const wereWeightsCalculated = isWeightsCalculated;
+      isWeightsCalculated = false; // 표시 다시 만들 거라 플래그 리셋
 
-        const selectedGender = genderFilter.value;
-        const selectedLevel = levelFilter.value;
-        const selectedFreq = parseInt(freqFilter.value, 10);
-        const selectedSplit = splitFilter.value;
-        const selectedDuration = parseInt(durationFilter.value, 10);
+      const selectedGender = genderFilter.value;
+      const selectedLevel = levelFilter.value;
+      const selectedFreq = parseInt(freqFilter.value, 10);
+      const selectedSplit = splitFilter.value;
+      const selectedDuration = parseInt(durationFilter.value, 10);
 
-        const foundCase = allTestCases.find(c =>
-            c.gender === selectedGender &&
-            c.level === selectedLevel &&
-            c.freq === selectedFreq &&
-            c.split_id === selectedSplit
-        );
+      const foundCase = allTestCases.find(c =>
+        c.gender === selectedGender &&
+        c.level === selectedLevel &&
+        c.freq === selectedFreq &&
+        c.split_id === selectedSplit
+      );
 
-        // Update active tab
-        document.querySelectorAll('.week-tab').forEach(tab => {
-            tab.classList.toggle('active', tab.dataset.week === selectedWeek);
+      // 탭 active 토글
+      document.querySelectorAll('.week-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.week === selectedWeek);
+      });
+
+      // --- NEW: 한눈에 보기 모드 ---
+      if (isOverview && foundCase) {
+
+        const weeks = ['week1', 'week2', 'week3', 'week4'];
+        let gridHTML = `<div class="overview-grid">`;
+        weeks.forEach(wk => {
+          gridHTML += renderWeekCardHTML(wk, foundCase[wk], selectedDuration);
         });
+        gridHTML += `</div>`;
+        routineDisplay.innerHTML = `<div class="overview-scroll">\n    ${['week1','week2','week3','week4'].map(wk => renderWeekCardHTML(wk, foundCase[wk], selectedDuration)).join('')}\n  </div>`;
 
-        if (foundCase && foundCase[selectedWeek]) {
-            const routineForWeek = foundCase[selectedWeek];
-            if (routineForWeek.error) {
-                routineDisplay.innerHTML = `<p style="color: #ffcc00;">Routine generation failed for this week: ${routineForWeek.error}</p>`;
-            } else {
-                let routineToDisplay = JSON.parse(JSON.stringify(routineForWeek));
-                Object.values(routineToDisplay).forEach(exercises => {
-                    if (selectedDuration === 45) {
-                        if (exercises.length > 1) exercises.pop();
-                    } else if (selectedDuration === 30) {
-                        if (exercises.length > 1) exercises.pop();
-                        if (exercises.length > 1) exercises.pop();
-                    }
-                });
-
-                let html = '';
-                for (const [day, exercises] of Object.entries(routineToDisplay)) {
-                    html += `<div class="day-header">${day} (운동 수: ${exercises.length})</div>`;
-                    html += `<ul>`;
-                    exercises.forEach(kName => {
-                        const bName = kNameToExerciseDetailsMap.get(kName)?.bName || 'N/A';
-                        html += `<li data-kname="${kName}">${bName} - ${kName}</li>`;
-                    });
-                    html += `</ul>`;
-                }
-                routineDisplay.innerHTML = html;
-
-                // If weights were calculated before, re-render them for the new routine view
-                if (wereWeightsCalculated) {
-                    renderCalculatedWeights();
-                } else if (isWeightsCalculated === false && wereWeightsCalculated === true) { // If weights were hidden, keep them hidden
-                    document.querySelectorAll('#routine-display .exercise-sets').forEach(span => {
-                        span.style.display = 'none';
-                    });
-                }
-            }
-        } else {
-            routineDisplay.innerHTML = '<p>No matching routine found for the selected criteria for this week.</p>';
+        // 이미 세트 정보가 계산되어 있었다면 다시 적용
+        if (wereWeightsCalculated) {
+          renderCalculatedWeights();
         }
+        return;
+      }
+
+      // --- 기존: 단일 주차 보기 ---
+      if (foundCase && foundCase[selectedWeek]) {
+        const routineForWeek = foundCase[selectedWeek];
+        if (routineForWeek.error) {
+          routineDisplay.innerHTML = `<p style="color:#ffcc00;">Routine generation failed for this week: ${routineForWeek.error}</p>`;
+        } else {
+          const trimmed = trimExercisesForDuration(routineForWeek, selectedDuration);
+          let html = '';
+          for (const [day, exercises] of Object.entries(trimmed)) {
+            html += `<div class="day-header">${day} (운동 수: ${exercises.length})</div><ul>`;
+            exercises.forEach(kName => {
+              const bName = kNameToExerciseDetailsMap.get(kName)?.bName || 'N/A';
+              html += `<li data-kname="${kName}">${bName} - ${kName}</li>`;
+            });
+            html += `</ul>`;
+          }
+          routineDisplay.innerHTML = html;
+
+          if (wereWeightsCalculated) {
+            renderCalculatedWeights();
+          }
+        }
+      } else {
+        routineDisplay.innerHTML = '<p>No matching routine found for the selected criteria for this week.</p>';
+      }
     };
 
+        // --- 토글 버튼 동작 ---
+    overviewToggle?.addEventListener('click', () => {
+      isOverview = !isOverview;
+      overviewToggle.classList.toggle('active', isOverview);
+      overviewToggle.setAttribute('aria-pressed', String(isOverview));
+
+      // ✅ 텍스트 토글
+      overviewToggle.textContent = isOverview ? '월 루틴 닫기' : '월 루틴 펼치기';
+
+      // 탭 보이기/숨기기 직접 처리
+      weekTabsEl?.classList.toggle('hidden', isOverview);
+
+      // ✅ 폭 확장 클래스 토글 (있다면 유지)
+      document.querySelector('.app-shell, .main-container, .routine-container')
+      ?.classList.toggle('overview-mode', isOverview);
+        // 현재 활성 주차 기준으로 다시 그리되,
+        // 한눈에 모드면 4주 전부, 아니면 단일 주차
+        const currentWeek = document.querySelector('.week-tab.active')?.dataset.week || 'week1';
+        updateRoutineDisplay(currentWeek);
+
+        // 세트 정보가 이미 보이던 상태라면 다시 계산(그리드에도 적용됨)
+        if (isWeightsCalculated) {
+          renderCalculatedWeights();
+        }
+    });
     const renderCalculatedWeights = () => {
-        const selectedExperience = document.querySelector('input[name="experience"]:checked').value;
+        const expChecked = document.querySelector('input[name="experience"]:checked');
+        if (!expChecked) return;
+        const selectedExperience = expChecked.value;
         const level = levelFilter.value;
         const gender = genderFilter.value;
         const intensity = intensityFilter.value;
@@ -415,7 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     const updateExperienceDetails = () => {
-    const selectedValue = document.querySelector('input[name="experience"]:checked').value;
+    const selectedValue = document.querySelector('input[name="experience"]:checked')?.value ?? 'unknown';
 
     // 공통: other-exercise 관련 입력 기본 숨김
     otherExerciseSearch.classList.add('hidden');
@@ -468,6 +529,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('#routine-display .exercise-sets').forEach(span => {
                 span.style.display = 'none';
             });
-            isWeightsCalculated = false;
-        });
-    });
+                    isWeightsCalculated = false;
+                });
+});
