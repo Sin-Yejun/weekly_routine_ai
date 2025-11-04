@@ -159,7 +159,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         calculateAndRenderText(routineToRender, backSquat1RM, gender, level, intensity, currentOutputElement, currentRawRoutineData);
     };
 
-    const getRepsArray = (level, mgNum) => {
+    const getRepsArray = (level, mgNum, gender) => {
+        if (gender === 'F') {
+            if (mgNum <= 2) { // Isolation
+                switch (level) {
+                    case 'Beginner': return [20, 20, 15];
+                    case 'Novice': return [20, 20, 15, 15];
+                    default: return [20, 20, 15, 15, 15];
+                }
+            } else { // Compound
+                const femaleLevelSets = {
+                    "Beginner": [15, 12, 10],
+                    "Novice": [15, 12, 10, 8],
+                    "Intermediate": [15, 12, 10, 9, 8],
+                    "Advanced": [15, 12, 10, 9, 8],
+                    "Elite": [15, 12, 10, 9, 8],
+                };
+                return femaleLevelSets[level] || femaleLevelSets['Intermediate'];
+            }
+        }
+
+        // Existing logic for Male
         if (mgNum <= 2) {
             // New logic for isolation exercises
             switch (level) {
@@ -308,10 +328,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                     estimated1RM = backSquat1RM * exerciseRatio;
 
                     // Apply intensity adjustment
-                    if (intensity === 'Low') {
-                        estimated1RM *= 0.9;
-                    } else if (intensity === 'High') {
-                        estimated1RM *= 1.1;
+                    if (gender === 'F') {
+                        if (intensity === 'Low') {
+                            estimated1RM *= 0.8;
+                        } else if (intensity === 'Normal') {
+                            estimated1RM *= 0.9;
+                        } // For 'High', no change (multiplier is 1.0)
+                    } else { // Male or other
+                        if (intensity === 'Low') {
+                            estimated1RM *= 0.9;
+                        } else if (intensity === 'High') {
+                            estimated1RM *= 1.1;
+                        }
                     }
 
                     oneRmDisplay = ` (1RM - ${Math.round(estimated1RM)}) ${exerciseRatio.toFixed(4)}`;
@@ -319,7 +347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 htmlOutput += `<span class="exercise-bname">${displayBName}</span>${bNamePadding}<span class="exercise-kname">${kName}</span>${oneRmDisplay}\n`;
 
-                const repsArray = getRepsArray(level, parseInt(MG_num) || 0);
+                const repsArray = getRepsArray(level, parseInt(MG_num) || 0, gender);
                 let setStrings = calculateSetStrings(exercise, estimated1RM, repsArray, level);
 
                 if (eName === "Weighted Pull Up" || eName === "Weighted Chin Up") {

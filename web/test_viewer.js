@@ -95,7 +95,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const getRepsArray = (level, mgNum) => {
+    const getRepsArray = (level, mgNum, gender) => {
+        if (gender === 'F') {
+            if (mgNum <= 2) { // Isolation
+                switch (level) {
+                    case 'Beginner': return [20, 20, 15];
+                    case 'Novice': return [20, 20, 15, 15];
+                    default: return [20, 20, 15, 15, 15];
+                }
+            } else { // Compound
+                const femaleLevelSets = {
+                    "Beginner": [15, 12, 10],
+                    "Novice": [15, 12, 10, 8],
+                    "Intermediate": [15, 12, 10, 9, 8],
+                    "Advanced": [15, 12, 10, 9, 8],
+                    "Elite": [15, 12, 10, 9, 8],
+                };
+                return femaleLevelSets[level] || femaleLevelSets['Intermediate'];
+            }
+        }
+
+        // Existing logic for Male
         if (mgNum <= 2) {
             switch (level) {
                 case 'Beginner': return [20, 20, 15, 15];
@@ -115,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // New helper function to apply range and rounding
-    const formatWeightRange = (baseWeight, reps, intensity, tool_en) => {
+    const formatWeightRange = (baseWeight, reps, intensity, tool_en, gender) => {
         const tool = (tool_en || 'etc').toLowerCase();
         
         // Calculate the base weight for the set (Normal intensity)
@@ -123,10 +143,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Determine the intensity multiplier
         let intensityMultiplier = 1.0;
-        if (intensity === 'Low') {
-            intensityMultiplier = 0.9;
-        } else if (intensity === 'High') {
-            intensityMultiplier = 1.1;
+        if (gender === 'F') { // Female
+            if (intensity === 'Low') {
+                intensityMultiplier = 0.8; // 0.9 * 0.9
+            } else if (intensity === 'Normal') {
+                intensityMultiplier = 0.9;
+            } // For 'High', multiplier remains 1.0
+        } else { // Male or other
+            if (intensity === 'Low') {
+                intensityMultiplier = 0.9;
+            } else if (intensity === 'High') {
+                intensityMultiplier = 1.1;
+            }
         }
 
         // Calculate the effective weight based on intensity
@@ -152,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${roundedEffectiveWeight}kg ${reps}회`;
     };
 
-    const calculateSetStrings = (exercise, estimated1RM, repsArray, level, intensity) => {
+    const calculateSetStrings = (exercise, estimated1RM, repsArray, level, intensity, gender) => {
         const { eName, eInfoType, tool_en } = exercise;
         const exerciseRatio = M_ratio_weight[eName] || F_ratio_weight[eName];
         const isAssistedMachine = eName === "Assisted Pull Up Machine" || eName === "Assisted Dip Machine";
@@ -162,10 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (level === 'Beginner' || level === 'Novice') {
                 return repsArray.map((reps, index) => {
                     let baseWeight = estimated1RM;
-                    if (index >= 2) {
-                        baseWeight *= 0.8;
-                    }
-                    return formatWeightRange(baseWeight, reps, intensity, tool_en);
+                    return formatWeightRange(baseWeight, reps, intensity, tool_en, gender);
                 });
             } else { // Intermediate, Advanced, Elite
                 return repsArray.map(reps => {
@@ -176,10 +201,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     else if (reps >= 10) {
                         baseWeight = estimated1RM * 0.8;
                     }
-                    else {
-                        baseWeight = estimated1RM * 0.6;
+                    else {  
+                        return formatWeightRange(baseWeight, reps, intensity, tool_en, gender);
                     }
-                    return formatWeightRange(baseWeight, reps, intensity, tool_en);
                 });
             }
         }
@@ -393,8 +417,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Intensity adjustment will now be handled in calculateSetStrings
             }
 
-            const repsArray = getRepsArray(level, exerciseDetails.MG_num || 0);
-            let setStrings = calculateSetStrings(exerciseDetails, estimated1RM, repsArray, level, intensity);
+            const repsArray = getRepsArray(level, exerciseDetails.MG_num || 0, gender);
+            let setStrings = calculateSetStrings(exerciseDetails, estimated1RM, repsArray, level, intensity, gender);
 
             if (exerciseDetails.eName === "Weighted Pull Up" || exerciseDetails.eName === "Weighted Chin Up") {
                 if (setStrings.length > 0) {
