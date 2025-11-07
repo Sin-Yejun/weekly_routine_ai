@@ -4,18 +4,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     const freqSelect = document.getElementById('freq');
     const splitTypeSelect = document.getElementById('split-type');
     const sortToggle = document.getElementById('sort-toggle');
+    const modal = document.getElementById('similar-exercises-modal');
+    const modalCloseBtn = modal.querySelector('.close-btn');
+    const modalList = document.getElementById('similar-exercises-list');
+
 
     // --- 전역 변수 및 데이터 로드 ---
     let M_ratio_weight = {};
     let F_ratio_weight = {};
+    let exerciseCatalog = [];
+    let name_to_exercise_map = {};
 
     try {
-        const response = await fetch('/api/ratios');
-        const ratios = await response.json();
+        const ratiosResponse = await fetch('/api/ratios');
+        const ratios = await ratiosResponse.json();
         M_ratio_weight = ratios.M_ratio_weight;
         F_ratio_weight = ratios.F_ratio_weight;
+
+        const catalogResponse = await fetch('/api/exercises');
+        exerciseCatalog = await catalogResponse.json();
+        exerciseCatalog.forEach(ex => {
+            if(ex.eName) name_to_exercise_map[ex.eName] = ex;
+        });
+
     } catch (error) {
-        console.error('Error fetching weight ratios:', error);
+        console.error('Error fetching initial data:', error);
         alert('Could not load necessary data. Please reload the page.');
     }
 
@@ -316,7 +329,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const maxBNameWidth = Math.max(...dayWithDisplayNames.map(ex => getStringWidth(ex.displayBName)));
 
-            dayWithDisplayNames.forEach(exercise => {
+            dayWithDisplayNames.forEach((exercise, exIndex) => {
                 const { eName, displayBName, kName, eInfoType, tool_en, MG_num } = exercise;
                 const bNamePadding = ' '.repeat(maxBNameWidth - getStringWidth(displayBName) + 2);
 
@@ -345,7 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     oneRmDisplay = ` (1RM - ${Math.round(estimated1RM)}) ${exerciseRatio.toFixed(4)}`;
                 }
 
-                htmlOutput += `<span class="exercise-bname">${displayBName}</span>${bNamePadding}<span class="exercise-kname">${kName}</span>${oneRmDisplay}\n`;
+                htmlOutput += `<span class="exercise-bname">${displayBName}</span>${bNamePadding}<span class="exercise-kname" data-ename="${eName}" data-dayindex="${dayIndex}" data-exindex="${exIndex}">${kName}</span>${oneRmDisplay}\n`;
 
                 const repsArray = getRepsArray(level, parseInt(MG_num) || 0, gender);
                 let setStrings = calculateSetStrings(exercise, estimated1RM, repsArray, level);
@@ -393,4 +406,80 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.location.href = 'test_viewer_static.html';
         });
     }
+
+    // --- Similar Exercises Modal Logic ---
+
+    let currentExerciseInfo = { dayIndex: null, exIndex: null };
+
+    const handleExerciseClick = async (event) => {
+        if (!event.target.classList.contains('exercise-kname')) return;
+
+        const { ename, dayindex, exindex } = event.target.dataset;
+        currentExerciseInfo = { dayIndex: parseInt(dayindex), exIndex: parseInt(exindex) };
+
+        modalList.innerHTML = 'Loading...';
+        modal.style.display = 'flex';
+
+        try {
+            const response = await fetch(`/api/similar-exercises/${ename}`);
+            if (!response.ok) throw new Error('Failed to fetch similar exercises.');
+            
+            const similarExercises = await response.json();
+
+            if (similarExercises.length === 0) {
+                modalList.innerHTML = 'No similar exercises found.';
+                return;
+            }
+
+            modalList.innerHTML = similarExercises.map(ex => 
+                `<div class="similar-exercise-item" data-ename="${ex.eName}">${ex.bName} - ${ex.kName}</div>`
+            ).join('');
+
+        } catch (error) {
+            console.error('Error fetching similar exercises:', error);
+            modalList.innerHTML = 'Could not load exercises.';
+        }
+    };
+
+    const handleSimilarExerciseSelect = (event) => {
+        if (!event.target.classList.contains('similar-exercise-item')) return;
+
+        const newEName = event.target.dataset.ename;
+        const newExerciseDetails = name_to_exercise_map[newEName];
+
+        if (!newExerciseDetails) {
+            console.error('Could not find details for selected exercise:', newEName);
+            alert('An error occurred while selecting the new exercise.');
+            return;
+        }
+
+        const { dayIndex, exIndex } = currentExerciseInfo;
+
+        // Update the routine data
+        currentRoutineData.days[dayIndex][exIndex] = {
+            "eName": newEName,
+            "bName": newExerciseDetails.bName,
+            "kName": newExerciseDetails.kName,
+            "MG_num": newExerciseDetails.MG_num,
+            "musle_point_sum": newExerciseDetails.musle_point_sum,
+            "main_ex": newExerciseDetails.main_ex,
+            "eInfoType": newExerciseDetails.eInfoType,
+            "tool_en": newExerciseDetails.tool_en
+        };
+
+        // Close modal and re-render
+        modal.style.display = 'none';
+        renderRoutine();
+    };
+
+    rawOutputEl.addEventListener('click', handleExerciseClick);
+    formattedOutputEl.addEventListener('click', handleExerciseClick);
+    modalCloseBtn.addEventListener('click', () => modal.style.display = 'none');
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+    modalList.addEventListener('click', handleSimilarExerciseSelect);
+
 });

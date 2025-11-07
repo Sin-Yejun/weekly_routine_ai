@@ -35,12 +35,32 @@ load_dotenv()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 EXERCISE_CATALOG_PATH = os.path.join(DATA_DIR, '02_processed', 'processed_query_result_200.json')
+EXERCISE_SIMILARITY_PATH = os.path.join(DATA_DIR, '02_processed', 'exercise_similarity.json')
 
 # --- Load Exercise Catalog and Name Maps ---
 exercise_catalog = []
 name_to_exercise_map = {}
 name_to_korean_map = {}
 name_to_einfotype_map = {}
+exercise_similarity_map = {}
+similar_to_main_map = {}
+
+try:
+    with open(EXERCISE_SIMILARITY_PATH, 'r', encoding='utf-8') as f:
+        similarity_data = json.load(f)
+        for item in similarity_data:
+            main_exercise = item["main_exercise"]
+            similar_exercises = item["similar"]
+            exercise_similarity_map[main_exercise] = similar_exercises
+            for similar_exercise in similar_exercises:
+                if similar_exercise not in similar_to_main_map:
+                    similar_to_main_map[similar_exercise] = []
+                similar_to_main_map[similar_exercise].append(main_exercise)
+
+except (FileNotFoundError, json.JSONDecodeError) as e:
+    app.logger.error(f"Could not load or parse exercise similarity data at {EXERCISE_SIMILARITY_PATH}: {e}")
+    # This might not be critical, so the app can continue
+
 
 try:
     with open(EXERCISE_CATALOG_PATH, 'r', encoding='utf-8') as f:
@@ -677,6 +697,32 @@ async def get_exercises_api():
     if not exercise_catalog:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Exercise catalog not found or failed to load.")
     return JSONResponse(content=exercise_catalog)
+
+@app.get("/api/similar-exercises/{exercise_name}", summary="Get similar exercises for a given exercise")
+async def get_similar_exercises_api(exercise_name: str):
+    similar_exercises_en = exercise_similarity_map.get(exercise_name)
+
+    if not similar_exercises_en:
+        # If the exercise is not a main exercise, check if it is a similar exercise to another main exercise
+        main_exercises = similar_to_main_map.get(exercise_name)
+        if main_exercises:
+            # If it is, get the similar exercises of the first main exercise
+            similar_exercises_en = exercise_similarity_map.get(main_exercises[0])
+
+    if not similar_exercises_en:
+        return JSONResponse(content=[])
+
+    similar_exercises_ko = []
+    for en_name in similar_exercises_en:
+        exercise_details = name_to_exercise_map.get(en_name)
+        if exercise_details:
+            similar_exercises_ko.append({
+                "eName": en_name,
+                "kName": exercise_details.get("kName", en_name),
+                "bName": exercise_details.get("bName", "N/A")
+            })
+
+    return JSONResponse(content=similar_exercises_ko)
 
 @app.post("/api/generate-prompt", summary="Generate a workout prompt based on user configuration")
 async def generate_prompt_api(config: UserConfig):
