@@ -578,17 +578,19 @@ def post_validate_and_fix_week(obj, exercise_map, freq=None, split_tags=None, al
                         current_day_fixed[replace_idx] = [bp, replacement_main_ex]
                         day_names = {p[1] for p in current_day_fixed} # Refresh names
 
-        if prevent_weekly_duplicates:
+            day_names = {name for _, name in current_day_fixed}
             deduped_day = []
             for bp, name in current_day_fixed:
                 if name in weekly_used_names:
                     original_ex_info = exercise_map.get(name, {})
                     is_main = original_ex_info.get('main_ex', False)
                     
+                    other_day_names = day_names - {name}
                     candidates = [cand_name for cand_name, cand_ex in exercise_map.items() if 
                                 cand_ex.get('bName') == bp and 
                                 cand_ex.get('main_ex', False) == is_main and 
                                 cand_name not in weekly_used_names and 
+                                cand_name not in other_day_names and
                                 cand_name not in {p[1] for p in deduped_day}]
                     
                     if candidates:
@@ -604,6 +606,7 @@ def post_validate_and_fix_week(obj, exercise_map, freq=None, split_tags=None, al
         if prevent_category_duplicates:
             categories_used_today = set()
             category_deduped_day = []
+            day_names = {name for _, name in current_day_fixed}
             
             current_day_allowed_names = []
             if tag.startswith("FULLBODY"):
@@ -631,6 +634,7 @@ def post_validate_and_fix_week(obj, exercise_map, freq=None, split_tags=None, al
                 if category and category != '(Uncategorized)' and category in categories_used_today:
                     app.logger.info(f"[Category De-Dupe] Day {day_idx+1}: Category '{category}' for '{name}' already used. Attempting replacement.")
                     
+                    other_day_names = day_names - {name}
                     strict_candidates = []
                     for cand_name in current_day_allowed_names:
                         cand_ex_info = exercise_map.get(cand_name, {})
@@ -640,6 +644,7 @@ def post_validate_and_fix_week(obj, exercise_map, freq=None, split_tags=None, al
                         if (cand_bp == bp and
                             cand_category not in categories_used_today and
                             (not prevent_weekly_duplicates or cand_name not in weekly_used_names) and
+                            cand_name not in other_day_names and
                             cand_name not in {p[1] for p in category_deduped_day} and
                             cand_name != name):
                             strict_candidates.append(cand_name)
@@ -654,6 +659,7 @@ def post_validate_and_fix_week(obj, exercise_map, freq=None, split_tags=None, al
 
                             if (cand_category not in categories_used_today and
                                 (not prevent_weekly_duplicates or cand_name not in weekly_used_names) and
+                                cand_name not in other_day_names and
                                 cand_name not in {p[1] for p in category_deduped_day} and
                                 cand_name != name):
                                 relaxed_candidates.append(cand_name)
