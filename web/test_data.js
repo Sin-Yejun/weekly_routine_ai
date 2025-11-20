@@ -14586,13 +14586,8 @@ const similar_exercises = [
       "Conventional Deadlift",
       "Stiff Leg Deadlift",
       "Romanian Deadlift",
-      "Dumbbell Sumo Deadlift",
-      "Barbell Sumo Squat",
-      "Back Squat",
-      "Kettlebell Deadlift",
-      "Barbell Bulgarian Split Squat",
-      "Barbell Split Squat",
-      "Smith Machine Deadlift"
+      "Smith Machine Deadlift",
+      "Kettlebell Deadlift"
     ]
   },
   {
@@ -14600,44 +14595,29 @@ const similar_exercises = [
     "similar": [
       "Sumo Deadlift",
       "Stiff Leg Deadlift",
-      "Romanian Deadlift",
       "Kettlebell Deadlift",
-      "Smith Machine Deadlift",
-      "Back Squat",
-      "Barbell Bulgarian Split Squat",
-      "Front Squat",
-      "Barbell Box Squat",
-      "Barbell Hip Thrust"
+      "Romanian Deadlift",
+      "Smith Machine Deadlift"
     ]
   },
   {
     "main_exercise": "Back Squat",
     "similar": [
       "Front Squat",
-      "Barbell Box Squat",
-      "Barbell Split Squat",
-      "Barbell Bulgarian Split Squat",
-      "Barbell Jump Squat",
-      "Barbell Lunge",
-      "Dumbbell Squat",
-      "Dumbbell Front Squat",
-      "Dumbbell Split Squat",
-      "Dumbbell Goblet Squat"
+      "Air Squat",
+      "V Squat",
+      "Jump Squat",
+      "Dumbbell Squat"
     ]
   },
   {
     "main_exercise": "Romanian Deadlift",
     "similar": [
       "Stiff Leg Deadlift",
-      "Sumo Deadlift",
       "Conventional Deadlift",
+      "Sumo Deadlift",
       "Kettlebell Deadlift",
-      "Barbell Bulgarian Split Squat",
-      "Smith Machine Deadlift",
-      "Barbell Hip Thrust",
-      "Back Squat",
-      "Barbell Split Squat",
-      "Barbell Lunge"
+      "Smith Machine Deadlift"
     ]
   },
   {
@@ -14645,59 +14625,39 @@ const similar_exercises = [
     "similar": [
       "Horizontal Leg Press",
       "Leg Extension",
-      "Smith Machine Squat",
       "Hack Squat Machine",
-      "Smith Machine Split Squat",
-      "V Squat",
-      "Linear Hack Squat Machine",
-      "Smith Machine Bulgarian Split Squat",
-      "Reverse V Squat",
-      "Leg Curl"
+      "Smith Machine Squat",
+      "Back Squat"
     ]
   },
   {
     "main_exercise": "Front Squat",
     "similar": [
       "Back Squat",
-      "Barbell Split Squat",
-      "Barbell Box Squat",
       "Dumbbell Front Squat",
-      "Barbell Lunge",
-      "Barbell Bulgarian Split Squat",
-      "Barbell Jump Squat",
-      "Dumbbell Squat",
-      "Dumbbell Split Squat",
-      "Dumbbell Goblet Squat"
+      "Air Squat",
+      "V Squat",
+      "Jump Squat"
     ]
   },
   {
     "main_exercise": "Seated Row Machine",
     "similar": [
-      "Seated Cable Row",
       "High Row Machine",
+      "Seated Cable Row",
       "Middle Row Machine",
       "T-bar Row Machine",
-      "Smith Machine Row",
-      "Chest Supported T-bar Row",
-      "Low Row Machine",
-      "Lat Pull Down",
-      "Barbell Row",
-      "Cable Straight Arm Pulldown"
+      "Smith Machine Row"
     ]
   },
   {
     "main_exercise": "Dumbbell Lunge",
     "similar": [
       "Dumbbell Squat",
-      "Dumbbell Split Squat",
       "Barbell Lunge",
-      "Dumbbell Bulgarian Split Squat",
-      "Dumbbell Front Squat",
-      "Dumbbell Goblet Squat",
-      "Dumbbell Lateral Lunge",
+      "Dumbbell Split Squat",
       "Lunge",
-      "Barbell Split Squat",
-      "Barbell Bulgarian Split Squat"
+      "Dumbbell Bulgarian Split Squat"
     ]
   },
   {
@@ -14706,88 +14666,58 @@ const similar_exercises = [
       "Smith Machine Split Squat",
       "Smith Machine Bulgarian Split Squat",
       "Hack Squat Machine",
-      "Leg Press",
-      "V Squat",
-      "Horizontal Leg Press",
-      "Linear Hack Squat Machine",
-      "Leg Extension",
-      "Reverse V Squat",
-      "Smith Machine Hip Thrust"
+      "Smith Machine Deadlift",
+      "Back Squat"
     ]
   },
   {
     "main_exercise": "Reverse V Squat",
     "similar": [
       "V Squat",
-      "Smith Machine Squat",
-      "Hack Squat Machine",
-      "Leg Press",
-      "Smith Machine Split Squat",
-      "Leg Extension",
-      "Horizontal Leg Press",
-      "Linear Hack Squat Machine",
-      "Smith Machine Bulgarian Split Squat",
-      "Back Squat"
+      "Back Squat",
+      "Air Squat",
+      "Front Squat",
+      "Lunge"
     ]
   },
   {
     "main_exercise": "Dumbbell Goblet Squat",
     "similar": [
       "Dumbbell Squat",
+      "Kettlebell Goblet Squat",
       "Dumbbell Front Squat",
       "Dumbbell Split Squat",
-      "Dumbbell Bulgarian Split Squat",
-      "Kettlebell Goblet Squat",
-      "Dumbbell Lunge",
-      "Dumbbell Sumo Squat",
-      "Barbell Bulgarian Split Squat",
-      "Barbell Split Squat",
-      "Back Squat"
+      "Dumbbell Bulgarian Split Squat"
     ]
   },
   {
     "main_exercise": "Air Squat",
     "similar": [
-      "Jump Squat",
-      "Lunge",
-      "Pistol Box Squat",
-      "Sumo Air Squat",
-      "Burpee",
       "Back Squat",
-      "Barbell Jump Squat",
-      "Dumbbell Squat",
       "Front Squat",
-      "Barbell Box Squat"
+      "Jump Squat",
+      "V Squat",
+      "Lunge"
     ]
   },
   {
     "main_exercise": "V Squat",
     "similar": [
       "Reverse V Squat",
-      "Smith Machine Squat",
-      "Leg Press",
-      "Hack Squat Machine",
-      "Smith Machine Split Squat",
-      "Leg Extension",
-      "Horizontal Leg Press",
-      "Linear Hack Squat Machine",
-      "Smith Machine Bulgarian Split Squat",
-      "Back Squat"
+      "Back Squat",
+      "Air Squat",
+      "Front Squat",
+      "Jump Squat"
     ]
   },
   {
     "main_exercise": "Overhead Press",
     "similar": [
-      "Seated Barbell Shoulder Press",
       "Push Press",
-      "Barbell Front Raise",
       "Dumbbell Shoulder Press",
-      "Barbell Incline Front Raise",
-      "Incline Barbell Front Raise",
-      "EZ Bar Front Raise",
-      "Seated Dumbbell Shoulder Press",
-      "Incline Dumbbell Shoulder Press",
-      "Kettlebell Shoulder Press"
+      "Seated Barbell Shoulder Press",
+      "Shoulder Press Machine",
+      "Seated Dumbbell Shoulder Press"
     ]
   },
   {
@@ -14797,12 +14727,7 @@ const similar_exercises = [
       "Incline Dumbbell Shoulder Press",
       "Dumbbell Front Raise",
       "Seated Barbell Shoulder Press",
-      "Dumbbell Incline Front Raise",
-      "Incline Dumbbell Front Raise",
-      "Overhead Press",
-      "Dumbbell Lateral Raise",
-      "Push Press",
-      "Kettlebell Shoulder Press"
+      "Overhead Press"
     ]
   },
   {
@@ -14811,88 +14736,58 @@ const similar_exercises = [
       "Linear Hack Squat Machine",
       "Smith Machine Squat",
       "Leg Press",
-      "Horizontal Leg Press",
-      "Leg Extension",
       "Smith Machine Split Squat",
-      "V Squat",
-      "Reverse V Squat",
-      "Smith Machine Bulgarian Split Squat",
-      "Hip Thrust Machine"
+      "Leg Extension"
     ]
   },
   {
     "main_exercise": "Linear Hack Squat Machine",
     "similar": [
       "Hack Squat Machine",
-      "Horizontal Leg Press",
-      "Leg Press",
       "Smith Machine Squat",
-      "Leg Extension",
+      "Horizontal Leg Press",
       "Smith Machine Split Squat",
-      "V Squat",
-      "Reverse V Squat",
-      "Smith Machine Bulgarian Split Squat",
-      "Hip Thrust Machine"
+      "Leg Press"
     ]
   },
   {
     "main_exercise": "Seated Dumbbell Shoulder Press",
     "similar": [
+      "Seated Barbell Shoulder Press",
       "Dumbbell Shoulder Press",
       "Incline Dumbbell Shoulder Press",
-      "Seated Barbell Shoulder Press",
-      "Dumbbell Front Raise",
-      "Seated Dumbbell Lateral Raise",
       "Seated Dumbbell Rear Lateral Raise",
-      "Dumbbell Incline Front Raise",
-      "Incline Dumbbell Front Raise",
-      "Overhead Press",
-      "Shoulder Press Machine"
+      "Seated Dumbbell Lateral Raise"
     ]
   },
   {
     "main_exercise": "Barbell Row",
     "similar": [
       "Barbell Incline Row",
-      "Pendlay Row",
       "Dumbbell Row",
-      "Dumbbell Incline Row",
-      "Rack Pull",
-      "Inverted Row",
-      "Smith Machine Row",
-      "T-bar Row Machine",
-      "Chest Supported T-bar Row",
-      "Seated Cable Row"
+      "Seated Cable Row",
+      "Pendlay Row",
+      "Inverted Row"
     ]
   },
   {
     "main_exercise": "Lat Pull Down",
     "similar": [
+      "Pull Up",
       "Lateral Wide Pull Down",
       "Cable Straight Arm Pulldown",
-      "Low Row Machine",
-      "Assisted Pull Up Machine",
-      "Seated Cable Row",
-      "High Row Machine",
-      "Seated Row Machine",
-      "T-bar Row Machine",
-      "Middle Row Machine",
-      "Smith Machine Row"
+      "Weighted Pull Up",
+      "Assisted Pull Up Machine"
     ]
   },
   {
     "main_exercise": "Leg Curl",
     "similar": [
-      "Smith Machine Deadlift",
       "Leg Extension",
-      "Leg Press",
-      "Cable Pull Through",
-      "Horizontal Leg Press",
-      "Hip Thrust Machine",
-      "Hack Squat Machine",
-      "Smith Machine Hip Thrust",
-      "Smith Machine Bulgarian Split Squat",
-      "Smith Machine Squat"
+      "Romanian Deadlift",
+      "Smith Machine Deadlift",
+      "Stiff Leg Deadlift",
+      "Conventional Deadlift"
     ]
   },
   {
@@ -14901,13 +14796,8 @@ const similar_exercises = [
       "Leg Press",
       "Horizontal Leg Press",
       "Hack Squat Machine",
-      "Smith Machine Squat",
-      "Linear Hack Squat Machine",
-      "V Squat",
-      "Smith Machine Split Squat",
-      "Leg Curl",
-      "Smith Machine Bulgarian Split Squat",
-      "Reverse V Squat"
+      "Lunge",
+      "Back Squat"
     ]
   },
   {
@@ -14917,27 +14807,17 @@ const similar_exercises = [
       "Pull Up",
       "Chin Up",
       "Lat Pull Down",
-      "Inverted Row",
-      "Assisted Pull Up Machine",
-      "Cable Straight Arm Pulldown",
-      "Barbell Row",
-      "Lateral Wide Pull Down",
-      "One Arm Dumbbell Row"
+      "Assisted Pull Up Machine"
     ]
   },
   {
     "main_exercise": "Pull Up",
     "similar": [
-      "Weighted Pull Up",
-      "Chin Up",
-      "Weighted Chin Up",
-      "Inverted Row",
       "Lat Pull Down",
-      "Assisted Pull Up Machine",
-      "Lateral Wide Pull Down",
-      "One Arm Dumbbell Row",
-      "Cable Straight Arm Pulldown",
-      "Back Extension"
+      "Weighted Pull Up",
+      "Weighted Chin Up",
+      "Chin Up",
+      "Lateral Wide Pull Down"
     ]
   },
   {
@@ -14946,43 +14826,28 @@ const similar_exercises = [
       "Weighted Chin Up",
       "Pull Up",
       "Lat Pull Down",
-      "Chin Up",
       "Assisted Pull Up Machine",
-      "Lateral Wide Pull Down",
-      "Inverted Row",
-      "Cable Straight Arm Pulldown",
-      "One Arm Dumbbell Row",
-      "Barbell Row"
+      "Lateral Wide Pull Down"
     ]
   },
   {
     "main_exercise": "Chin Up",
     "similar": [
-      "Pull Up",
       "Weighted Chin Up",
-      "Inverted Row",
+      "Pull Up",
       "Weighted Pull Up",
-      "Back Extension",
-      "Barbell Row",
-      "Barbell Incline Row",
-      "Dumbbell Row",
       "Lat Pull Down",
-      "Pendlay Row"
+      "Inverted Row"
     ]
   },
   {
     "main_exercise": "Pendlay Row",
     "similar": [
       "Barbell Row",
+      "Inverted Row",
       "Barbell Incline Row",
       "Dumbbell Row",
-      "Dumbbell Incline Row",
-      "Rack Pull",
-      "Inverted Row",
-      "Smith Machine Row",
-      "Chest Supported T-bar Row",
-      "T-bar Row Machine",
-      "One Arm Dumbbell Row"
+      "Seated Cable Row"
     ]
   },
   {
@@ -14990,14 +14855,9 @@ const similar_exercises = [
     "similar": [
       "Barbell Row",
       "Dumbbell Incline Row",
-      "Pendlay Row",
-      "Dumbbell Row",
       "Inverted Row",
-      "Smith Machine Row",
-      "T-bar Row Machine",
-      "Rack Pull",
-      "Chest Supported T-bar Row",
-      "High Row Machine"
+      "Dumbbell Row",
+      "Pendlay Row"
     ]
   },
   {
@@ -15005,14 +14865,9 @@ const similar_exercises = [
     "similar": [
       "Dumbbell Row",
       "Barbell Incline Row",
-      "One Arm Dumbbell Row",
       "Barbell Row",
-      "Pendlay Row",
       "Inverted Row",
-      "Dumbbell Upright Row",
-      "Incline Dumbbell Pull Over",
-      "Smith Machine Row",
-      "Incline Dumbbell Fly"
+      "One Arm Dumbbell Row"
     ]
   },
   {
@@ -15020,29 +14875,19 @@ const similar_exercises = [
     "similar": [
       "Dumbbell Row",
       "Dumbbell Incline Row",
-      "Barbell Row",
-      "Low Row Machine",
-      "Barbell Incline Row",
       "Lat Pull Down",
-      "Pendlay Row",
-      "Pull Up",
-      "Cable Straight Arm Pulldown",
-      "Bentover Dumbbell Lateral Raise"
+      "Barbell Row",
+      "Low Row Machine"
     ]
   },
   {
     "main_exercise": "T-bar Row Machine",
     "similar": [
-      "Chest Supported T-bar Row",
       "High Row Machine",
       "Seated Row Machine",
+      "Chest Supported T-bar Row",
       "Middle Row Machine",
-      "Smith Machine Row",
-      "Seated Cable Row",
-      "Low Row Machine",
-      "Barbell Row",
-      "Lat Pull Down",
-      "Barbell Incline Row"
+      "Smith Machine Row"
     ]
   },
   {
@@ -15052,12 +14897,7 @@ const similar_exercises = [
       "Knee Push Ups",
       "Incline Push Ups",
       "Decline Push Ups",
-      "Dips",
-      "Barbell Bench Press",
-      "Weighted Dips",
-      "Dumbbell Pullover",
-      "Dumbbell Fly",
-      "Dumbbell Bench Press"
+      "Dips"
     ]
   },
   {
@@ -15067,12 +14907,7 @@ const similar_exercises = [
       "Hindu Push Ups",
       "Incline Push Ups",
       "Decline Push Ups",
-      "Dips",
-      "Barbell Bench Press",
-      "Chest Press Machine",
-      "Dumbbell Bench Press",
-      "Dumbbell Pullover",
-      "Dumbbell Fly"
+      "Barbell Bench Press"
     ]
   },
   {
@@ -15082,12 +14917,7 @@ const similar_exercises = [
       "Dumbbell Squat",
       "Dumbbell Split Squat",
       "Dumbbell Bulgarian Split Squat",
-      "Dumbbell Goblet Squat",
-      "Dumbbell Front Squat",
-      "Dumbbell Lunge",
-      "Barbell Bulgarian Split Squat",
-      "Barbell Jump Squat",
-      "Barbell Split Squat"
+      "Dumbbell Goblet Squat"
     ]
   },
   {
@@ -15096,73 +14926,48 @@ const similar_exercises = [
       "Dumbbell Burpee",
       "Jump Squat",
       "Air Squat",
-      "Lunge",
-      "Jumping Jack",
-      "Pistol Box Squat",
-      "Mountain Climber",
       "Barbell Jump Squat",
-      "Sumo Air Squat",
-      "Knee Push Ups"
+      "Back Squat"
     ]
   },
   {
     "main_exercise": "Jump Squat",
     "similar": [
-      "Air Squat",
       "Barbell Jump Squat",
-      "Lunge",
-      "Pistol Box Squat",
-      "Burpee",
+      "Air Squat",
       "Back Squat",
-      "Dumbbell Squat",
-      "Barbell Box Squat",
       "Front Squat",
-      "Barbell Split Squat"
+      "V Squat"
     ]
   },
   {
     "main_exercise": "Lunge",
     "similar": [
       "Barbell Lunge",
-      "Jump Squat",
-      "Air Squat",
       "Dumbbell Lunge",
-      "Bodyweight Lateral Lunge",
-      "Pistol Box Squat",
-      "Barbell Split Squat",
-      "Dumbbell Split Squat",
-      "Barbell Bulgarian Split Squat",
-      "Dumbbell Squat"
+      "Air Squat",
+      "Back Squat",
+      "Front Squat"
     ]
   },
   {
     "main_exercise": "Barbell Incline Bench Press",
     "similar": [
       "Incline Dumbbell Bench Press",
-      "Barbell Bench Press",
       "Smith Machine Incline Bench Press",
       "Incline Bench Press Machine",
-      "Incline Dumbbell Fly",
-      "Decline Dumbbell Bench Press",
       "Incline Chest Press Machine",
-      "Dumbbell Bench Press",
-      "Incline Dumbbell Pull Over",
-      "Incline Push Ups"
+      "Barbell Bench Press"
     ]
   },
   {
     "main_exercise": "Barbell Jump Squat",
     "similar": [
+      "Jump Squat",
       "Barbell Split Squat",
       "Barbell Box Squat",
-      "Back Squat",
-      "Front Squat",
       "Barbell Bulgarian Split Squat",
-      "Barbell Lunge",
-      "Jump Squat",
-      "Dumbbell Squat",
-      "Dumbbell Split Squat",
-      "Dumbbell Front Squat"
+      "Barbell Lunge"
     ]
   },
   {
@@ -15170,14 +14975,9 @@ const similar_exercises = [
     "similar": [
       "Dumbbell Sumo Deadlift",
       "Barbell Sumo Squat",
-      "Dumbbell Lateral Lunge",
       "Kettlebell Sumo Squat",
-      "Kettlebell Sumo Deadlift",
-      "Dumbbell Squat",
-      "Barbell Lateral Lunge",
-      "Sumo Air Squat",
-      "Dumbbell Goblet Squat",
-      "Dumbbell Split Squat"
+      "Dumbbell Lateral Lunge",
+      "Sumo Air Squat"
     ]
   },
   {
@@ -15185,44 +14985,29 @@ const similar_exercises = [
     "similar": [
       "Kettlebell Sumo Squat",
       "Dumbbell Sumo Deadlift",
-      "Barbell Sumo Squat",
       "Dumbbell Sumo Squat",
-      "Kettlebell Deadlift",
-      "Barbell Lateral Lunge",
-      "Kettlebell Goblet Squat",
-      "Sumo Air Squat",
-      "Dumbbell Lateral Lunge",
-      "Sumo Deadlift"
+      "Barbell Sumo Squat",
+      "Kettlebell Deadlift"
     ]
   },
   {
     "main_exercise": "Dumbbell Sumo Deadlift",
     "similar": [
       "Dumbbell Sumo Squat",
-      "Barbell Sumo Squat",
       "Kettlebell Sumo Deadlift",
+      "Barbell Sumo Squat",
       "Dumbbell Lateral Lunge",
-      "Kettlebell Sumo Squat",
-      "Sumo Deadlift",
-      "Barbell Lateral Lunge",
-      "Dumbbell Squat",
-      "Sumo Air Squat",
-      "Dumbbell Goblet Squat"
+      "Kettlebell Sumo Squat"
     ]
   },
   {
     "main_exercise": "Barbell Sumo Squat",
     "similar": [
       "Dumbbell Sumo Squat",
-      "Barbell Lateral Lunge",
-      "Dumbbell Sumo Deadlift",
-      "Kettlebell Sumo Squat",
-      "Kettlebell Sumo Deadlift",
       "Sumo Air Squat",
-      "Sumo Deadlift",
-      "Dumbbell Lateral Lunge",
-      "Barbell Split Squat",
-      "Barbell Box Squat"
+      "Kettlebell Sumo Squat",
+      "Dumbbell Sumo Deadlift",
+      "Barbell Lateral Lunge"
     ]
   },
   {
@@ -15230,14 +15015,9 @@ const similar_exercises = [
     "similar": [
       "Barbell Incline Bench Press",
       "Incline Dumbbell Fly",
-      "Decline Dumbbell Bench Press",
-      "Dumbbell Bench Press",
       "Incline Dumbbell Pull Over",
       "Incline Bench Press Machine",
-      "Smith Machine Incline Bench Press",
-      "Dumbbell Fly",
-      "Incline Chest Press Machine",
-      "Dumbbell Pullover"
+      "Smith Machine Incline Bench Press"
     ]
   },
   {
@@ -15245,149 +15025,99 @@ const similar_exercises = [
     "similar": [
       "Incline Chest Press Machine",
       "Smith Machine Incline Bench Press",
-      "Decline Chest Press Machine",
-      "Chest Press Machine",
-      "Incline Cable Fly",
-      "Smith Machine Bench Press",
       "Barbell Incline Bench Press",
       "Incline Dumbbell Bench Press",
-      "Chest Fly Machine",
-      "Pec Deck Fly Machine"
+      "Decline Chest Press Machine"
     ]
   },
   {
     "main_exercise": "Smith Machine Bench Press",
     "similar": [
-      "Chest Press Machine",
       "Smith Machine Incline Bench Press",
-      "Chest Fly Machine",
-      "Incline Bench Press Machine",
+      "Chest Press Machine",
       "Barbell Bench Press",
-      "Incline Chest Press Machine",
-      "Pec Deck Fly Machine",
-      "Decline Chest Press Machine",
-      "Cable Crossover",
-      "Dumbbell Bench Press"
+      "Dumbbell Bench Press",
+      "Incline Bench Press Machine"
     ]
   },
   {
     "main_exercise": "Smith Machine Incline Bench Press",
     "similar": [
       "Incline Bench Press Machine",
-      "Incline Chest Press Machine",
       "Smith Machine Bench Press",
       "Barbell Incline Bench Press",
-      "Incline Cable Fly",
-      "Decline Chest Press Machine",
-      "Incline Dumbbell Bench Press",
-      "Chest Press Machine",
-      "Chest Fly Machine",
-      "Pec Deck Fly Machine"
+      "Incline Chest Press Machine",
+      "Incline Dumbbell Bench Press"
     ]
   },
   {
     "main_exercise": "Low Row Machine",
     "similar": [
-      "Lat Pull Down",
       "High Row Machine",
-      "Middle Row Machine",
-      "Seated Row Machine",
-      "Lateral Wide Pull Down",
-      "Cable Straight Arm Pulldown",
       "Assisted Pull Up Machine",
-      "Seated Cable Row",
-      "T-bar Row Machine",
-      "Smith Machine Row"
+      "Seated Row Machine",
+      "Middle Row Machine",
+      "Lat Pull Down"
     ]
   },
   {
     "main_exercise": "High Row Machine",
     "similar": [
-      "Middle Row Machine",
       "Seated Row Machine",
+      "Middle Row Machine",
       "T-bar Row Machine",
       "Smith Machine Row",
-      "Seated Cable Row",
-      "Low Row Machine",
-      "Chest Supported T-bar Row",
-      "Lat Pull Down",
-      "Barbell Row",
-      "Cable Straight Arm Pulldown"
+      "Low Row Machine"
     ]
   },
   {
     "main_exercise": "Chest Supported T-bar Row",
     "similar": [
       "T-bar Row Machine",
-      "Seated Cable Row",
-      "Smith Machine Row",
-      "Seated Row Machine",
-      "High Row Machine",
-      "Middle Row Machine",
-      "Low Row Machine",
-      "Lat Pull Down",
       "Barbell Row",
-      "Cable Straight Arm Pulldown"
+      "Seated Cable Row",
+      "Barbell Incline Row",
+      "Inverted Row"
     ]
   },
   {
     "main_exercise": "Barbell Lunge",
     "similar": [
+      "Dumbbell Lunge",
+      "Lunge",
       "Barbell Split Squat",
       "Barbell Bulgarian Split Squat",
-      "Dumbbell Lunge",
-      "Front Squat",
-      "Back Squat",
-      "Barbell Jump Squat",
-      "Barbell Box Squat",
-      "Lunge",
-      "Dumbbell Squat",
-      "Barbell Lateral Lunge"
+      "Barbell Jump Squat"
     ]
   },
   {
     "main_exercise": "Decline Dumbbell Bench Press",
     "similar": [
+      "Decline Chest Press Machine",
       "Incline Dumbbell Bench Press",
       "Dumbbell Bench Press",
-      "Barbell Incline Bench Press",
-      "Incline Dumbbell Fly",
-      "Decline Chest Press Machine",
-      "Dumbbell Fly",
-      "Dumbbell Pullover",
-      "Barbell Bench Press",
-      "Incline Dumbbell Pull Over",
-      "Decline Push Ups"
+      "Decline Push Ups",
+      "Incline Dumbbell Fly"
     ]
   },
   {
     "main_exercise": "Decline Chest Press Machine",
     "similar": [
       "Incline Chest Press Machine",
+      "Decline Dumbbell Bench Press",
       "Incline Bench Press Machine",
       "Chest Press Machine",
-      "Assisted Dip Machine",
-      "Smith Machine Incline Bench Press",
-      "Smith Machine Bench Press",
-      "Decline Dumbbell Bench Press",
-      "Chest Fly Machine",
-      "Pec Deck Fly Machine",
-      "Incline Cable Fly"
+      "Assisted Dip Machine"
     ]
   },
   {
     "main_exercise": "Kettlebell Deadlift",
     "similar": [
-      "Kettlebell Sumo Deadlift",
-      "Kettlebell Goblet Squat",
-      "Sumo Deadlift",
       "Conventional Deadlift",
       "Romanian Deadlift",
+      "Kettlebell Sumo Deadlift",
       "Stiff Leg Deadlift",
-      "Kettlebell Sumo Squat",
-      "Smith Machine Deadlift",
-      "Dumbbell Sumo Deadlift",
-      "Dumbbell Goblet Squat"
+      "Sumo Deadlift"
     ]
   },
   {
@@ -15397,27 +15127,17 @@ const similar_exercises = [
       "Dumbbell Sumo Squat",
       "Dumbbell Sumo Deadlift",
       "Bodyweight Lateral Lunge",
-      "Dumbbell Lunge",
-      "Barbell Sumo Squat",
-      "Dumbbell Split Squat",
-      "Dumbbell Squat",
-      "Dumbbell Bulgarian Split Squat",
-      "Kettlebell Sumo Squat"
+      "Dumbbell Lunge"
     ]
   },
   {
     "main_exercise": "Kettlebell Sumo Squat",
     "similar": [
       "Kettlebell Sumo Deadlift",
-      "Dumbbell Sumo Squat",
       "Barbell Sumo Squat",
-      "Dumbbell Sumo Deadlift",
-      "Kettlebell Goblet Squat",
+      "Dumbbell Sumo Squat",
       "Sumo Air Squat",
-      "Barbell Lateral Lunge",
-      "Dumbbell Lateral Lunge",
-      "Kettlebell Deadlift",
-      "Bodyweight Lateral Lunge"
+      "Dumbbell Sumo Deadlift"
     ]
   },
   {
@@ -15427,12 +15147,7 @@ const similar_exercises = [
       "Smith Machine Incline Bench Press",
       "Decline Chest Press Machine",
       "Chest Press Machine",
-      "Incline Cable Fly",
-      "Smith Machine Bench Press",
-      "Chest Fly Machine",
-      "Barbell Incline Bench Press",
-      "Pec Deck Fly Machine",
-      "Incline Dumbbell Bench Press"
+      "Barbell Incline Bench Press"
     ]
   },
   {
@@ -15440,14 +15155,9 @@ const similar_exercises = [
     "similar": [
       "Barbell Row",
       "Pendlay Row",
-      "Barbell Incline Row",
-      "Dumbbell Row",
-      "T-bar Row Machine",
-      "Weighted Pull Up",
+      "Inverted Row",
       "Chest Supported T-bar Row",
-      "Dumbbell Incline Row",
-      "Lat Pull Down",
-      "Low Row Machine"
+      "Seated Cable Row"
     ]
   },
   {
@@ -15455,14 +15165,9 @@ const similar_exercises = [
     "similar": [
       "Incline Push Ups",
       "Push Ups",
-      "Knee Push Ups",
-      "Dips",
-      "Hindu Push Ups",
       "Decline Dumbbell Bench Press",
-      "Barbell Incline Bench Press",
       "Decline Chest Press Machine",
-      "Weighted Dips",
-      "Incline Dumbbell Bench Press"
+      "Knee Push Ups"
     ]
   },
   {
@@ -15470,44 +15175,29 @@ const similar_exercises = [
     "similar": [
       "Barbell Row",
       "Barbell Incline Row",
-      "Pull Up",
-      "Chin Up",
-      "Dumbbell Incline Row",
-      "Dumbbell Row",
       "Pendlay Row",
-      "Back Extension",
-      "Smith Machine Row",
-      "Weighted Pull Up"
+      "Dumbbell Incline Row",
+      "Dumbbell Row"
     ]
   },
   {
     "main_exercise": "Seated Cable Row",
     "similar": [
       "Seated Row Machine",
+      "Barbell Row",
       "High Row Machine",
-      "Middle Row Machine",
       "Smith Machine Row",
-      "T-bar Row Machine",
-      "Chest Supported T-bar Row",
-      "Low Row Machine",
-      "Cable Straight Arm Pulldown",
-      "Lat Pull Down",
-      "Barbell Row"
+      "Barbell Incline Row"
     ]
   },
   {
     "main_exercise": "Mountain Climber",
     "similar": [
-      "Leg Raise",
-      "Hanging Knee Raise",
-      "V-up",
       "Hanging Leg Raise",
-      "Toes To Bar",
-      "Seated Knee Up",
-      "Crunch",
-      "Sit Up",
-      "Burpee",
-      "Jumping Jack"
+      "V-up",
+      "Hanging Knee Raise",
+      "Leg Raise",
+      "Seated Knee Up"
     ]
   },
   {
@@ -15515,13 +15205,8 @@ const similar_exercises = [
     "similar": [
       "Decline Push Ups",
       "Push Ups",
-      "Knee Push Ups",
-      "Hindu Push Ups",
-      "Dips",
       "Barbell Incline Bench Press",
       "Incline Dumbbell Bench Press",
-      "Incline Dumbbell Fly",
-      "Incline Dumbbell Pull Over",
       "Incline Chest Press Machine"
     ]
   },
@@ -15531,28 +15216,18 @@ const similar_exercises = [
       "Barbell Lateral Lunge",
       "Dumbbell Lateral Lunge",
       "Sumo Air Squat",
-      "Lunge",
       "Kettlebell Sumo Squat",
-      "Dumbbell Sumo Squat",
-      "Barbell Sumo Squat",
-      "Kettlebell Sumo Deadlift",
-      "Dumbbell Sumo Deadlift",
-      "Air Squat"
+      "Dumbbell Sumo Squat"
     ]
   },
   {
     "main_exercise": "Sumo Air Squat",
     "similar": [
       "Barbell Sumo Squat",
-      "Bodyweight Lateral Lunge",
-      "Dumbbell Sumo Squat",
       "Kettlebell Sumo Squat",
-      "Air Squat",
+      "Dumbbell Sumo Squat",
       "Kettlebell Sumo Deadlift",
-      "Dumbbell Sumo Deadlift",
-      "Jump Squat",
-      "Barbell Lateral Lunge",
-      "Pistol Box Squat"
+      "Dumbbell Sumo Deadlift"
     ]
   },
   {
@@ -15562,27 +15237,17 @@ const similar_exercises = [
       "Hindu Push Ups",
       "Incline Push Ups",
       "Decline Push Ups",
-      "Dips",
-      "Barbell Bench Press",
-      "Chest Press Machine",
-      "Dumbbell Bench Press",
-      "Weighted Dips",
-      "Dumbbell Fly"
+      "Chest Press Machine"
     ]
   },
   {
     "main_exercise": "Jumping Jack",
     "similar": [
       "Bodyweight Calf Raise",
+      "Jump Squat",
       "Burpee",
       "Mountain Climber",
-      "Jump Squat",
-      "Dumbbell Burpee",
-      "Dumbbell Standing Calf Raise",
-      "Donkey Kick",
-      "Air Squat",
-      "Barbell Jump Squat",
-      "Toes To Bar"
+      "Smith Machine Calf Raise"
     ]
   },
   {
@@ -15590,14 +15255,9 @@ const similar_exercises = [
     "similar": [
       "Dips",
       "Assisted Dip Machine",
-      "Decline Push Ups",
-      "Push Ups",
-      "Incline Push Ups",
       "Decline Dumbbell Bench Press",
-      "Knee Push Ups",
-      "Decline Chest Press Machine",
-      "Hindu Push Ups",
-      "Bench Dips"
+      "Decline Push Ups",
+      "Decline Chest Press Machine"
     ]
   },
   {
@@ -15605,14 +15265,9 @@ const similar_exercises = [
     "similar": [
       "Barbell Split Squat",
       "Dumbbell Bulgarian Split Squat",
-      "Barbell Lunge",
-      "Back Squat",
-      "Barbell Box Squat",
-      "Front Squat",
-      "Barbell Jump Squat",
-      "Dumbbell Split Squat",
       "Smith Machine Bulgarian Split Squat",
-      "Dumbbell Squat"
+      "Dumbbell Split Squat",
+      "Barbell Lunge"
     ]
   },
   {
@@ -15621,73 +15276,48 @@ const similar_exercises = [
       "Dumbbell Split Squat",
       "Barbell Bulgarian Split Squat",
       "Dumbbell Squat",
-      "Dumbbell Goblet Squat",
-      "Dumbbell Lunge",
-      "Barbell Split Squat",
-      "Dumbbell Front Squat",
       "Smith Machine Bulgarian Split Squat",
-      "Barbell Lunge",
-      "Dumbbell Standing Calf Raise"
+      "Barbell Split Squat"
     ]
   },
   {
     "main_exercise": "Dips",
     "similar": [
       "Weighted Dips",
-      "Decline Push Ups",
-      "Incline Push Ups",
-      "Push Ups",
-      "Knee Push Ups",
       "Assisted Dip Machine",
-      "Hindu Push Ups",
-      "Bench Dips",
-      "Decline Dumbbell Bench Press",
-      "Decline Chest Press Machine"
+      "Decline Push Ups",
+      "Push Ups",
+      "Decline Dumbbell Bench Press"
     ]
   },
   {
     "main_exercise": "Smith Machine Deadlift",
     "similar": [
-      "Leg Curl",
       "Smith Machine Squat",
-      "Smith Machine Hip Thrust",
-      "Smith Machine Split Squat",
-      "Smith Machine Calf Raise",
       "Stiff Leg Deadlift",
-      "Smith Machine Bulgarian Split Squat",
-      "Sumo Deadlift",
       "Conventional Deadlift",
-      "Romanian Deadlift"
+      "Sumo Deadlift",
+      "Smith Machine Split Squat"
     ]
   },
   {
     "main_exercise": "Stiff Leg Deadlift",
     "similar": [
-      "Sumo Deadlift",
       "Romanian Deadlift",
       "Conventional Deadlift",
       "Smith Machine Deadlift",
-      "Kettlebell Deadlift",
-      "Barbell Hip Thrust",
-      "Barbell Bulgarian Split Squat",
-      "Back Squat",
-      "Barbell Split Squat",
-      "Front Squat"
+      "Sumo Deadlift",
+      "Kettlebell Deadlift"
     ]
   },
   {
     "main_exercise": "Incline Dumbbell Fly",
     "similar": [
-      "Dumbbell Fly",
-      "Incline Dumbbell Bench Press",
-      "Incline Dumbbell Pull Over",
       "Incline Cable Fly",
-      "Dumbbell Pullover",
-      "Barbell Incline Bench Press",
-      "Decline Dumbbell Bench Press",
-      "Dumbbell Bench Press",
-      "Chest Fly Machine",
-      "Standing Cable Fly"
+      "Incline Dumbbell Bench Press",
+      "Dumbbell Fly",
+      "Incline Dumbbell Pull Over",
+      "Barbell Incline Bench Press"
     ]
   },
   {
@@ -15696,43 +15326,28 @@ const similar_exercises = [
       "Chest Fly Machine",
       "Chest Press Machine",
       "Standing Cable Fly",
-      "Cable Crossover",
-      "Incline Cable Fly",
-      "Smith Machine Bench Press",
-      "Incline Chest Press Machine",
-      "Decline Chest Press Machine",
       "Dumbbell Fly",
-      "Incline Bench Press Machine"
+      "Smith Machine Bench Press"
     ]
   },
   {
     "main_exercise": "Weight Hyperextension",
     "similar": [
       "Back Extension",
-      "Weighted Chin Up",
-      "Weighted Pull Up",
       "Rack Pull",
       "Inverted Row",
-      "Dumbbell Row",
       "Barbell Row",
-      "High Row Machine",
-      "Middle Row Machine",
-      "T-bar Row Machine"
+      "Pendlay Row"
     ]
   },
   {
     "main_exercise": "Back Extension",
     "similar": [
       "Weight Hyperextension",
-      "Inverted Row",
-      "Pull Up",
-      "Chin Up",
-      "Leg Raise",
-      "Barbell Row",
       "Rack Pull",
-      "Dumbbell Row",
-      "Hanging Leg Raise",
-      "Weighted Pull Up"
+      "Inverted Row",
+      "Pendlay Row",
+      "Barbell Row"
     ]
   },
   {
@@ -15740,59 +15355,39 @@ const similar_exercises = [
     "similar": [
       "Cable Reverse Fly",
       "Bentover Cable Lateral Raise",
-      "Reverse Pec Deck Fly Machine",
-      "Cable Front Raise",
-      "Cable Lateral Raise",
-      "Shoulder Press Machine",
-      "Cable Upright Row",
-      "Seated Dumbbell Rear Lateral Raise",
       "Bentover Dumbbell Lateral Raise",
-      "Smith Machine Shrug"
+      "Reverse Pec Deck Fly Machine",
+      "Seated Dumbbell Rear Lateral Raise"
     ]
   },
   {
     "main_exercise": "Cable Reverse Fly",
     "similar": [
-      "Reverse Pec Deck Fly Machine",
       "Bentover Cable Lateral Raise",
-      "Face Pull",
+      "Reverse Pec Deck Fly Machine",
       "Cable Lateral Raise",
       "Cable Front Raise",
-      "Cable Upright Row",
-      "Seated Dumbbell Rear Lateral Raise",
-      "Shoulder Press Machine",
-      "Bentover Dumbbell Lateral Raise",
-      "Cable Straight Arm Pulldown"
+      "Face Pull"
     ]
   },
   {
     "main_exercise": "Barbell Upright Row",
     "similar": [
-      "Barbell Shrug",
-      "Dumbbell Upright Row",
       "EZ Bar Upright Row",
+      "Dumbbell Upright Row",
       "Cable Upright Row",
-      "Dumbbell Shrug",
-      "Barbell Front Raise",
-      "Smith Machine Shrug",
-      "Barbell Incline Front Raise",
-      "EZ Bar Front Raise",
-      "Overhead Press"
+      "Barbell Shrug",
+      "Dumbbell Shrug"
     ]
   },
   {
     "main_exercise": "Dumbbell Upright Row",
     "similar": [
-      "Dumbbell Shrug",
       "Barbell Upright Row",
+      "Dumbbell Shrug",
       "EZ Bar Upright Row",
       "Cable Upright Row",
-      "Barbell Shrug",
-      "Dumbbell Front Raise",
-      "Bentover Dumbbell Lateral Raise",
-      "Dumbbell Incline Front Raise",
-      "Dumbbell Lateral Raise",
-      "Dumbbell Row"
+      "Barbell Shrug"
     ]
   },
   {
@@ -15800,14 +15395,9 @@ const similar_exercises = [
     "similar": [
       "Barbell Upright Row",
       "Dumbbell Upright Row",
-      "Barbell Shrug",
       "Cable Upright Row",
-      "EZ Bar Incline Front Raise",
-      "Incline EZ Bar Front Raise",
-      "EZ Bar Front Raise",
-      "Dumbbell Shrug",
-      "Smith Machine Shrug",
-      "Barbell Front Raise"
+      "Barbell Shrug",
+      "Dumbbell Shrug"
     ]
   },
   {
@@ -15815,133 +15405,88 @@ const similar_exercises = [
     "similar": [
       "Smith Machine Bulgarian Split Squat",
       "Smith Machine Squat",
-      "Leg Press",
-      "Hack Squat Machine",
-      "Horizontal Leg Press",
-      "V Squat",
-      "Leg Extension",
       "Barbell Split Squat",
-      "Linear Hack Squat Machine",
-      "Dumbbell Split Squat"
+      "Dumbbell Split Squat",
+      "Barbell Bulgarian Split Squat"
     ]
   },
   {
     "main_exercise": "Smith Machine Row",
     "similar": [
-      "High Row Machine",
       "Seated Row Machine",
-      "Seated Cable Row",
-      "Middle Row Machine",
+      "High Row Machine",
       "T-bar Row Machine",
-      "Chest Supported T-bar Row",
-      "Low Row Machine",
       "Barbell Row",
-      "Lat Pull Down",
-      "Barbell Incline Row"
+      "Middle Row Machine"
     ]
   },
   {
     "main_exercise": "Dumbbell Row",
     "similar": [
       "Dumbbell Incline Row",
-      "One Arm Dumbbell Row",
       "Barbell Row",
+      "One Arm Dumbbell Row",
       "Barbell Incline Row",
-      "Pendlay Row",
-      "Dumbbell Upright Row",
-      "Inverted Row",
-      "Smith Machine Row",
-      "Seated Cable Row",
-      "Seated Row Machine"
+      "Inverted Row"
     ]
   },
   {
     "main_exercise": "Assisted Pull Up Machine",
     "similar": [
-      "Lat Pull Down",
       "Low Row Machine",
-      "Lateral Wide Pull Down",
-      "Cable Straight Arm Pulldown",
-      "High Row Machine",
-      "T-bar Row Machine",
-      "Seated Row Machine",
+      "Lat Pull Down",
       "Pull Up",
-      "Chest Supported T-bar Row",
-      "Weighted Pull Up"
+      "Weighted Pull Up",
+      "Cable Straight Arm Pulldown"
     ]
   },
   {
     "main_exercise": "Barbell Box Squat",
     "similar": [
-      "Back Squat",
-      "Barbell Split Squat",
-      "Front Squat",
-      "Barbell Jump Squat",
-      "Barbell Bulgarian Split Squat",
-      "Barbell Lunge",
-      "Dumbbell Squat",
       "Pistol Box Squat",
-      "Dumbbell Front Squat",
-      "Dumbbell Goblet Squat"
+      "Barbell Jump Squat",
+      "Barbell Split Squat",
+      "Barbell Bulgarian Split Squat",
+      "Back Squat"
     ]
   },
   {
     "main_exercise": "Barbell Lateral Lunge",
     "similar": [
       "Dumbbell Lateral Lunge",
-      "Barbell Sumo Squat",
       "Bodyweight Lateral Lunge",
-      "Dumbbell Sumo Squat",
+      "Barbell Sumo Squat",
       "Barbell Lunge",
-      "Dumbbell Sumo Deadlift",
-      "Kettlebell Sumo Squat",
-      "Kettlebell Sumo Deadlift",
-      "Barbell Bulgarian Split Squat",
-      "Barbell Split Squat"
+      "Dumbbell Sumo Squat"
     ]
   },
   {
     "main_exercise": "Barbell Split Squat",
     "similar": [
       "Barbell Bulgarian Split Squat",
-      "Barbell Lunge",
-      "Back Squat",
       "Dumbbell Split Squat",
-      "Front Squat",
-      "Barbell Jump Squat",
-      "Barbell Box Squat",
       "Dumbbell Bulgarian Split Squat",
-      "Dumbbell Squat",
-      "Dumbbell Front Squat"
+      "Barbell Lunge",
+      "Smith Machine Split Squat"
     ]
   },
   {
     "main_exercise": "Dumbbell Squat",
     "similar": [
-      "Dumbbell Front Squat",
       "Dumbbell Split Squat",
+      "Dumbbell Front Squat",
       "Dumbbell Goblet Squat",
-      "Dumbbell Lunge",
       "Dumbbell Bulgarian Split Squat",
-      "Barbell Split Squat",
-      "Back Squat",
-      "Barbell Bulgarian Split Squat",
-      "Front Squat",
-      "Dumbbell Sumo Squat"
+      "Dumbbell Lunge"
     ]
   },
   {
     "main_exercise": "Pistol Box Squat",
     "similar": [
       "Barbell Box Squat",
-      "Air Squat",
-      "Jump Squat",
-      "Lunge",
-      "Barbell Jump Squat",
       "Back Squat",
-      "Barbell Bulgarian Split Squat",
-      "Barbell Split Squat",
-      "Sumo Air Squat",
+      "Air Squat",
+      "Front Squat",
       "Dumbbell Squat"
     ]
   },
@@ -15951,28 +15496,18 @@ const similar_exercises = [
       "High Row Machine",
       "Seated Row Machine",
       "T-bar Row Machine",
-      "Seated Cable Row",
       "Smith Machine Row",
-      "Low Row Machine",
-      "Chest Supported T-bar Row",
-      "Lat Pull Down",
-      "Barbell Row",
-      "Cable Straight Arm Pulldown"
+      "Low Row Machine"
     ]
   },
   {
     "main_exercise": "Smith Machine Bulgarian Split Squat",
     "similar": [
       "Smith Machine Split Squat",
-      "Smith Machine Squat",
       "Barbell Bulgarian Split Squat",
+      "Smith Machine Squat",
       "Dumbbell Bulgarian Split Squat",
-      "Leg Press",
-      "Hack Squat Machine",
-      "Smith Machine Hip Thrust",
-      "Horizontal Leg Press",
-      "Barbell Split Squat",
-      "Leg Extension"
+      "Barbell Split Squat"
     ]
   },
   {
@@ -15981,73 +15516,48 @@ const similar_exercises = [
       "Pec Deck Fly Machine",
       "Chest Press Machine",
       "Standing Cable Fly",
-      "Cable Crossover",
-      "Incline Cable Fly",
-      "Smith Machine Bench Press",
       "Dumbbell Fly",
-      "Incline Chest Press Machine",
-      "Decline Chest Press Machine",
-      "Incline Bench Press Machine"
+      "Smith Machine Bench Press"
     ]
   },
   {
     "main_exercise": "Barbell Bench Press",
     "similar": [
       "Dumbbell Bench Press",
-      "Barbell Incline Bench Press",
       "Smith Machine Bench Press",
-      "Dumbbell Fly",
-      "Dumbbell Pullover",
-      "Decline Dumbbell Bench Press",
+      "Barbell Incline Bench Press",
       "Chest Press Machine",
-      "Incline Dumbbell Bench Press",
-      "Smith Machine Incline Bench Press",
       "Push Ups"
     ]
   },
   {
     "main_exercise": "Shoulder Press Machine",
     "similar": [
+      "Overhead Press",
       "Seated Barbell Shoulder Press",
-      "Cable Front Raise",
       "Dumbbell Shoulder Press",
       "Seated Dumbbell Shoulder Press",
-      "Overhead Press",
-      "Incline Dumbbell Shoulder Press",
-      "Cable Lateral Raise",
-      "Bentover Cable Lateral Raise",
-      "Push Press",
-      "Face Pull"
+      "Push Press"
     ]
   },
   {
     "main_exercise": "Push Press",
     "similar": [
       "Overhead Press",
-      "Seated Barbell Shoulder Press",
-      "Barbell Front Raise",
       "Dumbbell Shoulder Press",
-      "Barbell Incline Front Raise",
-      "Incline Barbell Front Raise",
       "Kettlebell Shoulder Press",
-      "Seated Dumbbell Shoulder Press",
-      "EZ Bar Front Raise",
-      "Incline Dumbbell Shoulder Press"
+      "Shoulder Press Machine",
+      "Seated Barbell Shoulder Press"
     ]
   },
   {
     "main_exercise": "Reverse Pec Deck Fly Machine",
     "similar": [
       "Cable Reverse Fly",
-      "Face Pull",
       "Bentover Cable Lateral Raise",
-      "Cable Lateral Raise",
-      "Shoulder Press Machine",
-      "Cable Front Raise",
+      "Face Pull",
       "Seated Dumbbell Rear Lateral Raise",
-      "Pec Deck Fly Machine",
-      "Bentover Dumbbell Lateral Raise",
-      "Cable Upright Row"
+      "Shoulder Press Machine"
     ]
   },
   {
@@ -16055,14 +15565,9 @@ const similar_exercises = [
     "similar": [
       "Lat Pull Down",
       "Cable Straight Arm Pulldown",
-      "Low Row Machine",
-      "Assisted Pull Up Machine",
-      "Seated Cable Row",
-      "High Row Machine",
-      "Seated Row Machine",
-      "T-bar Row Machine",
-      "Chest Supported T-bar Row",
-      "Smith Machine Row"
+      "Pull Up",
+      "Weighted Pull Up",
+      "Low Row Machine"
     ]
   },
   {
@@ -16071,88 +15576,58 @@ const similar_exercises = [
       "Leg Press",
       "Leg Extension",
       "Hack Squat Machine",
-      "Smith Machine Squat",
       "Linear Hack Squat Machine",
-      "Smith Machine Split Squat",
-      "V Squat",
-      "Smith Machine Bulgarian Split Squat",
-      "Reverse V Squat",
-      "Hip Thrust Machine"
+      "Smith Machine Squat"
     ]
   },
   {
     "main_exercise": "Seated Barbell Shoulder Press",
     "similar": [
-      "Overhead Press",
       "Seated Dumbbell Shoulder Press",
-      "Push Press",
-      "Barbell Front Raise",
       "Dumbbell Shoulder Press",
-      "Barbell Incline Front Raise",
-      "Incline Barbell Front Raise",
-      "Incline Dumbbell Shoulder Press",
-      "EZ Bar Front Raise",
-      "Shoulder Press Machine"
+      "Overhead Press",
+      "Shoulder Press Machine",
+      "Incline Dumbbell Shoulder Press"
     ]
   },
   {
     "main_exercise": "Cable Pull Through",
     "similar": [
+      "Hip Thrust",
+      "Barbell Hip Thrust",
       "Smith Machine Hip Thrust",
       "Hip Thrust Machine",
-      "Leg Curl",
-      "Leg Press",
-      "Leg Extension",
-      "Horizontal Leg Press",
-      "Barbell Hip Thrust",
-      "Smith Machine Bulgarian Split Squat",
-      "Smith Machine Deadlift",
-      "Cable Straight Arm Pulldown"
+      "Donkey Kick"
     ]
   },
   {
     "main_exercise": "Cable Upright Row",
     "similar": [
-      "Smith Machine Shrug",
       "Barbell Upright Row",
-      "Dumbbell Upright Row",
-      "Cable Front Raise",
       "EZ Bar Upright Row",
-      "Cable Lateral Raise",
-      "Bentover Cable Lateral Raise",
-      "Cable Reverse Fly",
+      "Dumbbell Upright Row",
       "Barbell Shrug",
-      "Face Pull"
+      "Smith Machine Shrug"
     ]
   },
   {
     "main_exercise": "Kettlebell Shoulder Press",
     "similar": [
       "Dumbbell Shoulder Press",
+      "Overhead Press",
       "Push Press",
       "Seated Barbell Shoulder Press",
-      "Overhead Press",
-      "Seated Dumbbell Shoulder Press",
-      "Incline Dumbbell Shoulder Press",
-      "Barbell Front Raise",
-      "Shoulder Press Machine",
-      "Dumbbell Front Raise",
-      "Incline Barbell Front Raise"
+      "Seated Dumbbell Shoulder Press"
     ]
   },
   {
     "main_exercise": "Incline Dumbbell Shoulder Press",
     "similar": [
       "Dumbbell Shoulder Press",
-      "Seated Dumbbell Shoulder Press",
       "Incline Dumbbell Front Raise",
       "Dumbbell Incline Front Raise",
-      "Dumbbell Front Raise",
-      "Incline Barbell Front Raise",
-      "Seated Barbell Shoulder Press",
-      "Barbell Incline Front Raise",
-      "Overhead Press",
-      "Bentover Dumbbell Lateral Raise"
+      "Seated Dumbbell Shoulder Press",
+      "Barbell Incline Front Raise"
     ]
   },
   {
@@ -16160,73 +15635,48 @@ const similar_exercises = [
     "similar": [
       "Dumbbell Bulgarian Split Squat",
       "Dumbbell Squat",
-      "Dumbbell Lunge",
-      "Dumbbell Front Squat",
       "Barbell Split Squat",
-      "Dumbbell Goblet Squat",
-      "Barbell Bulgarian Split Squat",
-      "Barbell Lunge",
-      "Smith Machine Split Squat",
-      "Dumbbell Sumo Squat"
+      "Dumbbell Lunge",
+      "Barbell Bulgarian Split Squat"
     ]
   },
   {
     "main_exercise": "Dumbbell Bench Press",
     "similar": [
       "Barbell Bench Press",
-      "Decline Dumbbell Bench Press",
-      "Incline Dumbbell Bench Press",
       "Dumbbell Fly",
       "Dumbbell Pullover",
-      "Barbell Incline Bench Press",
-      "Incline Dumbbell Fly",
-      "Smith Machine Bench Press",
-      "Incline Dumbbell Pull Over",
-      "Chest Press Machine"
+      "Incline Dumbbell Bench Press",
+      "Smith Machine Bench Press"
     ]
   },
   {
     "main_exercise": "Kettlebell Goblet Squat",
     "similar": [
       "Dumbbell Goblet Squat",
-      "Kettlebell Deadlift",
-      "Kettlebell Sumo Squat",
       "Dumbbell Squat",
-      "Dumbbell Front Squat",
-      "Kettlebell Sumo Deadlift",
-      "Dumbbell Split Squat",
+      "Kettlebell Sumo Squat",
       "Back Squat",
-      "Dumbbell Bulgarian Split Squat",
-      "Barbell Bulgarian Split Squat"
+      "Air Squat"
     ]
   },
   {
     "main_exercise": "Dumbbell Pullover",
     "similar": [
       "Dumbbell Fly",
-      "Incline Dumbbell Pull Over",
       "Dumbbell Bench Press",
-      "Incline Dumbbell Fly",
+      "Incline Dumbbell Pull Over",
       "Barbell Bench Press",
-      "Incline Dumbbell Bench Press",
-      "Decline Dumbbell Bench Press",
-      "Chest Fly Machine",
-      "Standing Cable Fly",
       "Cable Crossover"
     ]
   },
   {
     "main_exercise": "Close-grip Bench Press",
     "similar": [
-      "Seated Barbell Tricep Extension",
-      "Barbell Bicep Curl",
-      "Barbell Preacher Curl",
-      "EZ Bar Tricep Extension",
-      "Barbell Wrist Curl",
-      "Lying Tricep Extension",
-      "EZ Bar Lying Tricep Extension",
+      "Bench Dips",
       "Cable Push Down",
-      "Dumbbell Lying Tricep Extension",
+      "Lying Tricep Extension",
+      "Dumbbell Skull Crusher",
       "Dumbbell Tricep Extension"
     ]
   },
@@ -16235,29 +15685,19 @@ const similar_exercises = [
     "similar": [
       "Lat Pull Down",
       "Lateral Wide Pull Down",
-      "Low Row Machine",
-      "Assisted Pull Up Machine",
-      "Seated Cable Row",
-      "T-bar Row Machine",
-      "Chest Supported T-bar Row",
-      "High Row Machine",
-      "Seated Row Machine",
-      "Smith Machine Row"
+      "Pull Up",
+      "Weighted Pull Up",
+      "Seated Cable Row"
     ]
   },
   {
     "main_exercise": "Bench Dips",
     "similar": [
-      "Dips",
       "Close-grip Bench Press",
-      "Dumbbell Tricep Extension",
-      "Seated Barbell Tricep Extension",
       "Cable Push Down",
-      "Weighted Dips",
-      "Dumbbell Lying Tricep Extension",
-      "Dumbbell Kickback",
-      "Dumbbell Skull Crusher",
-      "Lying Tricep Extension"
+      "Dumbbell Tricep Extension",
+      "Lying Tricep Extension",
+      "Dumbbell Kickback"
     ]
   },
   {
@@ -16267,27 +15707,17 @@ const similar_exercises = [
       "Barbell Hip Thrust",
       "Hip Thrust",
       "Smith Machine Squat",
-      "Smith Machine Deadlift",
-      "Smith Machine Bulgarian Split Squat",
-      "Smith Machine Split Squat",
-      "Cable Pull Through",
-      "Leg Press",
-      "Smith Machine Calf Raise"
+      "Smith Machine Split Squat"
     ]
   },
   {
     "main_exercise": "Dumbbell Front Squat",
     "similar": [
       "Dumbbell Squat",
+      "Front Squat",
       "Dumbbell Goblet Squat",
       "Dumbbell Split Squat",
-      "Front Squat",
-      "Dumbbell Bulgarian Split Squat",
-      "Dumbbell Lunge",
-      "Back Squat",
-      "Barbell Split Squat",
-      "Barbell Bulgarian Split Squat",
-      "Barbell Lunge"
+      "Dumbbell Bulgarian Split Squat"
     ]
   },
   {
@@ -16295,44 +15725,29 @@ const similar_exercises = [
     "similar": [
       "Chest Fly Machine",
       "Smith Machine Bench Press",
-      "Pec Deck Fly Machine",
       "Incline Chest Press Machine",
-      "Decline Chest Press Machine",
-      "Cable Crossover",
-      "Incline Bench Press Machine",
-      "Standing Cable Fly",
-      "Smith Machine Incline Bench Press",
+      "Pec Deck Fly Machine",
       "Barbell Bench Press"
     ]
   },
   {
     "main_exercise": "Assisted Dip Machine",
     "similar": [
-      "Decline Chest Press Machine",
-      "Chest Press Machine",
-      "Incline Chest Press Machine",
-      "Pec Deck Fly Machine",
-      "Chest Fly Machine",
-      "Incline Bench Press Machine",
       "Weighted Dips",
-      "Incline Cable Fly",
-      "Smith Machine Bench Press",
-      "Dips"
+      "Dips",
+      "Decline Chest Press Machine",
+      "Incline Bench Press Machine",
+      "Chest Press Machine"
     ]
   },
   {
     "main_exercise": "Incline Dumbbell Pull Over",
     "similar": [
       "Incline Dumbbell Fly",
-      "Dumbbell Pullover",
       "Incline Dumbbell Bench Press",
-      "Dumbbell Fly",
-      "Barbell Incline Bench Press",
-      "Decline Dumbbell Bench Press",
-      "Dumbbell Bench Press",
+      "Dumbbell Pullover",
       "Incline Cable Fly",
-      "Smith Machine Incline Bench Press",
-      "Dumbbell Incline Row"
+      "Barbell Incline Bench Press"
     ]
   },
   {
@@ -16341,133 +15756,88 @@ const similar_exercises = [
       "Hip Thrust",
       "Smith Machine Hip Thrust",
       "Hip Thrust Machine",
-      "Barbell Bulgarian Split Squat",
-      "Barbell Split Squat",
-      "Barbell Lunge",
-      "Back Squat",
-      "Sumo Deadlift",
-      "Barbell Box Squat",
-      "Front Squat"
+      "Cable Pull Through",
+      "Barbell Bulgarian Split Squat"
     ]
   },
   {
     "main_exercise": "Dumbbell Fly",
     "similar": [
-      "Incline Dumbbell Fly",
-      "Dumbbell Pullover",
       "Dumbbell Bench Press",
-      "Chest Fly Machine",
-      "Incline Dumbbell Pull Over",
+      "Dumbbell Pullover",
+      "Incline Dumbbell Fly",
       "Standing Cable Fly",
-      "Incline Dumbbell Bench Press",
-      "Decline Dumbbell Bench Press",
-      "Barbell Bench Press",
-      "Pec Deck Fly Machine"
+      "Chest Fly Machine"
     ]
   },
   {
     "main_exercise": "Toes To Bar",
     "similar": [
       "Hanging Leg Raise",
-      "Leg Raise",
       "Hanging Knee Raise",
       "V-up",
-      "Seated Knee Up",
-      "Heel Touch",
-      "Sit Up",
-      "Crunch",
-      "Mountain Climber",
-      "Decline Sit Up"
+      "Leg Raise",
+      "Seated Knee Up"
     ]
   },
   {
     "main_exercise": "Hip Thrust",
     "similar": [
       "Barbell Hip Thrust",
-      "Smith Machine Hip Thrust",
       "Hip Thrust Machine",
+      "Smith Machine Hip Thrust",
       "Donkey Kick",
-      "Lunge",
-      "Air Squat",
-      "Cable Pull Through",
-      "Jump Squat",
-      "Sumo Air Squat",
-      "Barbell Bulgarian Split Squat"
+      "Cable Pull Through"
     ]
   },
   {
     "main_exercise": "Cable Crossover",
     "similar": [
       "Standing Cable Fly",
-      "Chest Fly Machine",
-      "Chest Press Machine",
-      "Pec Deck Fly Machine",
-      "Incline Cable Fly",
-      "Smith Machine Bench Press",
       "Dumbbell Pullover",
-      "Incline Chest Press Machine",
+      "Incline Cable Fly",
       "Dumbbell Fly",
-      "Decline Chest Press Machine"
+      "Chest Fly Machine"
     ]
   },
   {
     "main_exercise": "Bentover Dumbbell Lateral Raise",
     "similar": [
+      "Bentover Cable Lateral Raise",
       "Seated Dumbbell Rear Lateral Raise",
       "Dumbbell Lateral Raise",
       "Seated Dumbbell Lateral Raise",
-      "Dumbbell Front Raise",
-      "Bentover Cable Lateral Raise",
-      "Incline Dumbbell Front Raise",
-      "Dumbbell Incline Front Raise",
-      "Dumbbell Shoulder Press",
-      "Seated Dumbbell Shoulder Press",
-      "Incline Dumbbell Shoulder Press"
+      "Dumbbell Front Raise"
     ]
   },
   {
     "main_exercise": "EZ Bar Curl",
     "similar": [
       "EZ Bar Preacher Curl",
+      "Barbell Bicep Curl",
       "EZ Bar Reverse Curl",
       "EZ Bar Wrist Curl",
-      "Barbell Bicep Curl",
-      "EZ Bar Tricep Extension",
-      "Barbell Preacher Curl",
-      "EZ Bar Lying Tricep Extension",
-      "Lying Tricep Extension",
-      "Barbell Wrist Curl",
-      "Dumbbell Bicep Curl"
+      "Barbell Preacher Curl"
     ]
   },
   {
     "main_exercise": "Dumbbell Hammer Curl",
     "similar": [
       "Dumbbell Bicep Curl",
-      "Incline Dumbbell Curl",
-      "Concentration Curl",
-      "Dumbbell Preacher Curl",
-      "Dumbbell Wrist Curl",
-      "Barbell Bicep Curl",
       "Cable Hammer Curl",
-      "Barbell Preacher Curl",
-      "Dumbbell Tricep Extension",
-      "Dumbbell Skull Crusher"
+      "Dumbbell Preacher Curl",
+      "Incline Dumbbell Curl",
+      "Barbell Bicep Curl"
     ]
   },
   {
     "main_exercise": "V-up",
     "similar": [
+      "Sit Up",
       "Leg Raise",
       "Hanging Leg Raise",
-      "Sit Up",
       "Seated Knee Up",
-      "Hanging Knee Raise",
-      "Toes To Bar",
-      "Crunch",
-      "Decline Sit Up",
-      "Mountain Climber",
-      "Heel Touch"
+      "Hanging Knee Raise"
     ]
   },
   {
@@ -16476,13 +15846,8 @@ const similar_exercises = [
       "Hip Adduction Machine",
       "Hip Thrust Machine",
       "Smith Machine Hip Thrust",
-      "Horizontal Leg Press",
       "Hack Squat Machine",
-      "Leg Extension",
-      "Leg Press",
-      "Linear Hack Squat Machine",
-      "Smith Machine Split Squat",
-      "Smith Machine Squat"
+      "Linear Hack Squat Machine"
     ]
   },
   {
@@ -16490,14 +15855,9 @@ const similar_exercises = [
     "similar": [
       "Cable Curl",
       "Dumbbell Hammer Curl",
-      "Arm Curl Machine",
-      "Bicep Curl Machine",
-      "Cable Push Down",
-      "Barbell Preacher Curl",
+      "EZ Bar Curl",
       "Barbell Bicep Curl",
-      "Dumbbell Bicep Curl",
-      "Dumbbell Preacher Curl",
-      "Concentration Curl"
+      "Barbell Preacher Curl"
     ]
   },
   {
@@ -16506,73 +15866,48 @@ const similar_exercises = [
       "Seated Dumbbell Lateral Raise",
       "Bentover Dumbbell Lateral Raise",
       "Dumbbell Lateral Raise",
-      "Dumbbell Front Raise",
-      "Seated Dumbbell Shoulder Press",
-      "Dumbbell Incline Front Raise",
-      "Incline Dumbbell Front Raise",
       "Bentover Cable Lateral Raise",
-      "Dumbbell Shoulder Press",
-      "Incline Dumbbell Shoulder Press"
+      "Seated Dumbbell Shoulder Press"
     ]
   },
   {
     "main_exercise": "Hip Thrust Machine",
     "similar": [
       "Smith Machine Hip Thrust",
-      "Barbell Hip Thrust",
       "Hip Thrust",
+      "Barbell Hip Thrust",
       "Hip Abduction Machine",
-      "Cable Pull Through",
-      "Hip Adduction Machine",
-      "Leg Press",
-      "Horizontal Leg Press",
-      "Hack Squat Machine",
-      "Leg Extension"
+      "Hack Squat Machine"
     ]
   },
   {
     "main_exercise": "Incline Cable Fly",
     "similar": [
-      "Standing Cable Fly",
-      "Chest Fly Machine",
-      "Incline Chest Press Machine",
-      "Pec Deck Fly Machine",
       "Incline Dumbbell Fly",
-      "Incline Bench Press Machine",
-      "Cable Crossover",
-      "Smith Machine Incline Bench Press",
-      "Dumbbell Fly",
-      "Incline Dumbbell Pull Over"
+      "Standing Cable Fly",
+      "Incline Dumbbell Pull Over",
+      "Incline Chest Press Machine",
+      "Incline Bench Press Machine"
     ]
   },
   {
     "main_exercise": "Standing Cable Fly",
     "similar": [
-      "Chest Fly Machine",
-      "Incline Cable Fly",
       "Cable Crossover",
-      "Pec Deck Fly Machine",
-      "Chest Press Machine",
+      "Incline Cable Fly",
+      "Chest Fly Machine",
       "Dumbbell Fly",
-      "Smith Machine Bench Press",
-      "Incline Dumbbell Fly",
-      "Incline Chest Press Machine",
-      "Dumbbell Pullover"
+      "Pec Deck Fly Machine"
     ]
   },
   {
     "main_exercise": "Bentover Cable Lateral Raise",
     "similar": [
+      "Bentover Dumbbell Lateral Raise",
       "Cable Lateral Raise",
       "Cable Front Raise",
       "Cable Reverse Fly",
-      "Bentover Dumbbell Lateral Raise",
-      "Face Pull",
-      "Reverse Pec Deck Fly Machine",
-      "Seated Dumbbell Rear Lateral Raise",
-      "Cable Upright Row",
-      "Dumbbell Lateral Raise",
-      "Seated Dumbbell Lateral Raise"
+      "Seated Dumbbell Rear Lateral Raise"
     ]
   },
   {
@@ -16582,42 +15917,27 @@ const similar_exercises = [
       "EZ Bar Curl",
       "EZ Bar Preacher Curl",
       "Barbell Wrist Curl",
-      "EZ Bar Tricep Extension",
-      "Dumbbell Wrist Curl",
-      "Barbell Preacher Curl",
-      "Barbell Bicep Curl",
-      "EZ Bar Lying Tricep Extension",
-      "Lying Tricep Extension"
+      "Dumbbell Wrist Curl"
     ]
   },
   {
     "main_exercise": "Cable Push Down",
     "similar": [
       "Cable Curl",
-      "Cable Hammer Curl",
       "Close-grip Bench Press",
-      "Bicep Curl Machine",
-      "Cable Straight Arm Pulldown",
-      "Seated Barbell Tricep Extension",
-      "Arm Curl Machine",
-      "Dumbbell Tricep Extension",
+      "Cable Hammer Curl",
       "Lying Tricep Extension",
-      "EZ Bar Tricep Extension"
+      "Dumbbell Kickback"
     ]
   },
   {
     "main_exercise": "Seated Dumbbell Lateral Raise",
     "similar": [
-      "Dumbbell Lateral Raise",
       "Seated Dumbbell Rear Lateral Raise",
+      "Dumbbell Lateral Raise",
       "Bentover Dumbbell Lateral Raise",
-      "Dumbbell Front Raise",
-      "Seated Dumbbell Shoulder Press",
-      "Incline Dumbbell Front Raise",
-      "Dumbbell Incline Front Raise",
       "Cable Lateral Raise",
-      "Dumbbell Shoulder Press",
-      "Incline Dumbbell Shoulder Press"
+      "Seated Dumbbell Shoulder Press"
     ]
   },
   {
@@ -16625,14 +15945,9 @@ const similar_exercises = [
     "similar": [
       "Hip Abduction Machine",
       "Hip Thrust Machine",
-      "Smith Machine Hip Thrust",
       "Barbell Sumo Squat",
-      "Hack Squat Machine",
-      "Barbell Lateral Lunge",
       "Dumbbell Sumo Squat",
-      "Leg Extension",
-      "Horizontal Leg Press",
-      "Dumbbell Lateral Lunge"
+      "Dumbbell Sumo Deadlift"
     ]
   },
   {
@@ -16640,104 +15955,69 @@ const similar_exercises = [
     "similar": [
       "Dumbbell Incline Front Raise",
       "Incline Dumbbell Front Raise",
-      "Dumbbell Lateral Raise",
       "Barbell Front Raise",
-      "Dumbbell Shoulder Press",
-      "Bentover Dumbbell Lateral Raise",
-      "Incline Barbell Front Raise",
-      "Barbell Incline Front Raise",
-      "Seated Dumbbell Lateral Raise",
-      "Seated Dumbbell Rear Lateral Raise"
+      "Dumbbell Lateral Raise",
+      "Dumbbell Shoulder Press"
     ]
   },
   {
     "main_exercise": "Dumbbell Lateral Raise",
     "similar": [
       "Seated Dumbbell Lateral Raise",
-      "Seated Dumbbell Rear Lateral Raise",
-      "Bentover Dumbbell Lateral Raise",
       "Dumbbell Front Raise",
-      "Dumbbell Incline Front Raise",
-      "Incline Dumbbell Front Raise",
-      "Dumbbell Shoulder Press",
+      "Bentover Dumbbell Lateral Raise",
       "Cable Lateral Raise",
-      "Seated Dumbbell Shoulder Press",
-      "Incline Dumbbell Shoulder Press"
+      "Seated Dumbbell Rear Lateral Raise"
     ]
   },
   {
     "main_exercise": "Barbell Shrug",
     "similar": [
-      "Barbell Upright Row",
       "Dumbbell Shrug",
+      "Barbell Upright Row",
       "Smith Machine Shrug",
-      "Dumbbell Upright Row",
       "EZ Bar Upright Row",
-      "Cable Upright Row",
-      "Barbell Front Raise",
-      "Barbell Incline Front Raise",
-      "EZ Bar Front Raise",
-      "Overhead Press"
+      "Dumbbell Upright Row"
     ]
   },
   {
     "main_exercise": "Barbell Bicep Curl",
     "similar": [
-      "Barbell Preacher Curl",
       "Dumbbell Bicep Curl",
-      "Barbell Wrist Curl",
       "EZ Bar Curl",
-      "Dumbbell Hammer Curl",
-      "Incline Dumbbell Curl",
-      "Concentration Curl",
-      "Dumbbell Preacher Curl",
-      "EZ Bar Preacher Curl",
-      "Cable Curl"
+      "Barbell Preacher Curl",
+      "Cable Curl",
+      "Dumbbell Hammer Curl"
     ]
   },
   {
     "main_exercise": "Dumbbell Bicep Curl",
     "similar": [
       "Dumbbell Hammer Curl",
-      "Incline Dumbbell Curl",
-      "Concentration Curl",
-      "Dumbbell Preacher Curl",
-      "Dumbbell Wrist Curl",
       "Barbell Bicep Curl",
-      "Barbell Preacher Curl",
-      "Dumbbell Tricep Extension",
-      "EZ Bar Curl",
-      "Dumbbell Lying Tricep Extension"
+      "Incline Dumbbell Curl",
+      "Dumbbell Preacher Curl",
+      "Dumbbell Wrist Curl"
     ]
   },
   {
     "main_exercise": "Cable Curl",
     "similar": [
       "Cable Hammer Curl",
-      "Arm Curl Machine",
-      "Bicep Curl Machine",
-      "Cable Push Down",
       "Barbell Bicep Curl",
-      "Barbell Preacher Curl",
-      "Dumbbell Bicep Curl",
       "EZ Bar Curl",
       "Concentration Curl",
-      "Dumbbell Preacher Curl"
+      "Dumbbell Bicep Curl"
     ]
   },
   {
     "main_exercise": "Lying Tricep Extension",
     "similar": [
-      "EZ Bar Lying Tricep Extension",
-      "EZ Bar Tricep Extension",
       "Dumbbell Lying Tricep Extension",
-      "Seated Barbell Tricep Extension",
+      "EZ Bar Lying Tricep Extension",
       "Dumbbell Tricep Extension",
-      "EZ Bar Curl",
-      "EZ Bar Preacher Curl",
-      "EZ Bar Reverse Curl",
-      "EZ Bar Wrist Curl",
-      "Close-grip Bench Press"
+      "Seated Barbell Tricep Extension",
+      "EZ Bar Tricep Extension"
     ]
   },
   {
@@ -16745,74 +16025,49 @@ const similar_exercises = [
     "similar": [
       "Hanging Knee Raise",
       "Leg Raise",
-      "Toes To Bar",
-      "V-up",
-      "Seated Knee Up",
       "Weighted Hanging Knee Raise",
-      "Sit Up",
-      "Crunch",
-      "Decline Sit Up",
-      "Mountain Climber"
+      "V-up",
+      "Toes To Bar"
     ]
   },
   {
     "main_exercise": "Abs Roll Out",
     "similar": [
+      "V-up",
       "Russian Twist",
-      "Toes To Bar",
-      "Barbell Wrist Curl",
-      "Dumbbell Side Bend",
-      "Cable Crunch",
-      "Heel Touch",
-      "Weighted Decline Sit Up",
-      "Barbell Row",
       "Sit Up",
-      "V-up"
+      "Crunch",
+      "Decline Sit Up"
     ]
   },
   {
     "main_exercise": "Dumbbell Preacher Curl",
     "similar": [
       "Barbell Preacher Curl",
+      "EZ Bar Preacher Curl",
       "Dumbbell Bicep Curl",
       "Dumbbell Hammer Curl",
-      "Concentration Curl",
-      "Incline Dumbbell Curl",
-      "EZ Bar Preacher Curl",
-      "Dumbbell Wrist Curl",
-      "Barbell Bicep Curl",
-      "EZ Bar Curl",
-      "Dumbbell Tricep Extension"
+      "Incline Dumbbell Curl"
     ]
   },
   {
     "main_exercise": "Barbell Preacher Curl",
     "similar": [
-      "Barbell Bicep Curl",
-      "Dumbbell Preacher Curl",
       "EZ Bar Preacher Curl",
-      "Barbell Wrist Curl",
+      "Dumbbell Preacher Curl",
+      "Barbell Bicep Curl",
       "EZ Bar Curl",
-      "Concentration Curl",
-      "Dumbbell Bicep Curl",
-      "Incline Dumbbell Curl",
-      "Dumbbell Hammer Curl",
-      "Cable Curl"
+      "Concentration Curl"
     ]
   },
   {
     "main_exercise": "EZ Bar Preacher Curl",
     "similar": [
-      "EZ Bar Curl",
       "Barbell Preacher Curl",
-      "EZ Bar Reverse Curl",
-      "EZ Bar Wrist Curl",
+      "EZ Bar Curl",
       "Dumbbell Preacher Curl",
       "Barbell Bicep Curl",
-      "EZ Bar Tricep Extension",
-      "Barbell Wrist Curl",
-      "EZ Bar Lying Tricep Extension",
-      "Lying Tricep Extension"
+      "EZ Bar Reverse Curl"
     ]
   },
   {
@@ -16820,28 +16075,18 @@ const similar_exercises = [
     "similar": [
       "Bentover Cable Lateral Raise",
       "Cable Front Raise",
-      "Cable Reverse Fly",
       "Dumbbell Lateral Raise",
       "Seated Dumbbell Lateral Raise",
-      "Cable Upright Row",
-      "Face Pull",
-      "Shoulder Press Machine",
-      "Seated Dumbbell Rear Lateral Raise",
-      "Bentover Dumbbell Lateral Raise"
+      "Cable Reverse Fly"
     ]
   },
   {
     "main_exercise": "Cable Front Raise",
     "similar": [
       "Cable Lateral Raise",
-      "Bentover Cable Lateral Raise",
-      "Cable Reverse Fly",
       "Barbell Front Raise",
-      "Cable Upright Row",
-      "Shoulder Press Machine",
-      "Incline Barbell Front Raise",
+      "Bentover Cable Lateral Raise",
       "Dumbbell Front Raise",
-      "Barbell Incline Front Raise",
       "EZ Bar Front Raise"
     ]
   },
@@ -16850,59 +16095,39 @@ const similar_exercises = [
     "similar": [
       "Bicep Curl Machine",
       "Cable Curl",
-      "Cable Hammer Curl",
       "Barbell Bicep Curl",
-      "Dumbbell Bicep Curl",
-      "Barbell Preacher Curl",
       "EZ Bar Curl",
-      "EZ Bar Preacher Curl",
-      "Incline Dumbbell Curl",
-      "Dumbbell Preacher Curl"
+      "Cable Hammer Curl"
     ]
   },
   {
     "main_exercise": "Abdominal Crunch Machine",
     "similar": [
-      "Cable Crunch",
       "Crunch",
+      "Cable Crunch",
+      "Sit Up",
       "Torso Rotation Machine",
-      "Incline Chest Press Machine",
-      "Incline Bench Press Machine",
-      "High Row Machine",
-      "Middle Row Machine",
-      "Seated Row Machine",
-      "Decline Chest Press Machine",
-      "T-bar Row Machine"
+      "Decline Sit Up"
     ]
   },
   {
     "main_exercise": "Smith Machine Shrug",
     "similar": [
-      "Cable Upright Row",
       "Barbell Shrug",
       "Dumbbell Shrug",
+      "Cable Upright Row",
       "Barbell Upright Row",
-      "EZ Bar Upright Row",
-      "Dumbbell Upright Row",
-      "Shoulder Press Machine",
-      "Face Pull",
-      "Bentover Cable Lateral Raise",
-      "Smith Machine Row"
+      "EZ Bar Upright Row"
     ]
   },
   {
     "main_exercise": "Cable Crunch",
     "similar": [
-      "Abdominal Crunch Machine",
       "Crunch",
-      "Seated Cable Row",
-      "Torso Rotation Machine",
-      "Incline Cable Fly",
-      "Cable Crossover",
-      "Cable Straight Arm Pulldown",
-      "Cable Curl",
-      "Standing Cable Fly",
-      "Decline Sit Up"
+      "Abdominal Crunch Machine",
+      "Sit Up",
+      "Decline Sit Up",
+      "Weighted Decline Sit Up"
     ]
   },
   {
@@ -16912,27 +16137,17 @@ const similar_exercises = [
       "Incline Barbell Front Raise",
       "EZ Bar Front Raise",
       "Dumbbell Front Raise",
-      "Incline EZ Bar Front Raise",
-      "Seated Barbell Shoulder Press",
-      "Overhead Press",
-      "Incline Dumbbell Front Raise",
-      "EZ Bar Incline Front Raise",
-      "Dumbbell Incline Front Raise"
+      "Incline EZ Bar Front Raise"
     ]
   },
   {
     "main_exercise": "EZ Bar Front Raise",
     "similar": [
-      "Barbell Front Raise",
-      "Incline EZ Bar Front Raise",
       "EZ Bar Incline Front Raise",
+      "Incline EZ Bar Front Raise",
+      "Barbell Front Raise",
       "Barbell Incline Front Raise",
-      "Incline Barbell Front Raise",
-      "Dumbbell Front Raise",
-      "Incline Dumbbell Front Raise",
-      "Dumbbell Incline Front Raise",
-      "Seated Barbell Shoulder Press",
-      "Overhead Press"
+      "Incline Barbell Front Raise"
     ]
   },
   {
@@ -16942,12 +16157,7 @@ const similar_exercises = [
       "Hanging Leg Raise",
       "Leg Raise",
       "Seated Knee Up",
-      "Dumbbell Side Bend",
-      "Weighted Decline Sit Up",
-      "V-up",
-      "Toes To Bar",
-      "Dumbbell Standing Calf Raise",
-      "Mountain Climber"
+      "Weighted Decline Sit Up"
     ]
   },
   {
@@ -16955,14 +16165,9 @@ const similar_exercises = [
     "similar": [
       "Dumbbell Bicep Curl",
       "Dumbbell Hammer Curl",
-      "Concentration Curl",
       "Dumbbell Preacher Curl",
-      "Dumbbell Wrist Curl",
       "Barbell Bicep Curl",
-      "Barbell Preacher Curl",
-      "EZ Bar Curl",
-      "Dumbbell Tricep Extension",
-      "Dumbbell Lying Tricep Extension"
+      "Concentration Curl"
     ]
   },
   {
@@ -16970,14 +16175,9 @@ const similar_exercises = [
     "similar": [
       "Hip Thrust",
       "Barbell Hip Thrust",
-      "Lunge",
-      "Smith Machine Hip Thrust",
       "Cable Pull Through",
-      "Jump Squat",
-      "Air Squat",
-      "Bodyweight Calf Raise",
-      "Hip Thrust Machine",
-      "Kettlebell Deadlift"
+      "Smith Machine Hip Thrust",
+      "Hip Thrust Machine"
     ]
   },
   {
@@ -16986,58 +16186,38 @@ const similar_exercises = [
       "Decline Sit Up",
       "Sit Up",
       "Crunch",
-      "Weighted Hanging Knee Raise",
-      "Leg Raise",
-      "V-up",
-      "Seated Knee Up",
-      "Hanging Leg Raise",
       "Cable Crunch",
-      "Decline Push Ups"
+      "Weighted Hanging Knee Raise"
     ]
   },
   {
     "main_exercise": "Smith Machine Calf Raise",
     "similar": [
       "Dumbbell Standing Calf Raise",
-      "Smith Machine Deadlift",
+      "Bodyweight Calf Raise",
       "Smith Machine Squat",
       "Smith Machine Bulgarian Split Squat",
-      "Smith Machine Split Squat",
-      "Smith Machine Hip Thrust",
-      "Bodyweight Calf Raise",
-      "Leg Curl",
-      "Leg Press",
-      "Leg Extension"
+      "Smith Machine Split Squat"
     ]
   },
   {
     "main_exercise": "Concentration Curl",
     "similar": [
-      "Dumbbell Bicep Curl",
-      "Dumbbell Hammer Curl",
-      "Incline Dumbbell Curl",
-      "Dumbbell Preacher Curl",
-      "Dumbbell Wrist Curl",
-      "Barbell Preacher Curl",
       "Barbell Bicep Curl",
       "EZ Bar Curl",
-      "Dumbbell Tricep Extension",
-      "EZ Bar Preacher Curl"
+      "Dumbbell Bicep Curl",
+      "Cable Curl",
+      "Incline Dumbbell Curl"
     ]
   },
   {
     "main_exercise": "Incline Barbell Front Raise",
     "similar": [
       "Barbell Incline Front Raise",
-      "Barbell Front Raise",
-      "EZ Bar Front Raise",
-      "Incline Dumbbell Front Raise",
-      "Dumbbell Incline Front Raise",
       "Incline EZ Bar Front Raise",
-      "EZ Bar Incline Front Raise",
-      "Dumbbell Front Raise",
-      "Incline Dumbbell Shoulder Press",
-      "Seated Barbell Shoulder Press"
+      "Incline Dumbbell Front Raise",
+      "Barbell Front Raise",
+      "EZ Bar Incline Front Raise"
     ]
   },
   {
@@ -17047,27 +16227,17 @@ const similar_exercises = [
       "EZ Bar Front Raise",
       "Incline Barbell Front Raise",
       "Barbell Incline Front Raise",
-      "Barbell Front Raise",
-      "Incline Dumbbell Front Raise",
-      "Dumbbell Incline Front Raise",
-      "Dumbbell Front Raise",
-      "Incline Dumbbell Shoulder Press",
-      "EZ Bar Upright Row"
+      "Incline Dumbbell Front Raise"
     ]
   },
   {
     "main_exercise": "Incline Dumbbell Front Raise",
     "similar": [
       "Dumbbell Incline Front Raise",
-      "Dumbbell Front Raise",
       "Incline Barbell Front Raise",
+      "Dumbbell Front Raise",
       "Barbell Incline Front Raise",
-      "Incline Dumbbell Shoulder Press",
-      "Incline EZ Bar Front Raise",
-      "Barbell Front Raise",
-      "Dumbbell Lateral Raise",
-      "EZ Bar Incline Front Raise",
-      "Bentover Dumbbell Lateral Raise"
+      "Incline EZ Bar Front Raise"
     ]
   },
   {
@@ -17075,14 +16245,9 @@ const similar_exercises = [
     "similar": [
       "Incline Barbell Front Raise",
       "Barbell Front Raise",
-      "EZ Bar Front Raise",
-      "Incline Dumbbell Front Raise",
       "Incline EZ Bar Front Raise",
-      "Dumbbell Incline Front Raise",
       "EZ Bar Incline Front Raise",
-      "Dumbbell Front Raise",
-      "Seated Barbell Shoulder Press",
-      "Overhead Press"
+      "Incline Dumbbell Front Raise"
     ]
   },
   {
@@ -17092,12 +16257,7 @@ const similar_exercises = [
       "EZ Bar Front Raise",
       "Barbell Incline Front Raise",
       "Incline Barbell Front Raise",
-      "Barbell Front Raise",
-      "Incline Dumbbell Front Raise",
-      "Dumbbell Incline Front Raise",
-      "Dumbbell Front Raise",
-      "EZ Bar Upright Row",
-      "Incline Dumbbell Shoulder Press"
+      "Incline Dumbbell Front Raise"
     ]
   },
   {
@@ -17107,27 +16267,17 @@ const similar_exercises = [
       "Dumbbell Front Raise",
       "Incline Barbell Front Raise",
       "Barbell Incline Front Raise",
-      "Incline Dumbbell Shoulder Press",
-      "Incline EZ Bar Front Raise",
-      "Barbell Front Raise",
-      "Dumbbell Lateral Raise",
-      "EZ Bar Incline Front Raise",
-      "Dumbbell Shoulder Press"
+      "Incline Dumbbell Shoulder Press"
     ]
   },
   {
     "main_exercise": "EZ Bar Tricep Extension",
     "similar": [
       "EZ Bar Lying Tricep Extension",
-      "Lying Tricep Extension",
       "Seated Barbell Tricep Extension",
-      "EZ Bar Curl",
+      "Lying Tricep Extension",
       "Dumbbell Tricep Extension",
-      "Dumbbell Lying Tricep Extension",
-      "EZ Bar Reverse Curl",
-      "EZ Bar Preacher Curl",
-      "EZ Bar Wrist Curl",
-      "Close-grip Bench Press"
+      "Dumbbell Lying Tricep Extension"
     ]
   },
   {
@@ -17135,29 +16285,19 @@ const similar_exercises = [
     "similar": [
       "Dumbbell Tricep Extension",
       "Lying Tricep Extension",
-      "Seated Barbell Tricep Extension",
       "EZ Bar Lying Tricep Extension",
-      "Dumbbell Skull Crusher",
-      "EZ Bar Tricep Extension",
-      "Dumbbell Bicep Curl",
-      "Dumbbell Kickback",
-      "Dumbbell Hammer Curl",
-      "Concentration Curl"
+      "Seated Barbell Tricep Extension",
+      "EZ Bar Tricep Extension"
     ]
   },
   {
     "main_exercise": "EZ Bar Lying Tricep Extension",
     "similar": [
-      "Lying Tricep Extension",
       "EZ Bar Tricep Extension",
+      "Lying Tricep Extension",
       "Dumbbell Lying Tricep Extension",
       "Seated Barbell Tricep Extension",
-      "EZ Bar Curl",
-      "Dumbbell Tricep Extension",
-      "EZ Bar Preacher Curl",
-      "EZ Bar Reverse Curl",
-      "EZ Bar Wrist Curl",
-      "Close-grip Bench Press"
+      "Dumbbell Tricep Extension"
     ]
   },
   {
@@ -17165,29 +16305,19 @@ const similar_exercises = [
     "similar": [
       "Dumbbell Tricep Extension",
       "Dumbbell Lying Tricep Extension",
-      "Dumbbell Hammer Curl",
-      "Dumbbell Bicep Curl",
+      "Lying Tricep Extension",
       "Dumbbell Kickback",
-      "Dumbbell Wrist Curl",
-      "Concentration Curl",
-      "Dumbbell Preacher Curl",
-      "Incline Dumbbell Curl",
-      "Seated Barbell Tricep Extension"
+      "EZ Bar Tricep Extension"
     ]
   },
   {
     "main_exercise": "Seated Barbell Tricep Extension",
     "similar": [
-      "Dumbbell Tricep Extension",
       "EZ Bar Tricep Extension",
-      "Dumbbell Lying Tricep Extension",
-      "EZ Bar Lying Tricep Extension",
+      "Dumbbell Tricep Extension",
       "Lying Tricep Extension",
-      "Close-grip Bench Press",
-      "Barbell Bicep Curl",
-      "Barbell Preacher Curl",
-      "Dumbbell Skull Crusher",
-      "Barbell Wrist Curl"
+      "EZ Bar Lying Tricep Extension",
+      "Dumbbell Lying Tricep Extension"
     ]
   },
   {
@@ -17195,44 +16325,29 @@ const similar_exercises = [
     "similar": [
       "Arm Curl Machine",
       "Cable Curl",
-      "Cable Hammer Curl",
       "Barbell Bicep Curl",
-      "Dumbbell Bicep Curl",
-      "Barbell Preacher Curl",
       "EZ Bar Curl",
-      "EZ Bar Preacher Curl",
-      "Dumbbell Preacher Curl",
-      "Incline Dumbbell Curl"
+      "Dumbbell Bicep Curl"
     ]
   },
   {
     "main_exercise": "Dumbbell Shrug",
     "similar": [
-      "Dumbbell Upright Row",
       "Barbell Shrug",
-      "Barbell Upright Row",
+      "Dumbbell Upright Row",
       "Smith Machine Shrug",
-      "Dumbbell Front Raise",
-      "Dumbbell Lateral Raise",
-      "Bentover Dumbbell Lateral Raise",
-      "EZ Bar Upright Row",
-      "Dumbbell Incline Front Raise",
-      "Dumbbell Shoulder Press"
+      "Barbell Upright Row",
+      "Cable Upright Row"
     ]
   },
   {
     "main_exercise": "Dumbbell Tricep Extension",
     "similar": [
       "Dumbbell Lying Tricep Extension",
-      "Seated Barbell Tricep Extension",
-      "Dumbbell Skull Crusher",
-      "EZ Bar Tricep Extension",
-      "Dumbbell Bicep Curl",
-      "Dumbbell Kickback",
       "Lying Tricep Extension",
-      "EZ Bar Lying Tricep Extension",
-      "Dumbbell Hammer Curl",
-      "Concentration Curl"
+      "Seated Barbell Tricep Extension",
+      "EZ Bar Tricep Extension",
+      "EZ Bar Lying Tricep Extension"
     ]
   },
   {
@@ -17241,13 +16356,8 @@ const similar_exercises = [
       "Dumbbell Tricep Extension",
       "Dumbbell Lying Tricep Extension",
       "Dumbbell Skull Crusher",
-      "Dumbbell Bicep Curl",
-      "Dumbbell Hammer Curl",
-      "Dumbbell Preacher Curl",
-      "Concentration Curl",
-      "Dumbbell Wrist Curl",
-      "Seated Barbell Tricep Extension",
-      "Incline Dumbbell Curl"
+      "Cable Push Down",
+      "Lying Tricep Extension"
     ]
   },
   {
@@ -17256,28 +16366,18 @@ const similar_exercises = [
       "Decline Sit Up",
       "Crunch",
       "V-up",
-      "Leg Raise",
-      "Seated Knee Up",
-      "Hanging Leg Raise",
       "Weighted Decline Sit Up",
-      "Hanging Knee Raise",
-      "Toes To Bar",
-      "Heel Touch"
+      "Seated Knee Up"
     ]
   },
   {
     "main_exercise": "Crunch",
     "similar": [
+      "Cable Crunch",
+      "Abdominal Crunch Machine",
       "Sit Up",
       "Decline Sit Up",
-      "V-up",
-      "Leg Raise",
-      "Cable Crunch",
-      "Hanging Leg Raise",
-      "Abdominal Crunch Machine",
-      "Hanging Knee Raise",
-      "Toes To Bar",
-      "Seated Knee Up"
+      "V-up"
     ]
   },
   {
@@ -17286,103 +16386,68 @@ const similar_exercises = [
       "Hanging Leg Raise",
       "Hanging Knee Raise",
       "V-up",
-      "Toes To Bar",
-      "Seated Knee Up",
-      "Sit Up",
-      "Crunch",
-      "Decline Sit Up",
-      "Mountain Climber",
-      "Weighted Hanging Knee Raise"
+      "Weighted Hanging Knee Raise",
+      "Seated Knee Up"
     ]
   },
   {
     "main_exercise": "Russian Twist",
     "similar": [
-      "Dumbbell Side Bend",
       "Heel Touch",
       "Torso Rotation Machine",
-      "Abs Roll Out",
-      "Kettlebell Goblet Squat",
-      "Kettlebell Sumo Squat",
-      "Kettlebell Sumo Deadlift",
-      "Toes To Bar",
-      "Kettlebell Deadlift",
-      "Weighted Hanging Knee Raise"
+      "Dumbbell Side Bend",
+      "Crunch",
+      "V-up"
     ]
   },
   {
     "main_exercise": "Dumbbell Side Bend",
     "similar": [
       "Russian Twist",
-      "Weighted Hanging Knee Raise",
       "Heel Touch",
       "Torso Rotation Machine",
       "Dumbbell Lateral Lunge",
-      "Dumbbell Split Squat",
-      "Dumbbell Row",
-      "Dumbbell Squat",
-      "Dumbbell Burpee",
-      "Dumbbell Bulgarian Split Squat"
+      "Weighted Decline Sit Up"
     ]
   },
   {
     "main_exercise": "Hanging Knee Raise",
     "similar": [
       "Hanging Leg Raise",
+      "Weighted Hanging Knee Raise",
       "Leg Raise",
       "Seated Knee Up",
-      "Weighted Hanging Knee Raise",
-      "Toes To Bar",
-      "V-up",
-      "Sit Up",
-      "Crunch",
-      "Mountain Climber",
-      "Decline Sit Up"
+      "V-up"
     ]
   },
   {
     "main_exercise": "Decline Sit Up",
     "similar": [
-      "Sit Up",
       "Weighted Decline Sit Up",
+      "Sit Up",
       "Crunch",
       "V-up",
-      "Leg Raise",
-      "Seated Knee Up",
-      "Hanging Leg Raise",
-      "Hanging Knee Raise",
-      "Decline Push Ups",
-      "Toes To Bar"
+      "Cable Crunch"
     ]
   },
   {
     "main_exercise": "Torso Rotation Machine",
     "similar": [
-      "Abdominal Crunch Machine",
-      "Cable Crunch",
       "Russian Twist",
+      "Abdominal Crunch Machine",
       "Dumbbell Side Bend",
-      "Hip Abduction Machine",
-      "Middle Row Machine",
-      "Heel Touch",
       "Abs Roll Out",
-      "Low Row Machine",
-      "Seated Row Machine"
+      "Heel Touch"
     ]
   },
   {
     "main_exercise": "Dumbbell Standing Calf Raise",
     "similar": [
-      "Dumbbell Squat",
       "Smith Machine Calf Raise",
-      "Dumbbell Bulgarian Split Squat",
       "Bodyweight Calf Raise",
-      "Dumbbell Split Squat",
-      "Dumbbell Goblet Squat",
-      "Dumbbell Lunge",
-      "Dumbbell Front Squat",
-      "Dumbbell Sumo Squat",
-      "Dumbbell Lateral Lunge"
+      "Dumbbell Squat",
+      "Dumbbell Bulgarian Split Squat",
+      "Dumbbell Split Squat"
     ]
   },
   {
@@ -17392,87 +16457,57 @@ const similar_exercises = [
       "V-up",
       "Leg Raise",
       "Hanging Leg Raise",
-      "Sit Up",
-      "Toes To Bar",
-      "Decline Sit Up",
-      "Crunch",
-      "Mountain Climber",
       "Weighted Hanging Knee Raise"
     ]
   },
   {
     "main_exercise": "Barbell Wrist Curl",
     "similar": [
-      "Dumbbell Wrist Curl",
       "EZ Bar Wrist Curl",
+      "Dumbbell Wrist Curl",
       "Barbell Bicep Curl",
-      "Barbell Preacher Curl",
       "EZ Bar Reverse Curl",
-      "EZ Bar Curl",
-      "EZ Bar Preacher Curl",
-      "Dumbbell Bicep Curl",
-      "Dumbbell Hammer Curl",
-      "Dumbbell Preacher Curl"
+      "Barbell Preacher Curl"
     ]
   },
   {
     "main_exercise": "EZ Bar Wrist Curl",
     "similar": [
       "EZ Bar Reverse Curl",
-      "EZ Bar Curl",
       "Barbell Wrist Curl",
-      "EZ Bar Preacher Curl",
+      "EZ Bar Curl",
       "Dumbbell Wrist Curl",
-      "EZ Bar Tricep Extension",
-      "Barbell Bicep Curl",
-      "Barbell Preacher Curl",
-      "EZ Bar Lying Tricep Extension",
-      "Lying Tricep Extension"
+      "EZ Bar Preacher Curl"
     ]
   },
   {
     "main_exercise": "Dumbbell Wrist Curl",
     "similar": [
       "Barbell Wrist Curl",
+      "EZ Bar Wrist Curl",
       "Dumbbell Bicep Curl",
       "Dumbbell Hammer Curl",
-      "Dumbbell Preacher Curl",
-      "Concentration Curl",
-      "EZ Bar Wrist Curl",
-      "Incline Dumbbell Curl",
-      "EZ Bar Reverse Curl",
-      "Barbell Bicep Curl",
-      "Dumbbell Tricep Extension"
+      "Dumbbell Preacher Curl"
     ]
   },
   {
     "main_exercise": "Heel Touch",
     "similar": [
+      "Russian Twist",
       "Toes To Bar",
       "V-up",
-      "Crunch",
-      "Leg Raise",
-      "Sit Up",
-      "Hanging Leg Raise",
-      "Hanging Knee Raise",
-      "Russian Twist",
-      "Seated Knee Up",
-      "Decline Sit Up"
+      "Dumbbell Side Bend",
+      "Sit Up"
     ]
   },
   {
     "main_exercise": "Bodyweight Calf Raise",
     "similar": [
-      "Dumbbell Standing Calf Raise",
       "Smith Machine Calf Raise",
+      "Dumbbell Standing Calf Raise",
       "Jumping Jack",
-      "Jump Squat",
-      "Air Squat",
-      "Leg Raise",
-      "Hip Thrust",
-      "Lunge",
-      "Donkey Kick",
-      "Pistol Box Squat"
+      "Barbell Bulgarian Split Squat",
+      "Dumbbell Bulgarian Split Squat"
     ]
   }
 ]
