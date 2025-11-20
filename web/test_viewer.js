@@ -202,13 +202,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     let baseWeight;
                     if (reps >= 12) {
                         baseWeight = estimated1RM;
-                    }
-                    else if (reps >= 10) {
+                    } else if (reps >= 10) {
                         baseWeight = estimated1RM * 0.8;
+                    } else {
+                        baseWeight = estimated1RM * 0.6;
                     }
-                    else {  
-                        return formatWeightRange(baseWeight, reps, intensity, tool_en, gender);
-                    }
+                    return formatWeightRange(baseWeight, reps, intensity, tool_en, gender);
                 });
             }
         }
