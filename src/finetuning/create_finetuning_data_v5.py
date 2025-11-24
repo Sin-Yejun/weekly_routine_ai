@@ -10,40 +10,25 @@ from typing import Dict, List, Tuple
 from tqdm import tqdm
 from collections import Counter
 
-# --- Configuration ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 # --- Path Definitions ---
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / 'data'
-INPUT_PARQUET_PATH = DATA_DIR / '02_processed' / 'parquet' / 'weekly_streak_dataset.parquet'
+INPUT_PARQUET_PATH = DATA_DIR / '02_processed' / 'hdbscan_clusters.parquet'
 EXERCISE_CATALOG_PATH = DATA_DIR / '02_processed' / 'processed_query_result.json'
 OUTPUT_PATH = DATA_DIR / 'finetuning_data_v5.jsonl'
 
 # --- Logic from calculation_prompt.py (Constants and Prompt Template) ---
 PROMPT_TEMPLATE = """
-## Task
-Return a weekly bodybuilding routine as JSON.
-
-## Schema
-{{"days":[[[bodypart,exercise_name,[[reps,weight,time],...]],...],...]}}
-
-## User Info
-- Gender: {gender}
-- Weight: {weight}kg
-- Training Level: {level}
-- Weekly Workout Frequency: {freq}
-- Workout Duration: {duration} minutes
-- Workout Intensity: {intensity}
-
-## Available Exercise Catalog
-{catalog_json}
-
-## [Output]
+Task: weekly routine JSON only.
+Schema: {"g":int,"lv":int,"d":int,"s":int,
+         "w":[[day:int,[[ex_id:str,type:int,[[w,r,t]...] ]]...]]}
+type1:[0,0,t] type2:[0,r,0] type3:[w,0,t] type6:[w,r,0]
+U:{"gender":{gender},"lv":{level},"d":{freq},"s":{split},"dur":{duration}}
+Catalog:{catalog_json}
+Out:
 """
 
 # --- Helper Functions ---
-
 @dataclass
 class User:
     gender: str; weight: float; level: str; freq: int; duration: int; intensity: str
@@ -75,7 +60,6 @@ def build_prompt(user: User, catalog: list) -> str:
         intensity=user.intensity,
         catalog_json=catalog_str
     )
-
 
 def transform_output_schema(weekly_exercises_str: str, id_to_bname_map: dict, id_to_ename_map: dict) -> dict:
     try:
