@@ -12,27 +12,36 @@ import random
 # --- Path Definitions ---
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = DATA_DIR = BASE_DIR / 'data'
-INPUT_PARQUET_PATH = DATA_DIR / '02_processed' / 'hdbscan_clusters.parquet'
-EXERCISE_CATALOG_PATH = DATA_DIR / '02_processed' / 'exercise_new.json'
-OUTPUT_PATH = DATA_DIR / 'finetuning_data_v6.jsonl'
+INPUT_PARQUET_PATH = DATA_DIR / '02_processed' / 'hdbscan_clusters_male_lv2.parquet'
+EXERCISE_CATALOG_PATH = DATA_DIR / '02_processed' / 'exercise_micro_cleaned.json'
+OUTPUT_PATH = DATA_DIR / 'finetuning_data_v7.jsonl'
 
 # --- Prompt Template ---
-PROMPT_TEMPLATE = """Task: weekly routine JSON only.
-Schema: [[day:int,[[ex_id:str,type:int,[[w,r,t]...] ]]...]]
-type1:[0,0,t] type2:[0,r,0] type3:[w,0,t] type6:[w,r,0]
-U:{{"g":{gender},"lv":{level},"d":{freq},"s":{split},"dur":{duration}}}
-Catalog:{catalog_json}
-Out:
+PROMPT_TEMPLATE = """## Instruction
+Create a weekly hypertrophy workout routine based on the User Profile and Exercise Catalog.
+
+## User Profile
+- Type : Hypertrophy Workout Routine
+- Gender: {gender}
+- Level: {level} 
+- Freq: {freq} 
+- Split: {split} 
+- Time: {duration} min
+
+## Exercise Catalog
+{catalog_json}
+
+## Response
 """
 
 # --- Helper Types & Functions ---
 
 @dataclass
 class User:
-    gender: int   # 0=female, 1=male
+    gender: str   # 0=female, 1=male
     level: int    # 1~4
     freq: int     # workout_days
-    split: int    # 0=full-body, 1=split
+    split: str    # 0=full-body, 1=split
     duration: int # minutes
 
 def build_prompt(user: User, catalog_json: str) -> str:
@@ -210,7 +219,7 @@ def main():
                 catalog_json = build_catalog_json_from_w(w, name_to_type_map)
 
                 # User 정보 구성
-                gender_code = 1 if row.get('gender') == 'male' else 0
+                gender_code = row.get('gender', 'male')
                 level_code  = to_int_safe(row.get('level', 2), 2)
                 freq        = to_int_safe(row.get('workout_days', 3), 3)
                 split_raw   = row.get('is_split', 1)
