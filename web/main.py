@@ -104,9 +104,6 @@ EXERCISE_COUNT_SCHEMA = {
     },
     'Advanced': {
         30: (3, 4), 45: (4, 5), 60: (6, 7), 75: (7, 8), 90: (8, 9)
-    },
-    'Elite': {
-        30: (3, 4), 45: (4, 5), 60: (6, 7), 75: (7, 8), 90: (8, 9)
     }
 }
 
@@ -114,7 +111,7 @@ EXERCISE_COUNT_SCHEMA = {
 class UserConfig(BaseModel):
     gender: str = Field(..., description="User's gender (M/F)")
     weight: float = Field(..., gt=0, description="User's weight in kg")
-    level: str = Field(..., description="User's training level (Beginner, Novice, Intermediate, Advanced, Elite)")
+    level: str = Field(..., description="User's training level (Beginner, Novice, Intermediate, Advanced)")
     freq: int = Field(..., ge=2, le=5, description="Weekly workout frequency (2-5 days)")
     duration: int = Field(..., ge=30, description="Workout duration in minutes")
     intensity: str = Field(..., description="Workout intensity (Low, Normal, High)")
@@ -439,8 +436,8 @@ def _prepare_allowed_names(user: UtilUser, allowed_names: dict, exercise_map: di
                     
                     final_allowed_names[key][sub_key] = new_sub_list
 
-    # 2. Filter by level (Intermediate/Advanced/Elite) for Bodyweight exercises
-    if user.level in ['Intermediate', 'Advanced', 'Elite']:
+    # 2. Filter by level (Intermediate/Advanced) for Bodyweight exercises
+    if user.level in ['Intermediate', 'Advanced']:
         for key, value in final_allowed_names.items():
             # Handle nested dictionaries (like for frequencies '3', '4', '5')
             if isinstance(value, dict):

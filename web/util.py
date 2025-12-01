@@ -23,7 +23,7 @@ def load_ratio_from_json(file_name):
 
 M_ratio_weight = load_ratio_from_json('M_ratio_weight.json')
 F_ratio_weight = load_ratio_from_json('F_ratio_weight.json')
-LEVEL_CODE = {"Beginner":"B","Novice":"N","Intermediate":"I","Advanced":"A","Elite":"E"}
+LEVEL_CODE = {"Beginner":"B","Novice":"N","Intermediate":"I","Advanced":"A"}
 
 SPLIT_MUSCLE_GROUPS = {
     "UPPER": "(Upper Chest, Middle Chest, Lower Chest, Upper Back, Lower Back, Lats, Anterior Deltoid, Lateral Deltoid, Posterior Deltoid, Traps, Biceps, Triceps, Forearms)",

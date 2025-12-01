@@ -121,7 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     "Novice": [15, 12, 10, 8],
                     "Intermediate": [15, 12, 10, 9, 8],
                     "Advanced": [15, 12, 10, 9, 8],
-                    "Elite": [15, 12, 10, 9, 8],
                 };
                 return femaleLevelSets[level] || femaleLevelSets['Intermediate'];
             }
@@ -140,7 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 "Novice": [15, 12, 10, 9, 8],
                 "Intermediate": [15, 12, 10, 10, 8, 8],
                 "Advanced": [15, 12, 10, 10, 8, 8],
-                "Elite": [15, 12, 10, 10, 8, 8]
             };
             return levelSets[level] || levelSets['Intermediate'];
         }
@@ -324,10 +322,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedExperience === 'unknown') {
             let levelTo1RM;
             if (gender === 'M') {
-                levelTo1RM = { "Beginner": 20, "Novice": 40, "Intermediate": 60, "Advanced": 80, "Elite": 100 };
+                levelTo1RM = { "Beginner": 20, "Novice": 40, "Intermediate": 60, "Advanced": 80};
                 base1RM = levelTo1RM[level] || 60;
             } else {
-                levelTo1RM = { "Beginner": 20, "Novice": 35, "Intermediate": 50, "Advanced": 65, "Elite": 80 };
+                levelTo1RM = { "Beginner": 20, "Novice": 35, "Intermediate": 50, "Advanced": 65};
                 base1RM = levelTo1RM[level] || 50;
             }
             baseExerciseName = 'Back Squat';

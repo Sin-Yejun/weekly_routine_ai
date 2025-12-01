@@ -114,5 +114,4 @@ LEVEL_GUIDE = {
     "Novice": "NOVICE: MACHINE focused, FREE WEIGHT support, BODYWEIGHT for warm-up",
     "Intermediate": "INTERMEDIATE: FREE WEIGHT focused, MACHINE support, limited BODYWEIGHT",
     "Advanced": "ADVANCED: FREE WEIGHT dominant, few MACHINE, almost no BODYWEIGHT",
-    "Elite": "ELITE: FREE WEIGHT dominant, includes advanced variations, minimal MACHINE"
 }

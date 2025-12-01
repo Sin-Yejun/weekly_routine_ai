@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     "Novice": [15, 12, 10, 8],
                     "Intermediate": [15, 12, 10, 9, 8],
                     "Advanced": [15, 12, 10, 9, 8],
-                    "Elite": [15, 12, 10, 9, 8],
+
                 };
                 return femaleLevelSets[level] || femaleLevelSets['Intermediate'];
             }
@@ -200,7 +200,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     return [20, 20, 15, 15];
                 case 'Novice':
                     return [20, 20, 15, 15, 15];
-                default: // Intermediate, Advanced, Elite
+                default: // Intermediate, Advanced
                     return [20, 20, 15, 15, 12, 12];
             }
         } else {
@@ -210,7 +210,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 "Novice": [15, 12, 10, 9, 8],
                 "Intermediate": [15, 12, 10, 10, 8, 8],
                 "Advanced": [15, 12, 10, 10, 8, 8],
-                "Elite": [15, 12, 10, 10, 8, 8]
             };
             return levelSets[level] || levelSets['Intermediate'];
         }
@@ -231,7 +230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                     setWeights.push(weight);
                 });
-            } else { // Intermediate, Advanced, Elite
+            } else { // Intermediate, Advanced
                 repsArray.forEach(reps => {
                     let weight;
                     if (reps >= 12) {

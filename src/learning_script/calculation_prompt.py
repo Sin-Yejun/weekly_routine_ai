@@ -23,7 +23,7 @@ exercise_list = []
 with open('data/02_processed/processed_query_result.json', 'r', encoding='utf-8') as f:
     exercise_list = json.load(f)
 
-LEVEL_CODE = {"Beginner":"B","Novice":"N","Intermediate":"I","Advanced":"A","Elite":"E"}
+LEVEL_CODE = {"Beginner":"B","Novice":"N","Intermediate":"I","Advanced":"A"}
 INT_BASE_SETS = {"Low":12, "Normal":16, "High":20}
 ANCHOR_PERCENTS = [0.55, 0.60, 0.65, 0.70]  # 메인/백오프 범위 커버
 
@@ -47,7 +47,7 @@ def set_budget(freq: int, intensity: str) -> int:
 class User:
     gender: str      # "M" or "F"
     weight: float    # kg
-    level: str       # "Beginner".."Elite"
+    level: str       # "Beginner".."Advanced"
     freq: int        # 2..5
     duration: int    # minutes
     intensity: str   # "Low"|"Normal"|"High"

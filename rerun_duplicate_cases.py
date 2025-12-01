@@ -11,7 +11,6 @@ API_ENDPOINT = 'http://127.0.0.1:5001/api/infer'
 # List of specific cases to re-run based on reported duplicates
 DUPLICATE_CASES_TO_RERUN = [
     {'gender': 'M', 'level': 'Advanced', 'split_id': 'SPLIT', 'freq': 4, 'week': 4},
-    {'gender': 'F', 'level': 'Elite', 'split_id': 'SPLIT', 'freq': 4, 'week': 4},
 ]
 
 # --- Sorting Logic (replicated from script.js) ---
