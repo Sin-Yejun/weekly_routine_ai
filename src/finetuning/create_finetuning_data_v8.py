@@ -12,9 +12,9 @@ from tqdm import tqdm
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / 'data'
 # 원본 데이터(exercise_micro.json)를 사용해야 메타데이터(부위, 점수 등)를 활용할 수 있습니다.
-INPUT_PARQUET_PATH = DATA_DIR / '02_processed' / 'hdbscan_clusters_male_lv2.parquet'
+INPUT_PARQUET_PATH = DATA_DIR / '02_processed' / 'data.parquet'
 EXERCISE_RAW_PATH = DATA_DIR / '02_processed' / 'exercise_micro.json' 
-OUTPUT_PATH = DATA_DIR / 'finetuning_data_v7.jsonl'
+OUTPUT_PATH = DATA_DIR / 'finetuning_data_v9.jsonl'
 
 # --- Prompt Template (Lite Version for Training) ---
 # 학습용은 최대한 간결하게 핵심만 전달합니다.
@@ -35,7 +35,6 @@ Create a weekly hypertrophy workout routine based on the User Profile and Exerci
 """
 
 # --- Helper Functions ---
-
 def load_exercise_db(path):
     """운동 DB를 로드하고 검색하기 쉽게 딕셔너리로 변환합니다."""
     with open(path, "r", encoding="utf-8") as f:
@@ -55,39 +54,10 @@ def load_exercise_db(path):
 def format_exercise_string(item):
     """
     운동 정보를 LLM 학습용 압축 문자열로 변환
-    Ex: "Back Squat (Barbell) | Main: Quads(5)..."
+    Ex: "Back Squat"
     """
-    ename = item.get('ename', item.get('kname', 'Unknown'))
-    etool = item.get('etool', 'Bodyweight')
-    raw_micro = item.get('micro_score', '')
-
-    # micro_score 파싱 및 포맷팅
-    pattern = r"(.+?)\((\d+)\)"
-    parts = raw_micro.split(' / ') if raw_micro else []
-    parsed_muscles = []
-    
-    for part in parts:
-        match = re.search(pattern, part.strip())
-        if match:
-            parsed_muscles.append((match.group(1).strip(), int(match.group(2))))
-    
-    parsed_muscles.sort(key=lambda x: x[1], reverse=True)
-    
-    # Main(4점 이상) / Sub 분류
-    if any(m[1] >= 4 for m in parsed_muscles):
-        mains = [m for m in parsed_muscles if m[1] >= 4]
-        subs = [m for m in parsed_muscles if m[1] < 4]
-    else:
-        mains = [parsed_muscles[0]] if parsed_muscles else []
-        subs = parsed_muscles[1:]
-
-    def fmt_list(lst): return ", ".join([f"{n}({s})" for n, s in lst])
-    
-    res = f"{ename} ({etool})"
-    if mains: res += f" | Main: {fmt_list(mains)}"
-    if subs: res += f" | Sub: {fmt_list(subs)}"
-    
-    return res
+    # Catlog에 그냥 운동이름만 들어가게 수정
+    return item.get('ename', item.get('kname', 'Unknown'))
 
 def build_dynamic_catalog(used_exercises_names, full_db_list, full_db_map):
     """
@@ -149,40 +119,59 @@ def parse_workout_data(workout_data_raw):
     """
     if isinstance(workout_data_raw, str):
         try:
-            data = ast.literal_eval(workout_data_raw)
+            data = json.loads(workout_data_raw)
         except:
-            return None, None
+            try:
+                data = ast.literal_eval(workout_data_raw)
+            except:
+                return None, None
     else:
         data = workout_data_raw
 
-    if not isinstance(data, list) or not data:
-        return None, None
-
-    routine_dict = {}
-    used_names = set()
-    
-    # data 구조: [[day_int, [ [name, type, sets], ... ]], ...]
-    for item in data:
-        if len(item) < 2: continue
-        day = item[0]
-        exercises = item[-1] # 마지막 요소가 운동 리스트라고 가정
+    # Dictionary 구조 처리
+    if isinstance(data, dict):
+        routine_dict = {}
+        used_names = set()
         
-        if not isinstance(exercises, list): continue
-        
-        day_key = f"Day{day}"
-        day_routine = []
-        
-        for ex in exercises:
-            # ex: [name, type, sets]
-            if len(ex) >= 1:
-                name = ex[0]
-                day_routine.append(name)
+        for day, exercises in data.items():
+            if not isinstance(exercises, list): continue
+            
+            # exercises가 ["Ex1", "Ex2"] 형태라고 가정
+            routine_dict[day] = exercises
+            for name in exercises:
                 used_names.add(name)
-        
-        if day_routine:
-            routine_dict[day_key] = day_routine
+                
+        return routine_dict, used_names
 
-    return routine_dict, used_names
+    # 기존 List 구조 처리 (호환성 유지)
+    if isinstance(data, list):
+        routine_dict = {}
+        used_names = set()
+        
+        # data 구조: [[day_int, [ [name, type, sets], ... ]], ...]
+        for item in data:
+            if len(item) < 2: continue
+            day = item[0]
+            exercises = item[-1] # 마지막 요소가 운동 리스트라고 가정
+            
+            if not isinstance(exercises, list): continue
+            
+            day_key = f"Day{day}"
+            day_routine = []
+            
+            for ex in exercises:
+                # ex: [name, type, sets]
+                if len(ex) >= 1:
+                    name = ex[0]
+                    day_routine.append(name)
+                    used_names.add(name)
+            
+            if day_routine:
+                routine_dict[day_key] = day_routine
+
+        return routine_dict, used_names
+
+    return None, None
 
 # --- Main Logic ---
 
@@ -195,7 +184,7 @@ def main():
 
     # 2. 데이터셋 로드
     df = pd.read_parquet(INPUT_PARQUET_PATH)
-    valid_rows = df[df['workout_data'].notna()]
+    valid_rows = df[df['data'].notna()]
     
     logging.info(f"Processing {len(valid_rows)} rows...")
     
@@ -205,11 +194,11 @@ def main():
         for _, row in tqdm(valid_rows.iterrows(), total=len(valid_rows)):
             try:
                 # 3. 정답 루틴 파싱
-                routine_dict, used_names = parse_workout_data(row['workout_data'])
+                routine_dict, used_names = parse_workout_data(row['data'])
                 if not routine_dict or not used_names:
                     continue
                 
-                # 4. Dynamic Catalog 생성 (핵심!)
+                # 4. Dynamic Catalog 생성
                 catalog_json_str = build_dynamic_catalog(used_names, full_db_list, full_db_map)
                 
                 # 5. 프롬프트 구성
@@ -219,7 +208,7 @@ def main():
                     level=row.get('level', 2),
                     freq=row.get('workout_days', 3),
                     split="Split" if row.get('is_split', 1) else "Full Body",
-                    duration=row.get('daily_duration_min', 60),
+                    duration=row.get('duration', 60),
                     catalog_json=catalog_json_str
                 )
                 
@@ -239,7 +228,7 @@ def main():
                 processed_count += 1
                 
             except Exception as e:
-                # logging.error(f"Error: {e}") 
+                logging.error(f"Error: {e}") 
                 continue
 
     logging.info(f"Done! Saved {processed_count} samples to {OUTPUT_PATH}")
