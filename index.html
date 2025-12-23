@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Case Viewer (Static)</title>
+    <link rel="stylesheet" href="web/test_viewer.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏋️ AI Workout Routine Viewer</h1>
+            <p class="subtitle">나에게 딱 맞는 운동 루틴을 찾아보세요!<br>아래에서 레벨과 선호도를 선택하면 AI가 최적의 주간 루틴을 추천해드립니다.</p>
+        </div>
+
+        <div class="filter-container">
+            <h2>Filters</h2>
+            <p class="filter-description">
+                <strong>레벨 선택 기준</strong><br>
+                레벨 1 - 헬스장을 거의 가보지 않았거나 운동을 막 시작한 단계<br>
+                레벨 2 - 헬스장 경험은 있지만 아직 스스로 초보라고 느끼는 단계<br>
+                레벨 3 - 다양한 운동을 알고, 자신만의 루틴을 구성할 수 있는 단계<br>
+                레벨 4 - 고중량 훈련이 익숙하고, 중상급 이상 실력을 갖춘 단계<br>
+            </p>
+            <div class="filter-grid">
+                <div class="form-group">
+                    <label for="gender-filter">Gender</label>
+                    <select id="gender-filter">
+                        <option value="M">남자</option>
+                        <option value="F">여자</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="level-filter">Level</label>
+                    <select id="level-filter">
+                        <option value="Beginner">레벨1 (Beginner)</option>
+                        <option value="Novice">레벨2 (Novice)</option>
+                        <option value="Intermediate">레벨3 (Intermediate)</option>
+                        <option value="Advanced">레벨4 (Advanced)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="freq-filter">Weekly Frequency</label>
+                    <select id="freq-filter">
+                        <option value="2">2</option>
+                        <option value="3" selected>3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="split-filter">Split Type</label>
+                    <select id="split-filter">
+                        <option value="SPLIT">Split (분할)</option>
+                        <option value="FB">Full Body (무분할)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="duration-filter">시간</label>
+                    <select id="duration-filter">
+                        <option value="30">30분</option>
+                        <option value="45">45분</option>
+                        <option value="60" selected>60분</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="intensity-filter">강도</label>
+                    <select id="intensity-filter">
+                        <option value="Low">약하게</option>
+                        <option value="Normal" selected>평소대로</option>
+                        <option value="High">강하게</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group form-group-full-width" style="margin-top: 20px;">
+                <label>💪 맞춤형 중량 추천 (선택사항)</label>
+                <p class="experience-description">
+                평소 <strong>백스쿼트나 벤치프레스</strong> 기록이 있다면 입력해주세요. AI가 1RM(1회 최대 무게)을 추정하여, 훈련 레벨에 맞는 적정 무게와 횟수를 계산해 루틴에 표시해 드립니다.<br>
+                입력하지 않으셔도 루틴을 보는 데는 지장이 없으며, 나중에 언제든 '세트 정보 생성' 버튼을 눌러 확인할 수 있습니다.
+                </p>
+                <div id="experience-options">
+                    <div class="experience-option">
+                        <input type="radio" id="exp-unknown" name="experience" value="unknown" checked>
+                        <label for="exp-unknown">경험 없음</label>
+                    </div>
+                    <div class="experience-option">
+                        <input type="radio" id="exp-back-squat" name="experience" value="back-squat">
+                        <label for="exp-back-squat">백스쿼트</label>
+                        <div class="experience-details" id="details-back-squat">
+                            <input type="number" id="exp-weight-bs" placeholder="무게(kg)" class="small-input">
+                            <input type="number" id="exp-reps-bs" placeholder="반복횟수" class="small-input">
+                        </div>
+                    </div>
+                    <div class="experience-option">
+                        <input type="radio" id="exp-bench-press" name="experience" value="bench-press">
+                        <label for="exp-bench-press">벤치프레스</label>
+                        <div class="experience-details" id="details-bench-press">
+                            <input type="number" id="exp-weight-bp" placeholder="무게(kg)" class="small-input">
+                            <input type="number" id="exp-reps-bp" placeholder="반복횟수" class="small-input">
+                        </div>
+                    </div>
+                    <div class="experience-option">
+                        <input type="radio" id="exp-other-exercise" name="experience" value="other-exercise">
+                        <!-- REMOVED LABEL -->
+                        <input type="text" id="other-exercise-search" placeholder="운동 검색" class="small-input" list="exercise-options">
+                        <datalist id="exercise-options"></datalist>
+                        <!-- MOVED WEIGHT/REPS OUT OF details-other-exercise DIV -->
+                         <div class="experience-details">
+                            <input type="number" id="exp-weight-other" placeholder="무게(kg)" class="small-input">
+                            <input type="number" id="exp-reps-other" placeholder="반복횟수" class="small-input">
+                        </div>
+                    </div>
+                </div>
+                <div id="weight-buttons">
+                    <button type="button" id="calculate-weights-btn" class="small-button">세트 정보 생성</button>
+                    <button type="button" id="hide-weights-btn" class="small-button">세트 정보 숨기기</button>
+                     <button type="button" id="overview-toggle" class="small-button" aria-pressed="false" title="4주 일괄 보기">월 루틴 펼치기</button>
+                </div>
+            </div>
+
+            <h2 style="margin-top: 30px;">AI Routine</h2>
+            <div class="week-tabs">
+                <button class="week-tab active" data-week="week1">Week 1</button>
+                <button class="week-tab" data-week="week2">Week 2</button>
+                <button class="week-tab" data-week="week3">Week 3</button>
+                <button class="week-tab" data-week="week4">Week 4</button>
+            </div>
+            <div id="routine-display" class="routine-output">
+                <p>Select filters to view a routine.</p>
+            </div>
+    </div>
+    <script src="web/test_data.js"></script>
+    <script src="web/test_viewer.js"></script>
+    
+    <!-- Similar Exercises Modal -->
+    <div id="similar-exercises-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Similar Exercises</h2>
+            <div id="similar-exercises-list"></div>
+        </div>
+    </div>
+</body>
+</html>

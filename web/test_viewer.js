@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDisplayedTestCase = null;
     let currentWeek = 'week1';
     let currentExerciseInfo = { day: null, index: -1 };
+    let isSetInfoVisible = false;
 
 
     // --- Functions ---
@@ -291,7 +292,9 @@ document.addEventListener('DOMContentLoaded', () => {
         routineDisplay.innerHTML = '<p>No matching routine found for the selected criteria.</p>';
       }
       
-      renderCalculatedWeights();
+      if (isSetInfoVisible) {
+        renderCalculatedWeights();
+      }
     };
 
     overviewToggle?.addEventListener('click', () => {
@@ -561,7 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
     experienceRadios.forEach(radio => {
         radio.addEventListener('change', () => {
             updateExperienceDetails();
-            renderCalculatedWeights();
+            if (isSetInfoVisible) renderCalculatedWeights();
         });
     });
 
@@ -570,19 +573,35 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('exp-weight-other'), document.getElementById('exp-reps-other'),
       otherExerciseSearch
     ].forEach(input => {
-        input.addEventListener('change', renderCalculatedWeights);
+        input.addEventListener('change', () => {
+            if (isSetInfoVisible) renderCalculatedWeights();
+        });
     });
 
 
     updateExperienceDetails();
 
     // --- Button Logic ---
-    calculateWeightsBtn.addEventListener('click', renderCalculatedWeights);
+
+    calculateWeightsBtn.addEventListener('click', () => {
+        isSetInfoVisible = true;
+        renderCalculatedWeights();
+    });
 
     hideWeightsBtn.addEventListener('click', () => {
+        isSetInfoVisible = false;
         document.querySelectorAll('#routine-display .exercise-sets, #routine-display br').forEach(el => {
-            el.remove();
+            if (el.tagName === 'BR' && el.previousElementSibling?.classList.contains('exercise-item')) {
+                 // only remove BRs that are part of the set info structure we added
+                 // Doing a simpler check: renderCalculatedWeights adds a BR then a SPAN.
+                 // We can just re-render the routine display to clear everything cleanly, 
+                 // but removing elements is fine too.
+                 // Actually, simpler: just re-call updateRoutineDisplay(currentWeek, false) to reset view?
+                 // No, that rebuilds DOM. Let's stick to removing.
+            }
         });
+        // Re-rendering the whole week is cleaner to remove the added nodes
+        updateRoutineDisplay(currentWeek, false); 
     });
 
     // --- Modal Logic ---
